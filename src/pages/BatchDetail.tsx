@@ -1,11 +1,16 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, Download, Play, Filter } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Download, Play, Filter, Zap, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { ItemStatusBadge, BatchStatusBadge } from '@/components/StatusBadge';
 import { useState } from 'react';
 import { useBatch, useBatchItems } from '@/hooks/use-supabase-data';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import type { ItemStatus, BatchStatus } from '@/types';
 
 export default function BatchDetail() {
@@ -14,6 +19,11 @@ export default function BatchDetail() {
   const { data: allItems, isLoading: loadingItems } = useBatchItems(id);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [creditOpen, setCreditOpen] = useState(false);
+  const [creditLoading, setCreditLoading] = useState(false);
+  const [apiUsername, setApiUsername] = useState('');
+  const [apiPassword, setApiPassword] = useState('');
+  const queryClient = useQueryClient();
 
   if (loadingBatch || loadingItems) {
     return (
@@ -39,6 +49,41 @@ export default function BatchDetail() {
     return matchStatus && matchSearch;
   });
 
+  const eligibleCount = (allItems || []).filter(i => i.status === 'PENDENTE' || i.status === 'SEM_BONUS').length;
+
+  const handleCreditBatch = async () => {
+    if (!apiUsername || !apiPassword) {
+      toast.error('Preencha usuário e senha');
+      return;
+    }
+    setCreditLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('pixbingo-proxy', {
+        body: {
+          action: 'credit_batch',
+          site_url: 'https://pixbingobr.com',
+          login_url: 'https://pixbingobr.com/api/auth/login',
+          username: apiUsername,
+          password: apiPassword,
+          batch_id: id,
+        },
+      });
+      if (error) throw error;
+      if (data?.data) {
+        toast.success(`Bônus creditado! ${data.data.credited} sucesso, ${data.data.errors} erros de ${data.data.total} itens`);
+        queryClient.invalidateQueries({ queryKey: ['batch', id] });
+        queryClient.invalidateQueries({ queryKey: ['batch-items', id] });
+        setCreditOpen(false);
+      } else {
+        toast.error('Erro ao processar lote');
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setCreditLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-3">
@@ -51,17 +96,52 @@ export default function BatchDetail() {
           <h1 className="text-2xl font-bold text-foreground">{batch.name}</h1>
           <div className="flex items-center gap-3 mt-1">
             <BatchStatusBadge status={batch.status as BatchStatus} />
-            <span className="text-sm text-muted-foreground">{batch.flow_name || '—'}</span>
-            <span className="text-sm text-muted-foreground">•</span>
             <span className="text-sm text-muted-foreground font-mono">R$ {batch.bonus_valor}</span>
           </div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="border-border"><RefreshCw className="w-4 h-4 mr-2" /> Reprocessar Erros</Button>
           <Button variant="outline" className="border-border"><Download className="w-4 h-4 mr-2" /> Exportar</Button>
-          {batch.status !== 'CONCLUIDO' && (
-            <Button className="gradient-primary border-0"><Play className="w-4 h-4 mr-2" /> Retomar</Button>
-          )}
+          
+          {/* Credit batch button */}
+          <Dialog open={creditOpen} onOpenChange={setCreditOpen}>
+            <DialogTrigger asChild>
+              <Button className="gradient-success border-0 text-success-foreground" disabled={eligibleCount === 0}>
+                <Zap className="w-4 h-4 mr-2" /> Creditar Lote ({eligibleCount})
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="glass-card border-border sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-foreground">Creditar Bônus em Lote</DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Vai creditar R$ {batch.bonus_valor} para {eligibleCount} jogadores elegíveis (PENDENTE ou SEM_BONUS).
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 mt-4">
+                <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
+                  <p className="text-sm text-warning font-medium">⚠️ Atenção</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Esta ação vai creditar bônus para {eligibleCount} jogadores via API. Confirme as credenciais do painel admin.
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-foreground">Usuário Admin</Label>
+                  <Input value={apiUsername} onChange={e => setApiUsername(e.target.value)} placeholder="admin" className="mt-1 bg-secondary border-border" />
+                </div>
+                <div>
+                  <Label className="text-foreground">Senha</Label>
+                  <Input type="password" value={apiPassword} onChange={e => setApiPassword(e.target.value)} placeholder="••••" className="mt-1 bg-secondary border-border" />
+                </div>
+                <Button onClick={handleCreditBatch} disabled={creditLoading} className="w-full gradient-primary border-0">
+                  {creditLoading ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processando...</>
+                  ) : (
+                    <><Zap className="w-4 h-4 mr-2" /> Confirmar e Creditar</>
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
