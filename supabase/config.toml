@@ -1,1 +1,4 @@
 project_id = "urxbuiuwasvxwxuythzc"
+
+[functions.discover-endpoints]
+verify_jwt = false

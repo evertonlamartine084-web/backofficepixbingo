@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Package, AlertTriangle, Settings, Globe, KeyRound,
-  GitBranch, Search, LogOut, ChevronRight, Zap
+  GitBranch, Search, LogOut, ChevronRight, Zap, Radar
 } from 'lucide-react';
 
 const navItems = [
@@ -15,6 +15,7 @@ const adminItems = [
   { to: '/admin/credentials', icon: KeyRound, label: 'Credenciais' },
   { to: '/admin/flows', icon: GitBranch, label: 'Fluxos' },
   { to: '/admin/bonus-rules', icon: Search, label: 'Regras de Bônus' },
+  { to: '/admin/discovery', icon: Radar, label: 'Auto-Discovery' },
 ];
 
 export function AppSidebar() {
