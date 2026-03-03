@@ -25,7 +25,7 @@ export default function Batches() {
 
   // API fetch state
   const [siteUrl, setSiteUrl] = useState('https://pixbingobr.com');
-  const [loginUrl, setLoginUrl] = useState('https://pixbingobr.concurso.club/');
+  const [loginUrl, setLoginUrl] = useState('https://pixbingobr.com/api/auth/login');
   const [apiUsername, setApiUsername] = useState('');
   const [apiPassword, setApiPassword] = useState('');
   const [batchName, setBatchName] = useState('');
@@ -64,14 +64,17 @@ export default function Batches() {
         toast.success(`Lote criado com ${data.inserted_items} jogadores!`);
         queryClient.invalidateQueries({ queryKey: ['batches'] });
         setApiOpen(false);
-        // Reset form
         setApiUsername('');
         setApiPassword('');
         setBatchName('');
         setBonusValor('0');
         setSelectedFlow('');
       } else {
-        toast.error(data.error || 'Erro ao buscar jogadores');
+        const debugInfo = data.debug_responses 
+          ? `\n\nRespostas:\n${data.debug_responses.map((d: any) => `${d.url}: ${d.status} → ${d.body}`).join('\n')}`
+          : '';
+        toast.error(`${data.error}${data.login_success === false ? ' (Login falhou)' : ''}`, { duration: 10000 });
+        console.log('Debug fetch-players:', data);
       }
     } catch (err: any) {
       toast.error(err.message || 'Erro ao buscar jogadores da API');
