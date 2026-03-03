@@ -10,6 +10,8 @@ import Batches from "@/pages/Batches";
 import BatchDetail from "@/pages/BatchDetail";
 import Duplicates from "@/pages/Duplicates";
 import PlayerLookup from "@/pages/PlayerLookup";
+import Users from "@/pages/Users";
+import Transactions from "@/pages/Transactions";
 import Endpoints from "@/pages/admin/Endpoints";
 import BonusRules from "@/pages/admin/BonusRules";
 import Discovery from "@/pages/admin/Discovery";
@@ -31,6 +33,8 @@ const App = () => (
             <Route path="/batches/:id" element={<BatchDetail />} />
             <Route path="/duplicates" element={<Duplicates />} />
             <Route path="/player" element={<PlayerLookup />} />
+            <Route path="/users" element={<Users />} />
+            <Route path="/transactions" element={<Transactions />} />
             <Route path="/admin/endpoints" element={<Endpoints />} />
             <Route path="/admin/bonus-rules" element={<BonusRules />} />
             <Route path="/admin/discovery" element={<Discovery />} />

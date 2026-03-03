@@ -1,13 +1,16 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Package, AlertTriangle, Globe,
-  Search, LogOut, ChevronRight, Zap, Radar, UserSearch
+  Search, LogOut, ChevronRight, Zap, Radar, UserSearch,
+  Users, ArrowUpDown
 } from 'lucide-react';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/batches', icon: Package, label: 'Lotes' },
   { to: '/player', icon: UserSearch, label: 'Consultar Jogador' },
+  { to: '/users', icon: Users, label: 'Usuários' },
+  { to: '/transactions', icon: ArrowUpDown, label: 'Transações' },
   { to: '/duplicates', icon: AlertTriangle, label: 'Duplicados' },
 ];
 
