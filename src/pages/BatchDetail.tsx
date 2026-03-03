@@ -4,19 +4,38 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ItemStatusBadge, BatchStatusBadge } from '@/components/StatusBadge';
-import { mockBatches, mockBatchItems } from '@/lib/mock-data';
 import { useState } from 'react';
-import type { ItemStatus } from '@/types';
+import { useBatch, useBatchItems } from '@/hooks/use-supabase-data';
+import type { ItemStatus, BatchStatus } from '@/types';
 
 export default function BatchDetail() {
   const { id } = useParams();
-  const batch = mockBatches.find((b) => b.id === id) || mockBatches[0];
+  const { data: batch, isLoading: loadingBatch } = useBatch(id);
+  const { data: allItems, isLoading: loadingItems } = useBatchItems(id);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
 
-  const items = mockBatchItems.filter((item) => {
+  if (loadingBatch || loadingItems) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!batch) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">Lote não encontrado.</p>
+        <Link to="/batches" className="text-primary hover:underline text-sm mt-2 inline-block">← Voltar</Link>
+      </div>
+    );
+  }
+
+  const stats = batch.stats as any;
+  const items = (allItems || []).filter((item) => {
     const matchStatus = statusFilter === 'all' || item.status === statusFilter;
-    const matchSearch = !search || item.uuid.includes(search) || item.cpf_masked.includes(search);
+    const matchSearch = !search || (item.uuid || '').includes(search) || item.cpf_masked.includes(search) || item.cpf.includes(search);
     return matchStatus && matchSearch;
   });
 
@@ -31,8 +50,8 @@ export default function BatchDetail() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-foreground">{batch.name}</h1>
           <div className="flex items-center gap-3 mt-1">
-            <BatchStatusBadge status={batch.status} />
-            <span className="text-sm text-muted-foreground">{batch.flow_name}</span>
+            <BatchStatusBadge status={batch.status as BatchStatus} />
+            <span className="text-sm text-muted-foreground">{batch.flow_name || '—'}</span>
             <span className="text-sm text-muted-foreground">•</span>
             <span className="text-sm text-muted-foreground font-mono">R$ {batch.bonus_valor}</span>
           </div>
@@ -46,15 +65,14 @@ export default function BatchDetail() {
         </div>
       </div>
 
-      {/* Stats row */}
       <div className="grid grid-cols-6 gap-3">
         {[
-          { label: 'Pendente', value: batch.stats.pendente, cls: 'text-muted-foreground' },
-          { label: 'Processando', value: batch.stats.processando, cls: 'text-primary' },
-          { label: 'Sem Bônus', value: batch.stats.sem_bonus, cls: 'text-secondary-foreground' },
-          { label: 'Bônus 1x', value: batch.stats.bonus_1x, cls: 'text-success' },
-          { label: 'Bônus 2x+', value: batch.stats.bonus_2x_plus, cls: 'text-destructive' },
-          { label: 'Erros', value: batch.stats.erro, cls: 'text-warning' },
+          { label: 'Pendente', value: stats.pendente, cls: 'text-muted-foreground' },
+          { label: 'Processando', value: stats.processando, cls: 'text-primary' },
+          { label: 'Sem Bônus', value: stats.sem_bonus, cls: 'text-secondary-foreground' },
+          { label: 'Bônus 1x', value: stats.bonus_1x, cls: 'text-success' },
+          { label: 'Bônus 2x+', value: stats.bonus_2x_plus, cls: 'text-destructive' },
+          { label: 'Erros', value: stats.erro, cls: 'text-warning' },
         ].map((s) => (
           <div key={s.label} className="glass-card p-3 text-center">
             <p className="text-xs text-muted-foreground">{s.label}</p>
@@ -63,7 +81,6 @@ export default function BatchDetail() {
         ))}
       </div>
 
-      {/* Filters */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-xs">
           <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -89,65 +106,72 @@ export default function BatchDetail() {
         </Select>
       </div>
 
-      {/* Items table */}
       <div className="glass-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-secondary/30">
-                <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">CPF</th>
-                <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">UUID</th>
-                <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
-                <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tent.</th>
-                <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Qtd Bônus</th>
-                <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Datas do Bônus</th>
-                <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Log</th>
-                <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr
-                  key={item.id}
-                  className={`border-b border-border/20 hover:bg-secondary/20 transition-colors ${
-                    item.status === 'BONUS_2X+' ? 'bg-destructive/5' : ''
-                  }`}
-                >
-                  <td className="p-3 font-mono text-xs text-muted-foreground">{item.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}</td>
-                  <td className="p-3 font-mono text-xs text-foreground">{item.uuid}</td>
-                  <td className="p-3"><ItemStatusBadge status={item.status} /></td>
-                  <td className="p-3 text-center text-muted-foreground">{item.tentativas}</td>
-                  <td className="p-3 text-center">
-                    <span className={item.qtd_bonus >= 2 ? 'text-destructive font-bold' : 'text-foreground'}>
-                      {item.qtd_bonus}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    {item.datas_bonus.length > 0 ? (
-                      <div className="space-y-0.5">
-                        {item.datas_bonus.map((d, i) => (
-                          <span key={i} className="block text-xs text-muted-foreground font-mono">{d}</span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="p-3 max-w-[200px]">
-                    <p className="text-xs text-muted-foreground truncate">{item.log[0] || '—'}</p>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" className="h-7 text-xs">
-                        <RefreshCw className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </td>
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">Nenhum item encontrado.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-secondary/30">
+                  <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">CPF</th>
+                  <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">UUID</th>
+                  <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+                  <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tent.</th>
+                  <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Qtd Bônus</th>
+                  <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Datas do Bônus</th>
+                  <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Log</th>
+                  <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {items.map((item) => {
+                  const datas = (item.datas_bonus || []) as string[];
+                  const logs = (item.log || []) as string[];
+                  return (
+                    <tr
+                      key={item.id}
+                      className={`border-b border-border/20 hover:bg-secondary/20 transition-colors ${
+                        item.status === 'BONUS_2X+' ? 'bg-destructive/5' : ''
+                      }`}
+                    >
+                      <td className="p-3 font-mono text-xs text-muted-foreground">{item.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}</td>
+                      <td className="p-3 font-mono text-xs text-foreground">{item.uuid || '—'}</td>
+                      <td className="p-3"><ItemStatusBadge status={item.status as ItemStatus} /></td>
+                      <td className="p-3 text-center text-muted-foreground">{item.tentativas}</td>
+                      <td className="p-3 text-center">
+                        <span className={item.qtd_bonus >= 2 ? 'text-destructive font-bold' : 'text-foreground'}>
+                          {item.qtd_bonus}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        {datas.length > 0 ? (
+                          <div className="space-y-0.5">
+                            {datas.map((d, i) => (
+                              <span key={i} className="block text-xs text-muted-foreground font-mono">{d}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="p-3 max-w-[200px]">
+                        <p className="text-xs text-muted-foreground truncate">{logs[0] || '—'}</p>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" className="h-7 text-xs">
+                            <RefreshCw className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
