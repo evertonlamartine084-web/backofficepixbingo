@@ -30,40 +30,147 @@ interface ProxyRequest {
 
 async function doLogin(body: ProxyRequest): Promise<{ cookies: string; token: string; success: boolean }> {
   const baseUrl = body.site_url.replace(/\/+$/, '');
+  
+  // Step 1: GET the site first to obtain initial CSRF/XSRF cookies (Laravel pattern)
+  let initialCookies = '';
+  let xsrfToken = '';
+  try {
+    console.log(`[doLogin] Step 1: GET ${baseUrl} for CSRF cookies`);
+    const initRes = await fetch(baseUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'text/html,application/json' },
+      redirect: 'manual',
+      signal: AbortSignal.timeout(10000),
+    });
+    const initSetCookies = initRes.headers.getSetCookie?.() || [];
+    initialCookies = initSetCookies.map((c: string) => c.split(';')[0]).join('; ');
+    
+    // Extract XSRF-TOKEN
+    const xsrfMatch = initialCookies.match(/XSRF-TOKEN=([^;]+)/);
+    if (xsrfMatch) {
+      xsrfToken = decodeURIComponent(xsrfMatch[1]);
+    }
+    console.log(`[doLogin] Step 1 done: cookies=${initialCookies.length > 0 ? 'yes' : 'no'}, xsrf=${xsrfToken.length > 0 ? 'yes' : 'no'}`);
+  } catch (e) {
+    console.log(`[doLogin] Step 1 failed: ${(e as Error).message}`);
+  }
+  
+  // Step 2: POST login with CSRF cookies - focused approach
   const loginUrls = [
     body.login_url,
+    `${baseUrl}/login`,
     `${baseUrl}/api/auth/login`,
-    `${baseUrl}/auth/login`,
   ].filter(Boolean) as string[];
 
-  const loginPayload: Record<string, string> = {};
-  loginPayload[body.username_field || 'email'] = body.username;
-  loginPayload[body.password_field || 'password'] = body.password;
+  // Focused payloads - prioritize common Laravel patterns
+  type LoginAttempt = { payload: Record<string, string>; contentType: string };
+  const attempts: LoginAttempt[] = [
+    // Form-encoded with _token (most common Laravel pattern)
+    { payload: { email: body.username, password: body.password, _token: xsrfToken }, contentType: 'application/x-www-form-urlencoded' },
+    { payload: { username: body.username, password: body.password, _token: xsrfToken }, contentType: 'application/x-www-form-urlencoded' },
+    // JSON with XSRF header
+    { payload: { email: body.username, password: body.password }, contentType: 'application/json' },
+    { payload: { username: body.username, password: body.password }, contentType: 'application/json' },
+  ];
 
   for (const loginUrl of loginUrls) {
-    try {
-      const res = await fetch(loginUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginPayload),
-        redirect: 'manual',
-      });
+    for (const { payload: loginPayload, contentType } of attempts) {
+      try {
+        const loginHeaders: Record<string, string> = {
+          'Content-Type': contentType,
+          'Accept': 'application/json',
+          'Referer': `${baseUrl}/login`,
+          'Origin': baseUrl,
+        };
+        if (initialCookies) loginHeaders['Cookie'] = initialCookies;
+        if (xsrfToken) loginHeaders['X-XSRF-TOKEN'] = xsrfToken;
+        
+        let bodyStr: string;
+        if (contentType === 'application/json') {
+          bodyStr = JSON.stringify(loginPayload);
+        } else {
+          bodyStr = new URLSearchParams(loginPayload).toString();
+        }
+        
+        console.log(`[doLogin] POST ${loginUrl} [${contentType.split('/')[1]}] fields: ${Object.keys(loginPayload).filter(k => k !== '_token').join(',')}`);
+        const res = await fetch(loginUrl, {
+          method: 'POST',
+          headers: loginHeaders,
+          body: bodyStr,
+          redirect: 'manual',
+          signal: AbortSignal.timeout(10000),
+        });
+        
+        // Merge initial cookies with response cookies
+        const setCookies = res.headers.getSetCookie?.() || [];
+        const newCookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
+        
+        // Merge: response cookies override initial ones
+        const cookieMap = new Map<string, string>();
+        for (const c of initialCookies.split('; ').filter(Boolean)) {
+          const [k, ...v] = c.split('=');
+          cookieMap.set(k, v.join('='));
+        }
+        for (const c of newCookies.split('; ').filter(Boolean)) {
+          const [k, ...v] = c.split('=');
+          cookieMap.set(k, v.join('='));
+        }
+        const cookies = Array.from(cookieMap.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
+        
+        console.log(`[doLogin] Step 2: Status=${res.status}, merged cookies count=${cookieMap.size}`);
 
-      const setCookies = res.headers.getSetCookie?.() || [];
-      const cookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
-      let token = '';
+        let token = '';
+        const text = await res.text();
+        console.log(`[doLogin] Step 2 body: ${text.slice(0, 300)}`);
 
-      if (res.ok || res.status === 302) {
-        try {
-          const data = await res.json();
-          token = data.token || data.access_token || data.data?.token || data.jwt || '';
-          if (data.logged === true || data.success === true || token || cookies) {
-            return { cookies, token, success: true };
+        if (res.ok || res.status === 302 || res.status === 301) {
+          try {
+            const data = JSON.parse(text);
+            token = data.token || data.access_token || data.data?.token || data.jwt || '';
+            
+            // Check if login was successful
+            if (data.logged === true || data.success === true || token) {
+              console.log(`[doLogin] Confirmed login success from response body`);
+              return { cookies, token, success: true };
+            }
+          } catch {}
+          
+          // Even if body says logged:false, if we got session cookies, try using them
+          if (cookies) {
+            console.log(`[doLogin] Got cookies, testing if session is valid...`);
+            // Quick test: try fetching a protected endpoint
+            const testHeaders: Record<string, string> = {
+              'Accept': 'application/json',
+              'Cookie': cookies,
+            };
+            const testXsrf = cookies.match(/XSRF-TOKEN=([^;]+)/);
+            if (testXsrf) testHeaders['X-XSRF-TOKEN'] = decodeURIComponent(testXsrf[1]);
+            
+            try {
+              const testRes = await fetch(`${baseUrl}/api/dashboard`, {
+                method: 'GET',
+                headers: testHeaders,
+                signal: AbortSignal.timeout(5000),
+              });
+              const testText = await testRes.text();
+              console.log(`[doLogin] Session test: status=${testRes.status}, body=${testText.slice(0, 200)}`);
+              
+              try {
+                const testData = JSON.parse(testText);
+                if (testData.logged !== false && !testText.includes('"logged":false')) {
+                  console.log(`[doLogin] Session IS valid! Dashboard returned data`);
+                  return { cookies, token, success: true };
+                }
+              } catch {}
+            } catch (e) {
+              console.log(`[doLogin] Session test failed: ${(e as Error).message}`);
+            }
           }
-        } catch {}
-        if (cookies) return { cookies, token, success: true };
+        }
+      } catch (e) {
+        console.log(`[doLogin] POST ${loginUrl} failed: ${(e as Error).message}`);
       }
-    } catch {}
+    }
   }
   return { cookies: '', token: '', success: false };
 }
@@ -71,7 +178,15 @@ async function doLogin(body: ProxyRequest): Promise<{ cookies: string; token: st
 function buildHeaders(cookies: string, token: string): Record<string, string> {
   const h: Record<string, string> = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
   if (token) h['Authorization'] = `Bearer ${token}`;
-  if (cookies) h['Cookie'] = cookies;
+  if (cookies) {
+    h['Cookie'] = cookies;
+    // Laravel XSRF: extract XSRF-TOKEN from cookies and send as X-XSRF-TOKEN header (URL-decoded)
+    const xsrfMatch = cookies.match(/XSRF-TOKEN=([^;]+)/);
+    if (xsrfMatch) {
+      h['X-XSRF-TOKEN'] = decodeURIComponent(xsrfMatch[1]);
+      console.log(`[buildHeaders] X-XSRF-TOKEN set (length: ${h['X-XSRF-TOKEN'].length})`);
+    }
+  }
   return h;
 }
 
@@ -79,14 +194,27 @@ async function tryFetch(url: string, headers: Record<string, string>, method = '
   const opts: RequestInit = { method, headers, signal: AbortSignal.timeout(15000) };
   if (body && method !== 'GET') opts.body = JSON.stringify(body);
   
+  console.log(`[tryFetch] ${method} ${url}`);
   const res = await fetch(url, opts);
   const text = await res.text();
+  console.log(`[tryFetch] Status: ${res.status}, Body (first 300): ${text.slice(0, 300)}`);
+  
+  // If it's HTML (not JSON), mark as raw
+  if (text.trimStart().startsWith('<!') || text.trimStart().startsWith('<html')) {
+    return { _raw: text.slice(0, 200), _status: res.status, _isHtml: true };
+  }
   
   try {
     const data = JSON.parse(text);
-    if (data.logged === false) return { _notLogged: true, _raw: text.slice(0, 500) };
+    // Only skip if explicitly logged:false AND no useful data
+    if (data.logged === false && Object.keys(data).length <= 2) {
+      return { _notLogged: true, _raw: text.slice(0, 500) };
+    }
+    // Tag with status for caller reference
+    data._httpStatus = res.status;
     return data;
   } catch {
+    // Non-JSON, non-HTML response
     return { _raw: text.slice(0, 500), _status: res.status };
   }
 }
@@ -95,8 +223,17 @@ async function tryMultiple(baseUrl: string, paths: string[], headers: Record<str
   for (const path of paths) {
     try {
       const data = await tryFetch(`${baseUrl}${path}`, headers, method, body);
-      if (!data._notLogged && !data._raw) return { data, path };
-    } catch {}
+      console.log(`[tryMultiple] ${path} → _notLogged=${data._notLogged}, _raw=${!!data._raw}, _isHtml=${data._isHtml}, keys=${Object.keys(data).join(',')}`);
+      // Accept any JSON response that isn't a login redirect or HTML page
+      if (!data._notLogged && !data._raw && !data._isHtml) {
+        // Clean internal tags before returning
+        const clean = { ...data };
+        delete clean._httpStatus;
+        return { data: clean, path };
+      }
+    } catch (e) {
+      console.log(`[tryMultiple] ${path} error: ${(e as Error).message}`);
+    }
   }
   return null;
 }
