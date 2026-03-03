@@ -1,25 +1,84 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Upload, Play, Pause, Search } from 'lucide-react';
+import { Plus, Upload, Play, Pause, Search, Globe, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { BatchStatusBadge } from '@/components/StatusBadge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useBatches, useFlows } from '@/hooks/use-supabase-data';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import type { BatchStatus } from '@/types';
 
 export default function Batches() {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
+  const [apiOpen, setApiOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { data: batches, isLoading } = useBatches();
   const { data: flows } = useFlows();
+  const queryClient = useQueryClient();
+
+  // API fetch state
+  const [siteUrl, setSiteUrl] = useState('https://pixbingobr.com');
+  const [loginUrl, setLoginUrl] = useState('https://pixbingobr.concurso.club/');
+  const [apiUsername, setApiUsername] = useState('');
+  const [apiPassword, setApiPassword] = useState('');
+  const [batchName, setBatchName] = useState('');
+  const [bonusValor, setBonusValor] = useState('0');
+  const [selectedFlow, setSelectedFlow] = useState('');
 
   const filtered = (batches || []).filter((b) =>
     b.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleFetchPlayers = async () => {
+    if (!apiUsername || !apiPassword || !batchName) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const flow = flows?.find(f => f.id === selectedFlow);
+      const { data, error } = await supabase.functions.invoke('fetch-players', {
+        body: {
+          site_url: siteUrl,
+          login_url: loginUrl,
+          username: apiUsername,
+          password: apiPassword,
+          batch_name: batchName,
+          bonus_valor: parseFloat(bonusValor) || 0,
+          flow_id: selectedFlow || null,
+          flow_name: flow?.name || null,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success(`Lote criado com ${data.inserted_items} jogadores!`);
+        queryClient.invalidateQueries({ queryKey: ['batches'] });
+        setApiOpen(false);
+        // Reset form
+        setApiUsername('');
+        setApiPassword('');
+        setBatchName('');
+        setBonusValor('0');
+        setSelectedFlow('');
+      } else {
+        toast.error(data.error || 'Erro ao buscar jogadores');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao buscar jogadores da API');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -36,56 +95,171 @@ export default function Batches() {
           <h1 className="text-2xl font-bold text-foreground">Lotes</h1>
           <p className="text-sm text-muted-foreground mt-1">Gerencie lotes de crédito e verificação</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gradient-primary border-0">
-              <Plus className="w-4 h-4 mr-2" /> Novo Lote
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="glass-card border-border sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="text-foreground">Criar Novo Lote</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 mt-4">
-              <div>
-                <Label className="text-foreground">Nome do Lote</Label>
-                <Input placeholder="Ex: Campanha Março 2026" className="mt-1 bg-secondary border-border" />
-              </div>
-              <div>
-                <Label className="text-foreground">Fluxo</Label>
-                <Select>
-                  <SelectTrigger className="mt-1 bg-secondary border-border">
-                    <SelectValue placeholder="Selecione o fluxo" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    {(flows || []).map((f) => (
-                      <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-foreground">Valor do Bônus (R$)</Label>
-                <Input type="number" placeholder="10" className="mt-1 bg-secondary border-border" />
-              </div>
-              <div>
-                <Label className="text-foreground">Lista de CPFs/UUIDs</Label>
-                <Textarea
-                  placeholder="Cole CPFs ou UUIDs (um por linha) ou faça upload de CSV"
-                  className="mt-1 bg-secondary border-border min-h-[120px] font-mono text-xs"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" className="flex-1 border-border">
-                  <Upload className="w-4 h-4 mr-2" /> Upload CSV/XLSX
+        <div className="flex items-center gap-2">
+          {/* Buscar jogadores via API */}
+          <Dialog open={apiOpen} onOpenChange={setApiOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="border-border">
+                <Globe className="w-4 h-4 mr-2" /> Buscar da API
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="glass-card border-border sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="text-foreground">Buscar Jogadores via API</DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Conecte-se ao site e importe todos os jogadores automaticamente em um novo lote.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 mt-4">
+                <div>
+                  <Label className="text-foreground">Nome do Lote *</Label>
+                  <Input
+                    placeholder="Ex: Jogadores PixBingo - Março 2026"
+                    value={batchName}
+                    onChange={(e) => setBatchName(e.target.value)}
+                    className="mt-1 bg-secondary border-border"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-foreground">URL do Site</Label>
+                    <Input
+                      placeholder="https://pixbingobr.com"
+                      value={siteUrl}
+                      onChange={(e) => setSiteUrl(e.target.value)}
+                      className="mt-1 bg-secondary border-border text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-foreground">URL de Login</Label>
+                    <Input
+                      placeholder="https://..."
+                      value={loginUrl}
+                      onChange={(e) => setLoginUrl(e.target.value)}
+                      className="mt-1 bg-secondary border-border text-xs"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-foreground">Usuário *</Label>
+                    <Input
+                      placeholder="admin"
+                      value={apiUsername}
+                      onChange={(e) => setApiUsername(e.target.value)}
+                      className="mt-1 bg-secondary border-border"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-foreground">Senha *</Label>
+                    <Input
+                      type="password"
+                      placeholder="••••••"
+                      value={apiPassword}
+                      onChange={(e) => setApiPassword(e.target.value)}
+                      className="mt-1 bg-secondary border-border"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-foreground">Fluxo</Label>
+                    <Select value={selectedFlow} onValueChange={setSelectedFlow}>
+                      <SelectTrigger className="mt-1 bg-secondary border-border">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border">
+                        {(flows || []).map((f) => (
+                          <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-foreground">Valor Bônus (R$)</Label>
+                    <Input
+                      type="number"
+                      placeholder="10"
+                      value={bonusValor}
+                      onChange={(e) => setBonusValor(e.target.value)}
+                      className="mt-1 bg-secondary border-border"
+                    />
+                  </div>
+                </div>
+                <Button
+                  className="w-full gradient-primary border-0"
+                  onClick={handleFetchPlayers}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Buscando jogadores...
+                    </>
+                  ) : (
+                    <>
+                      <Globe className="w-4 h-4 mr-2" /> Buscar e Criar Lote
+                    </>
+                  )}
                 </Button>
               </div>
-              <Button className="w-full gradient-primary border-0" onClick={() => setOpen(false)}>
-                Criar e Iniciar
+            </DialogContent>
+          </Dialog>
+
+          {/* Criar lote manual */}
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button className="gradient-primary border-0">
+                <Plus className="w-4 h-4 mr-2" /> Novo Lote
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="glass-card border-border sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="text-foreground">Criar Novo Lote</DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Crie um lote manualmente informando CPFs ou fazendo upload de arquivo.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 mt-4">
+                <div>
+                  <Label className="text-foreground">Nome do Lote</Label>
+                  <Input placeholder="Ex: Campanha Março 2026" className="mt-1 bg-secondary border-border" />
+                </div>
+                <div>
+                  <Label className="text-foreground">Fluxo</Label>
+                  <Select>
+                    <SelectTrigger className="mt-1 bg-secondary border-border">
+                      <SelectValue placeholder="Selecione o fluxo" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {(flows || []).map((f) => (
+                        <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-foreground">Valor do Bônus (R$)</Label>
+                  <Input type="number" placeholder="10" className="mt-1 bg-secondary border-border" />
+                </div>
+                <div>
+                  <Label className="text-foreground">Lista de CPFs/UUIDs</Label>
+                  <Textarea
+                    placeholder="Cole CPFs ou UUIDs (um por linha) ou faça upload de CSV"
+                    className="mt-1 bg-secondary border-border min-h-[120px] font-mono text-xs"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" className="flex-1 border-border">
+                    <Upload className="w-4 h-4 mr-2" /> Upload CSV/XLSX
+                  </Button>
+                </div>
+                <Button className="w-full gradient-primary border-0" onClick={() => setOpen(false)}>
+                  Criar e Iniciar
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
