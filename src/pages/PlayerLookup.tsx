@@ -1,20 +1,21 @@
-import { useState } from 'react';
-import { Search, User, DollarSign, Gift, History, Loader2, CreditCard } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, User, DollarSign, Gift, History, Loader2, CreditCard, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/integrations/supabase/client';
+import { ApiCredentialsBar } from '@/components/ApiCredentialsBar';
+import { useProxy } from '@/hooks/use-proxy';
 import { toast } from 'sonner';
-
-const DEFAULT_SITE = 'https://pixbingobr.com';
-const DEFAULT_LOGIN = 'https://pixbingobr.com/api/auth/login';
+import { useSearchParams } from 'react-router-dom';
 
 export default function PlayerLookup() {
-  const [query, setQuery] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [searchParams] = useSearchParams();
+  const [creds, setCreds] = useState({ username: '', password: '' });
+  const [query, setQuery] = useState(searchParams.get('q') || '');
+  const { callProxy, loading: _l } = useProxy();
   const [loading, setLoading] = useState(false);
   const [creditLoading, setCreditLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const [bonusAmount, setBonusAmount] = useState('10');
 
   const [player, setPlayer] = useState<any>(null);
@@ -22,39 +23,32 @@ export default function PlayerLookup() {
   const [transactions, setTransactions] = useState<any>(null);
   const [bonusHistory, setBonusHistory] = useState<any>(null);
 
-  const callProxy = async (action: string, extra: Record<string, any> = {}) => {
-    const { data, error } = await supabase.functions.invoke('pixbingo-proxy', {
-      body: {
-        action,
-        site_url: DEFAULT_SITE,
-        login_url: DEFAULT_LOGIN,
-        username,
-        password,
-        ...extra,
-      },
-    });
-    if (error) throw error;
-    return data;
-  };
+  // Auto-search when navigated with ?q=
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q && creds.username) {
+      setQuery(q);
+      handleSearch(q);
+    }
+  }, [searchParams, creds.username]);
 
-  const handleSearch = async () => {
-    if (!query || !username || !password) {
-      toast.error('Preencha CPF/UUID, usuário e senha');
+  const handleSearch = async (q?: string) => {
+    const searchQuery = q || query;
+    if (!searchQuery || !creds.username) {
+      toast.error('Preencha CPF/UUID e conecte-se');
       return;
     }
 
     setLoading(true);
-    setPlayer(null);
-    setBalance(null);
-    setTransactions(null);
-    setBonusHistory(null);
+    setPlayer(null); setBalance(null); setTransactions(null); setBonusHistory(null);
 
     try {
+      const params = { cpf: searchQuery, uuid: searchQuery, player_id: searchQuery };
       const [searchRes, balanceRes, txRes, bonusRes] = await Promise.allSettled([
-        callProxy('search_player', { cpf: query, uuid: query }),
-        callProxy('player_balance', { cpf: query, uuid: query, player_id: query }),
-        callProxy('player_transactions', { cpf: query, uuid: query, player_id: query }),
-        callProxy('bonus_history', { cpf: query, uuid: query, player_id: query }),
+        callProxy('search_player', creds, params),
+        callProxy('player_balance', creds, params),
+        callProxy('player_transactions', creds, params),
+        callProxy('bonus_history', creds, params),
       ]);
 
       if (searchRes.status === 'fulfilled' && searchRes.value?.data) setPlayer(searchRes.value.data);
@@ -71,35 +65,44 @@ export default function PlayerLookup() {
   };
 
   const handleCreditBonus = async () => {
-    if (!username || !password || !query) return;
+    if (!creds.username || !query) return;
     setCreditLoading(true);
     try {
-      const res = await callProxy('credit_bonus', { 
-        cpf: query, uuid: query, player_id: query, 
-        bonus_amount: parseFloat(bonusAmount) 
+      const res = await callProxy('credit_bonus', creds, {
+        cpf: query, uuid: query, player_id: query,
+        bonus_amount: parseFloat(bonusAmount)
       });
       if (res?.data) {
         toast.success('Bônus creditado com sucesso!');
-        console.log('Credit result:', res.data);
+        handleSearch();
       } else {
         toast.error('Falha ao creditar bônus');
       }
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setCreditLoading(false);
-    }
+    } catch (err: any) { toast.error(err.message); }
+    finally { setCreditLoading(false); }
   };
 
-  const renderData = (data: any, label: string) => {
+  const handleCancelBonus = async (bonusId?: string) => {
+    if (!creds.username || !query) return;
+    setCancelLoading(true);
+    try {
+      const res = await callProxy('cancel_bonus', creds, {
+        cpf: query, uuid: query, player_id: query, bonus_id: bonusId || ''
+      });
+      if (res?.data) {
+        toast.success('Bônus cancelado!');
+        handleSearch();
+      } else {
+        toast.error('Falha ao cancelar bônus');
+      }
+    } catch (err: any) { toast.error(err.message); }
+    finally { setCancelLoading(false); }
+  };
+
+  const renderData = (data: any) => {
     if (!data) return <p className="text-sm text-muted-foreground italic">Sem dados</p>;
-
-    // If it's an array, render as table
     const items = Array.isArray(data) ? data : data.data ? (Array.isArray(data.data) ? data.data : [data.data]) : [data];
-
-    if (items.length === 0) return <p className="text-sm text-muted-foreground italic">Nenhum registro encontrado</p>;
-
-    // Extract keys from first item
+    if (items.length === 0) return <p className="text-sm text-muted-foreground italic">Nenhum registro</p>;
     const keys = Object.keys(items[0] || {}).filter(k => !k.startsWith('_'));
 
     return (
@@ -124,7 +127,7 @@ export default function PlayerLookup() {
             ))}
           </tbody>
         </table>
-        {items.length > 50 && <p className="text-xs text-muted-foreground p-2">Mostrando 50 de {items.length} registros</p>}
+        {items.length > 50 && <p className="text-xs text-muted-foreground p-2">Mostrando 50 de {items.length}</p>}
       </div>
     );
   };
@@ -136,59 +139,56 @@ export default function PlayerLookup() {
         <p className="text-sm text-muted-foreground mt-1">Buscar dados, saldo, transações e histórico de bônus</p>
       </div>
 
-      {/* Auth + Search */}
-      <div className="glass-card p-5">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div>
-            <Label className="text-xs text-muted-foreground">Usuário Admin</Label>
-            <Input value={username} onChange={e => setUsername(e.target.value)} placeholder="admin" className="mt-1 bg-secondary border-border" />
+      <ApiCredentialsBar onCredentials={setCreds} />
+
+      {/* Search */}
+      <div className="glass-card p-4">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              placeholder="CPF ou UUID do jogador..."
+              className="pl-9 bg-secondary border-border font-mono"
+            />
           </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Senha</Label>
-            <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••" className="mt-1 bg-secondary border-border" />
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">CPF ou UUID</Label>
-            <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="12345678901 ou uuid..." className="mt-1 bg-secondary border-border font-mono" />
-          </div>
-          <div className="flex items-end">
-            <Button onClick={handleSearch} disabled={loading} className="w-full gradient-primary border-0">
-              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
-              Buscar
-            </Button>
-          </div>
+          <Button onClick={() => handleSearch()} disabled={loading} className="gradient-primary border-0">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
+            Buscar
+          </Button>
         </div>
       </div>
 
       {/* Results */}
       {(player || balance || transactions || bonusHistory) && (
         <div className="space-y-4">
-          {/* Player Info + Balance */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="glass-card p-5">
               <div className="flex items-center gap-2 mb-3">
                 <User className="w-4 h-4 text-primary" />
                 <h3 className="font-semibold text-foreground">Dados do Jogador</h3>
               </div>
-              {renderData(player, 'jogador')}
+              {renderData(player)}
             </div>
             <div className="glass-card p-5">
               <div className="flex items-center gap-2 mb-3">
                 <DollarSign className="w-4 h-4 text-success" />
                 <h3 className="font-semibold text-foreground">Saldo</h3>
               </div>
-              {renderData(balance, 'saldo')}
+              {renderData(balance)}
             </div>
           </div>
 
-          {/* Credit Bonus */}
+          {/* Credit & Cancel Bonus */}
           <div className="glass-card p-5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-2">
                 <Gift className="w-4 h-4 text-accent" />
-                <h3 className="font-semibold text-foreground">Creditar Bônus</h3>
+                <h3 className="font-semibold text-foreground">Ações de Bônus</h3>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <Label className="text-xs text-muted-foreground whitespace-nowrap">Valor (R$)</Label>
                   <Input type="number" value={bonusAmount} onChange={e => setBonusAmount(e.target.value)} className="w-24 bg-secondary border-border font-mono" />
@@ -196,6 +196,10 @@ export default function PlayerLookup() {
                 <Button onClick={handleCreditBonus} disabled={creditLoading} className="gradient-success border-0 text-success-foreground">
                   {creditLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
                   Creditar
+                </Button>
+                <Button onClick={() => handleCancelBonus()} disabled={cancelLoading} variant="destructive">
+                  {cancelLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <XCircle className="w-4 h-4 mr-2" />}
+                  Cancelar Bônus
                 </Button>
               </div>
             </div>
@@ -207,7 +211,7 @@ export default function PlayerLookup() {
               <Gift className="w-4 h-4 text-warning" />
               <h3 className="font-semibold text-foreground">Histórico de Bônus</h3>
             </div>
-            {renderData(bonusHistory, 'bonus')}
+            {renderData(bonusHistory)}
           </div>
 
           {/* Transactions */}
@@ -216,7 +220,7 @@ export default function PlayerLookup() {
               <History className="w-4 h-4 text-info" />
               <h3 className="font-semibold text-foreground">Transações</h3>
             </div>
-            {renderData(transactions, 'transações')}
+            {renderData(transactions)}
           </div>
         </div>
       )}

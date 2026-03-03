@@ -5,20 +5,27 @@ const corsHeaders = {
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+type Action = 'login' | 'search_player' | 'player_balance' | 'player_transactions' 
+  | 'bonus_history' | 'credit_bonus' | 'cancel_bonus' | 'dashboard' | 'reports'
+  | 'list_users' | 'list_transactions' | 'site_status' | 'site_config' | 'credit_batch';
+
 interface ProxyRequest {
-  action: 'login' | 'search_player' | 'player_balance' | 'player_transactions' | 'bonus_history' | 'credit_bonus' | 'cancel_bonus' | 'dashboard' | 'credit_batch';
+  action: Action;
   site_url: string;
   login_url?: string;
   username: string;
   password: string;
   username_field?: string;
   password_field?: string;
-  // Action-specific params
   cpf?: string;
   uuid?: string;
   player_id?: string;
   bonus_amount?: number;
+  bonus_id?: string;
   batch_id?: string;
+  page?: number;
+  limit?: number;
+  search?: string;
 }
 
 async function doLogin(body: ProxyRequest): Promise<{ cookies: string; token: string; success: boolean }> {
@@ -101,7 +108,6 @@ Deno.serve(async (req) => {
     const body: ProxyRequest = await req.json();
     const baseUrl = body.site_url.replace(/\/+$/, '');
 
-    // Login
     const auth = await doLogin(body);
     if (!auth.success) {
       return new Response(JSON.stringify({ success: false, error: 'Login falhou' }), 
@@ -129,7 +135,6 @@ Deno.serve(async (req) => {
         if (found) {
           result = found.data;
         } else {
-          // Try POST
           for (const path of ['/api/usuarios/buscar', '/api/usuarios']) {
             try {
               const data = await tryFetch(`${baseUrl}${path}`, headers, 'POST', { cpf: query, documento: query, search: query, q: query });
@@ -193,8 +198,79 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case 'cancel_bonus': {
+        const id = body.player_id || body.uuid || body.cpf || '';
+        const bonusId = body.bonus_id || '';
+        for (const path of ['/api/bonus/cancelar', '/bonus/cancelar']) {
+          try {
+            const data = await tryFetch(`${baseUrl}${path}`, headers, 'POST', {
+              uuid: body.uuid, cpf: body.cpf, player_id: id, bonus_id: bonusId
+            });
+            if (!data._notLogged) { result = data; break; }
+          } catch {}
+        }
+        if (!result) {
+          // Try GET with query params
+          const paths = [
+            `/api/bonus/cancelar?uuid=${id}&bonus_id=${bonusId}`,
+            `/api/bonus/cancelar?cpf=${body.cpf}&bonus_id=${bonusId}`,
+          ];
+          const found = await tryMultiple(baseUrl, paths, headers);
+          result = found?.data || null;
+        }
+        break;
+      }
+
+      case 'list_users': {
+        const search = body.search || '';
+        const page = body.page || 1;
+        const limit = body.limit || 50;
+        const paths = [
+          `/api/usuarios?page=${page}&limit=${limit}${search ? `&search=${search}` : ''}`,
+          `/api/usuarios?pagina=${page}&limite=${limit}${search ? `&busca=${search}` : ''}`,
+        ];
+        const found = await tryMultiple(baseUrl, paths, headers);
+        result = found?.data || null;
+        break;
+      }
+
+      case 'list_transactions': {
+        const page = body.page || 1;
+        const limit = body.limit || 50;
+        const search = body.search || '';
+        const paths = [
+          `/api/transacoes?page=${page}&limit=${limit}${search ? `&search=${search}` : ''}`,
+          `/api/transacoes?pagina=${page}&limite=${limit}${search ? `&busca=${search}` : ''}`,
+          `/api/usuarios/transacoes?page=${page}&limit=${limit}`,
+        ];
+        const found = await tryMultiple(baseUrl, paths, headers);
+        result = found?.data || null;
+        break;
+      }
+
       case 'dashboard': {
-        const paths = ['/api/dashboard', '/api/status', '/api/relatorios', '/api/config'];
+        const paths = ['/api/dashboard', '/api/status', '/api/relatorios'];
+        const found = await tryMultiple(baseUrl, paths, headers);
+        result = found?.data || null;
+        break;
+      }
+
+      case 'reports': {
+        const paths = ['/api/relatorios', '/api/dashboard', '/api/bonus'];
+        const found = await tryMultiple(baseUrl, paths, headers);
+        result = found?.data || null;
+        break;
+      }
+
+      case 'site_status': {
+        const paths = ['/api/status', '/api/health'];
+        const found = await tryMultiple(baseUrl, paths, headers);
+        result = found?.data || null;
+        break;
+      }
+
+      case 'site_config': {
+        const paths = ['/api/config'];
         const found = await tryMultiple(baseUrl, paths, headers);
         result = found?.data || null;
         break;
@@ -207,7 +283,6 @@ Deno.serve(async (req) => {
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseKey);
 
-        // Get eligible items (PENDENTE or SEM_BONUS)
         const { data: items, error: itemsErr } = await supabase
           .from('batch_items')
           .select('*')
@@ -262,7 +337,6 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Update batch stats
         const { data: updatedItems } = await supabase
           .from('batch_items')
           .select('status')
