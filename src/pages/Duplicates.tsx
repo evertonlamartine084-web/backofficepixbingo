@@ -43,7 +43,7 @@ export default function Duplicates() {
           <tbody>
             {duplicates.map((item) => (
               <tr key={item.id} className="border-b border-border/20 bg-destructive/5 hover:bg-destructive/10 transition-colors">
-                <td className="p-3 font-mono text-xs text-muted-foreground">{item.cpf_masked}</td>
+                <td className="p-3 font-mono text-xs text-muted-foreground">{item.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}</td>
                 <td className="p-3 font-mono text-xs text-foreground">{item.uuid}</td>
                 <td className="p-3"><ItemStatusBadge status={item.status} /></td>
                 <td className="p-3 text-center">
