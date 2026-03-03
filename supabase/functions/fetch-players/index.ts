@@ -7,7 +7,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 interface FetchPlayersRequest {
   site_url: string;
-  login_url: string;
+  login_url?: string;
   username: string;
   password: string;
   username_field?: string;
@@ -34,36 +34,64 @@ Deno.serve(async (req) => {
     }
 
     const baseUrl = body.site_url.replace(/\/+$/, '');
-    const loginUrl = body.login_url || `${baseUrl}/api/auth/login`;
+    
+    // Try multiple login endpoints
+    const loginUrls = [
+      body.login_url,
+      `${baseUrl}/api/auth/login`,
+      `${baseUrl}/auth/login`,
+      `${baseUrl}/login`,
+    ].filter(Boolean) as string[];
 
-    console.log(`[FetchPlayers] Logging in at: ${loginUrl}`);
+    let sessionCookies = '';
+    let bearerToken = '';
+    let loginSuccess = false;
 
-    // Step 1: Login
     const loginPayload: Record<string, string> = {};
     loginPayload[body.username_field || 'email'] = body.username;
     loginPayload[body.password_field || 'password'] = body.password;
 
-    const loginRes = await fetch(loginUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(loginPayload),
-      redirect: 'manual',
-    });
-
-    const setCookies = loginRes.headers.getSetCookie?.() || [];
-    const sessionCookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
-    let bearerToken = '';
-
-    if (loginRes.ok) {
+    for (const loginUrl of loginUrls) {
+      console.log(`[FetchPlayers] Trying login at: ${loginUrl}`);
       try {
-        const loginData = await loginRes.json();
-        bearerToken = loginData.token || loginData.access_token || loginData.data?.token || '';
-      } catch { /* ignore */ }
+        const loginRes = await fetch(loginUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(loginPayload),
+          redirect: 'manual',
+        });
+
+        const setCookies = loginRes.headers.getSetCookie?.() || [];
+        const cookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
+
+        let responseBody = '';
+        try { responseBody = await loginRes.text(); } catch {}
+        console.log(`[FetchPlayers] Login ${loginUrl} status=${loginRes.status} body=${responseBody.slice(0, 500)}`);
+
+        if (loginRes.ok || loginRes.status === 302) {
+          if (cookies) sessionCookies = cookies;
+          
+          // Try to extract token
+          try {
+            const loginData = JSON.parse(responseBody);
+            bearerToken = loginData.token || loginData.access_token || loginData.data?.token || loginData.jwt || '';
+            if (loginData.logged === true || loginData.success === true || bearerToken) {
+              loginSuccess = true;
+            }
+          } catch {}
+
+          if (cookies || bearerToken) {
+            loginSuccess = true;
+            console.log(`[FetchPlayers] Login success at ${loginUrl}. Token: ${bearerToken ? 'yes' : 'no'}, Cookies: ${cookies ? 'yes' : 'no'}`);
+            break;
+          }
+        }
+      } catch (e) {
+        console.log(`[FetchPlayers] Login ${loginUrl} error: ${(e as Error).message}`);
+      }
     }
 
-    console.log(`[FetchPlayers] Login done. Token: ${bearerToken ? 'yes' : 'no'}, Cookies: ${sessionCookies ? 'yes' : 'no'}`);
-
-    // Step 2: Build auth headers
+    // Build auth headers
     const authHeaders: Record<string, string> = {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
@@ -71,65 +99,47 @@ Deno.serve(async (req) => {
     if (bearerToken) authHeaders['Authorization'] = `Bearer ${bearerToken}`;
     if (sessionCookies) authHeaders['Cookie'] = sessionCookies;
 
-    // Step 3: Fetch all players - try multiple endpoints
+    // Fetch players - try multiple endpoints with GET and POST
     const playerEndpoints = [
       `${baseUrl}/api/usuarios`,
       `${baseUrl}/api/usuarios/buscar`,
+      `${baseUrl}/api/users`,
       `${baseUrl}/usuarios`,
       `${baseUrl}/usuarios/buscar`,
     ];
 
     let allPlayers: any[] = [];
     let usedEndpoint = '';
+    const debugResponses: { url: string; status: number; body: string }[] = [];
 
     for (const endpoint of playerEndpoints) {
-      try {
-        console.log(`[FetchPlayers] Trying: ${endpoint}`);
-        
-        // Try GET first
-        let res = await fetch(endpoint, {
-          method: 'GET',
-          headers: authHeaders,
-          signal: AbortSignal.timeout(15000),
-        });
+      for (const method of ['GET', 'POST']) {
+        try {
+          console.log(`[FetchPlayers] ${method} ${endpoint}`);
+          const fetchOpts: RequestInit = {
+            method,
+            headers: authHeaders,
+            signal: AbortSignal.timeout(15000),
+          };
+          if (method === 'POST') {
+            fetchOpts.body = JSON.stringify({ page: 1, limit: 10000, per_page: 10000 });
+          }
 
-        if (res.ok) {
-          const data = await res.json();
+          const res = await fetch(endpoint, fetchOpts);
+          const text = await res.text();
           
-          // Handle different response shapes
-          let players: any[] = [];
-          if (Array.isArray(data)) {
-            players = data;
-          } else if (data.data && Array.isArray(data.data)) {
-            players = data.data;
-          } else if (data.users && Array.isArray(data.users)) {
-            players = data.users;
-          } else if (data.usuarios && Array.isArray(data.usuarios)) {
-            players = data.usuarios;
-          } else if (data.results && Array.isArray(data.results)) {
-            players = data.results;
-          } else if (data.items && Array.isArray(data.items)) {
-            players = data.items;
-          }
+          debugResponses.push({ url: `${method} ${endpoint}`, status: res.status, body: text.slice(0, 300) });
+          console.log(`[FetchPlayers] ${method} ${endpoint} → ${res.status}: ${text.slice(0, 300)}`);
 
-          if (players.length > 0) {
-            allPlayers = players;
-            usedEndpoint = endpoint;
-            console.log(`[FetchPlayers] Found ${players.length} players at ${endpoint}`);
-            break;
-          }
-        }
+          if (!res.ok) continue;
 
-        // Try POST with empty body or pagination
-        res = await fetch(endpoint, {
-          method: 'POST',
-          headers: authHeaders,
-          body: JSON.stringify({ page: 1, limit: 10000 }),
-          signal: AbortSignal.timeout(15000),
-        });
+          let data: any;
+          try { data = JSON.parse(text); } catch { continue; }
 
-        if (res.ok) {
-          const data = await res.json();
+          // If response says not logged, skip
+          if (data.logged === false) continue;
+
+          // Extract players array from various response shapes
           let players: any[] = [];
           if (Array.isArray(data)) players = data;
           else if (data.data && Array.isArray(data.data)) players = data.data;
@@ -137,17 +147,20 @@ Deno.serve(async (req) => {
           else if (data.usuarios && Array.isArray(data.usuarios)) players = data.usuarios;
           else if (data.results && Array.isArray(data.results)) players = data.results;
           else if (data.items && Array.isArray(data.items)) players = data.items;
+          else if (data.rows && Array.isArray(data.rows)) players = data.rows;
+          else if (data.list && Array.isArray(data.list)) players = data.list;
 
           if (players.length > 0) {
             allPlayers = players;
-            usedEndpoint = endpoint;
-            console.log(`[FetchPlayers] Found ${players.length} players at POST ${endpoint}`);
+            usedEndpoint = `${method} ${endpoint}`;
+            console.log(`[FetchPlayers] Found ${players.length} players!`);
             break;
           }
+        } catch (e) {
+          console.log(`[FetchPlayers] ${method} ${endpoint} error: ${(e as Error).message}`);
         }
-      } catch (e) {
-        console.log(`[FetchPlayers] ${endpoint} failed: ${(e as Error).message}`);
       }
+      if (allPlayers.length > 0) break;
     }
 
     if (allPlayers.length === 0) {
@@ -155,13 +168,16 @@ Deno.serve(async (req) => {
         JSON.stringify({ 
           success: false, 
           error: 'Nenhum jogador encontrado. Verifique as credenciais e a URL do site.',
-          tried_endpoints: playerEndpoints,
+          login_success: loginSuccess,
+          has_cookies: !!sessionCookies,
+          has_token: !!bearerToken,
+          debug_responses: debugResponses,
         }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Step 4: Extract CPF and UUID from players
+    // Extract CPF and UUID from players
     const batchItems = allPlayers.map((player: any) => {
       const cpf = player.cpf || player.documento || player.document || player.tax_id || '';
       const uuid = player.uuid || player.id || player.user_id || '';
@@ -170,21 +186,14 @@ Deno.serve(async (req) => {
         ? `${cleanCpf.slice(0, 3)}.***.***-${cleanCpf.slice(-2)}`
         : cleanCpf;
 
-      return {
-        cpf: cleanCpf,
-        cpf_masked: maskedCpf,
-        uuid: uuid.toString(),
-      };
+      return { cpf: cleanCpf, cpf_masked: maskedCpf, uuid: uuid.toString() };
     }).filter((item: any) => item.cpf || item.uuid);
 
-    console.log(`[FetchPlayers] Extracted ${batchItems.length} valid items`);
-
-    // Step 5: Create batch and items in Supabase
+    // Create batch in Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Create batch
     const { data: batch, error: batchError } = await supabase
       .from('batches')
       .insert({
@@ -199,38 +208,25 @@ Deno.serve(async (req) => {
       .single();
 
     if (batchError) {
-      console.error('[FetchPlayers] Batch creation error:', batchError);
       return new Response(
         JSON.stringify({ success: false, error: `Erro ao criar lote: ${batchError.message}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Insert batch items in chunks of 500
-    const chunkSize = 500;
+    // Insert items in chunks
     let insertedCount = 0;
-
-    for (let i = 0; i < batchItems.length; i += chunkSize) {
-      const chunk = batchItems.slice(i, i + chunkSize).map((item: any) => ({
+    for (let i = 0; i < batchItems.length; i += 500) {
+      const chunk = batchItems.slice(i, i + 500).map((item: any) => ({
         batch_id: batch.id,
         cpf: item.cpf,
         cpf_masked: item.cpf_masked,
         uuid: item.uuid,
         status: 'PENDENTE',
       }));
-
-      const { error: itemsError } = await supabase
-        .from('batch_items')
-        .insert(chunk);
-
-      if (itemsError) {
-        console.error(`[FetchPlayers] Items chunk ${i} error:`, itemsError);
-      } else {
-        insertedCount += chunk.length;
-      }
+      const { error } = await supabase.from('batch_items').insert(chunk);
+      if (!error) insertedCount += chunk.length;
     }
-
-    console.log(`[FetchPlayers] Created batch ${batch.id} with ${insertedCount} items`);
 
     return new Response(
       JSON.stringify({
