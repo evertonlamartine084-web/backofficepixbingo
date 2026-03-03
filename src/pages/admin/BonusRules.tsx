@@ -6,34 +6,39 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { mockBonusRules } from '@/lib/mock-data';
-
-const sampleJson = `[
-  {"tipo": "bonus", "descricao": "Bônus campanha março", "valor": 10, "created_at": "2026-03-01T14:30:00"},
-  {"tipo": "deposito", "descricao": "PIX recebido", "valor": 50, "created_at": "2026-03-01T10:00:00"},
-  {"tipo": "bonus", "descricao": "Crédito promocional", "valor": 10, "created_at": "2026-02-28T09:15:00"}
-]`;
+import { useBonusRules } from '@/hooks/use-supabase-data';
 
 export default function BonusRules() {
-  const [testJson, setTestJson] = useState(sampleJson);
+  const [testJson, setTestJson] = useState('');
   const [testResult, setTestResult] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const { data: bonusRules, isLoading } = useBonusRules();
 
   const runTest = () => {
     try {
       const data = JSON.parse(testJson);
-      const rule = mockBonusRules[0];
+      const rules = bonusRules || [];
+      const rule = rules.find((r) => r.active) || rules[0];
+      if (!rule) {
+        setTestResult('Nenhuma regra configurada.');
+        return;
+      }
+
+      const fieldCandidates = (rule.field_candidates || []) as string[];
+      const keywords = (rule.keywords || []) as string[];
+      const dateFields = (rule.date_fields || []) as string[];
+
       const matches = (Array.isArray(data) ? data : [data]).filter((item: Record<string, unknown>) => {
-        const fieldMatch = rule.field_candidates.some((f) => {
+        const fieldMatch = fieldCandidates.some((f) => {
           const val = String(item[f] || '').toLowerCase();
-          return rule.keywords.some((kw) => val.includes(kw.toLowerCase()));
+          return keywords.some((kw) => val.includes(kw.toLowerCase()));
         });
-        const valorMatch = rule.valor_fixo ? item.valor === rule.valor_fixo || item.amount === rule.valor_fixo : true;
+        const valorMatch = rule.valor_fixo ? item.valor === Number(rule.valor_fixo) || item.amount === Number(rule.valor_fixo) : true;
         return fieldMatch && valorMatch;
       });
 
       const datas = matches.map((m: Record<string, unknown>) => {
-        for (const df of rule.date_fields) {
+        for (const df of dateFields) {
           if (m[df]) {
             return new Date(m[df] as string).toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' });
           }
@@ -51,6 +56,16 @@ export default function BonusRules() {
       setTestResult(`Erro: ${(e as Error).message}`);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  const rules = bonusRules || [];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -90,53 +105,59 @@ export default function BonusRules() {
                 <Label className="text-foreground">Campos de data (separados por vírgula)</Label>
                 <Input placeholder="created_at, data_criacao, timestamp" className="mt-1 bg-secondary border-border font-mono text-xs" />
               </div>
-              <Button className="w-full gradient-primary border-0" onClick={() => setOpen(false)}>
-                Salvar Regra
-              </Button>
+              <Button className="w-full gradient-primary border-0" onClick={() => setOpen(false)}>Salvar Regra</Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Active rules */}
-      <div className="space-y-3">
-        {mockBonusRules.map((rule) => (
-          <div key={rule.id} className="glass-card p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-success/10">
-                  <CheckCircle className="w-5 h-5 text-success" />
+      {rules.length === 0 ? (
+        <div className="glass-card p-12 text-center">
+          <p className="text-muted-foreground">Nenhuma regra configurada.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {rules.map((rule) => {
+            const fieldCandidates = (rule.field_candidates || []) as string[];
+            const keywords = (rule.keywords || []) as string[];
+            const dateFields = (rule.date_fields || []) as string[];
+            return (
+              <div key={rule.id} className="glass-card p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-success/10">
+                      <CheckCircle className="w-5 h-5 text-success" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground">{rule.name}</h3>
+                      <p className="text-xs text-muted-foreground">{rule.active ? 'Ativa' : 'Inativa'}</p>
+                    </div>
+                  </div>
+                  <Switch checked={rule.active ?? false} />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">{rule.name}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    {rule.active ? 'Ativa' : 'Inativa'}
-                  </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                  <div className="bg-secondary/50 rounded p-2">
+                    <p className="text-muted-foreground">Campos</p>
+                    <p className="text-foreground font-mono">{fieldCandidates.join(', ')}</p>
+                  </div>
+                  <div className="bg-secondary/50 rounded p-2">
+                    <p className="text-muted-foreground">Keywords</p>
+                    <p className="text-foreground font-mono">{keywords.join(', ')}</p>
+                  </div>
+                  <div className="bg-secondary/50 rounded p-2">
+                    <p className="text-muted-foreground">Valor fixo</p>
+                    <p className="text-foreground font-mono">{rule.valor_fixo ?? 'Qualquer'}</p>
+                  </div>
+                  <div className="bg-secondary/50 rounded p-2">
+                    <p className="text-muted-foreground">Campos de data</p>
+                    <p className="text-foreground font-mono">{dateFields.join(', ')}</p>
+                  </div>
                 </div>
               </div>
-              <Switch checked={rule.active} />
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-              <div className="bg-secondary/50 rounded p-2">
-                <p className="text-muted-foreground">Campos</p>
-                <p className="text-foreground font-mono">{rule.field_candidates.join(', ')}</p>
-              </div>
-              <div className="bg-secondary/50 rounded p-2">
-                <p className="text-muted-foreground">Keywords</p>
-                <p className="text-foreground font-mono">{rule.keywords.join(', ')}</p>
-              </div>
-              <div className="bg-secondary/50 rounded p-2">
-                <p className="text-muted-foreground">Valor fixo</p>
-                <p className="text-foreground font-mono">{rule.valor_fixo ?? 'Qualquer'}</p>
-              </div>
-              <div className="bg-secondary/50 rounded p-2">
-                <p className="text-muted-foreground">Campos de data</p>
-                <p className="text-foreground font-mono">{rule.date_fields.join(', ')}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Test section */}
       <div className="glass-card p-5 border-primary/20">
@@ -152,6 +173,7 @@ export default function BonusRules() {
             <Textarea
               value={testJson}
               onChange={(e) => setTestJson(e.target.value)}
+              placeholder='[{"tipo": "bonus", "valor": 10, "created_at": "2026-03-01T14:30:00"}]'
               className="mt-1 bg-secondary border-border font-mono text-xs min-h-[250px]"
             />
           </div>

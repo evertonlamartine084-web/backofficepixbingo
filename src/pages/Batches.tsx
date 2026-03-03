@@ -4,20 +4,30 @@ import { Plus, Upload, Play, Pause, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { BatchStatusBadge } from '@/components/StatusBadge';
-import { mockBatches } from '@/lib/mock-data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { mockFlows } from '@/lib/mock-data';
+import { useBatches, useFlows } from '@/hooks/use-supabase-data';
+import type { BatchStatus } from '@/types';
 
 export default function Batches() {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
+  const { data: batches, isLoading } = useBatches();
+  const { data: flows } = useFlows();
 
-  const filtered = mockBatches.filter((b) =>
+  const filtered = (batches || []).filter((b) =>
     b.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -48,7 +58,7 @@ export default function Batches() {
                     <SelectValue placeholder="Selecione o fluxo" />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
-                    {mockFlows.map((f) => (
+                    {(flows || []).map((f) => (
                       <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -90,64 +100,73 @@ export default function Batches() {
         </div>
       </div>
 
-      <div className="glass-card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-secondary/30">
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome</th>
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fluxo</th>
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Valor</th>
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Progresso</th>
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stats</th>
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((b) => (
-              <tr key={b.id} className="border-b border-border/30 hover:bg-secondary/20 transition-colors">
-                <td className="p-4">
-                  <Link to={`/batches/${b.id}`} className="text-foreground hover:text-primary font-medium">
-                    {b.name}
-                  </Link>
-                  <p className="text-xs text-muted-foreground mt-0.5">{b.created_at}</p>
-                </td>
-                <td className="p-4 text-muted-foreground">{b.flow_name}</td>
-                <td className="p-4 text-foreground font-mono">R$ {b.bonus_valor}</td>
-                <td className="p-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 h-1.5 bg-secondary rounded-full overflow-hidden">
-                      <div className="h-full gradient-primary rounded-full" style={{ width: `${(b.processed / b.total_items) * 100}%` }} />
-                    </div>
-                    <span className="text-xs text-muted-foreground">{Math.round((b.processed / b.total_items) * 100)}%</span>
-                  </div>
-                </td>
-                <td className="p-4"><BatchStatusBadge status={b.status} /></td>
-                <td className="p-4">
-                  <div className="flex gap-1.5 text-xs">
-                    <span className="px-1.5 py-0.5 rounded bg-success/15 text-success">{b.stats.bonus_1x} 1x</span>
-                    {b.stats.bonus_2x_plus > 0 && (
-                      <span className="px-1.5 py-0.5 rounded bg-destructive/15 text-destructive font-semibold">{b.stats.bonus_2x_plus} 2x+</span>
-                    )}
-                    {b.stats.erro > 0 && (
-                      <span className="px-1.5 py-0.5 rounded bg-warning/15 text-warning">{b.stats.erro} err</span>
-                    )}
-                  </div>
-                </td>
-                <td className="p-4">
-                  <div className="flex items-center gap-1">
-                    {b.status === 'EM_ANDAMENTO' ? (
-                      <Button variant="ghost" size="icon" className="h-8 w-8"><Pause className="w-3.5 h-3.5" /></Button>
-                    ) : b.status !== 'CONCLUIDO' ? (
-                      <Button variant="ghost" size="icon" className="h-8 w-8"><Play className="w-3.5 h-3.5" /></Button>
-                    ) : null}
-                  </div>
-                </td>
+      {filtered.length === 0 ? (
+        <div className="glass-card p-12 text-center">
+          <p className="text-muted-foreground">Nenhum lote encontrado.</p>
+        </div>
+      ) : (
+        <div className="glass-card overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-secondary/30">
+                <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nome</th>
+                <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fluxo</th>
+                <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Valor</th>
+                <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Progresso</th>
+                <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+                <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stats</th>
+                <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {filtered.map((b) => {
+                const stats = b.stats as any;
+                return (
+                  <tr key={b.id} className="border-b border-border/30 hover:bg-secondary/20 transition-colors">
+                    <td className="p-4">
+                      <Link to={`/batches/${b.id}`} className="text-foreground hover:text-primary font-medium">
+                        {b.name}
+                      </Link>
+                      <p className="text-xs text-muted-foreground mt-0.5">{new Date(b.created_at).toLocaleString('pt-BR')}</p>
+                    </td>
+                    <td className="p-4 text-muted-foreground">{b.flow_name || '—'}</td>
+                    <td className="p-4 text-foreground font-mono">R$ {b.bonus_valor}</td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-1.5 bg-secondary rounded-full overflow-hidden">
+                          <div className="h-full gradient-primary rounded-full" style={{ width: `${b.total_items > 0 ? (b.processed / b.total_items) * 100 : 0}%` }} />
+                        </div>
+                        <span className="text-xs text-muted-foreground">{b.total_items > 0 ? Math.round((b.processed / b.total_items) * 100) : 0}%</span>
+                      </div>
+                    </td>
+                    <td className="p-4"><BatchStatusBadge status={b.status as BatchStatus} /></td>
+                    <td className="p-4">
+                      <div className="flex gap-1.5 text-xs">
+                        <span className="px-1.5 py-0.5 rounded bg-success/15 text-success">{stats.bonus_1x} 1x</span>
+                        {stats.bonus_2x_plus > 0 && (
+                          <span className="px-1.5 py-0.5 rounded bg-destructive/15 text-destructive font-semibold">{stats.bonus_2x_plus} 2x+</span>
+                        )}
+                        {stats.erro > 0 && (
+                          <span className="px-1.5 py-0.5 rounded bg-warning/15 text-warning">{stats.erro} err</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-1">
+                        {b.status === 'EM_ANDAMENTO' ? (
+                          <Button variant="ghost" size="icon" className="h-8 w-8"><Pause className="w-3.5 h-3.5" /></Button>
+                        ) : b.status !== 'CONCLUIDO' ? (
+                          <Button variant="ghost" size="icon" className="h-8 w-8"><Play className="w-3.5 h-3.5" /></Button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
