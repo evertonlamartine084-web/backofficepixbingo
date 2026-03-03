@@ -113,7 +113,7 @@ export default function BatchDetail() {
                     item.status === 'BONUS_2X+' ? 'bg-destructive/5' : ''
                   }`}
                 >
-                  <td className="p-3 font-mono text-xs text-muted-foreground">{item.cpf_masked}</td>
+                  <td className="p-3 font-mono text-xs text-muted-foreground">{item.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}</td>
                   <td className="p-3 font-mono text-xs text-foreground">{item.uuid}</td>
                   <td className="p-3"><ItemStatusBadge status={item.status} /></td>
                   <td className="p-3 text-center text-muted-foreground">{item.tentativas}</td>
