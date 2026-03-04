@@ -66,14 +66,24 @@ export default function PlayerLookup() {
 
   const handleCreditBonus = async () => {
     if (!creds.username || !query) return;
+    // Get the real UUID from player data if available
+    const playerData = player?.aaData?.[0] || player;
+    const playerUuid = playerData?.uuid || query;
     setCreditLoading(true);
     try {
       const res = await callProxy('credit_bonus', creds, {
-        cpf: query, uuid: query, player_id: query,
-        bonus_amount: parseFloat(bonusAmount)
+        uuid: playerUuid, player_id: playerUuid,
+        bonus_amount: parseFloat(bonusAmount),
+        carteira: 'BONUS',
       });
       const msg = res?.data?.msg || res?.data?.Msg || '';
-      if (msg && (msg.includes('não tem permissão') || msg.includes('erro') || msg.includes('inválid'))) {
+      const isError = msg && (
+        msg.toLowerCase().includes('não tem permissão') || 
+        msg.toLowerCase().includes('erro') || 
+        msg.toLowerCase().includes('inválid') ||
+        msg.toLowerCase().includes('falha')
+      );
+      if (isError) {
         toast.error(msg);
       } else if (res?.data) {
         toast.success(msg || 'Bônus creditado com sucesso!');
