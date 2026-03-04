@@ -43,18 +43,28 @@ export default function PlayerLookup() {
     setPlayer(null); setBalance(null); setTransactions(null); setBonusHistory(null);
 
     try {
-      const params = { cpf: searchQuery, uuid: searchQuery, player_id: searchQuery };
-      const [searchRes, balanceRes, txRes, bonusRes] = await Promise.allSettled([
-        callProxy('search_player', creds, params),
-        callProxy('player_balance', creds, params),
-        callProxy('player_transactions', creds, params),
-        callProxy('bonus_history', creds, params),
+      // Step 1: Search player to get real UUID
+      const searchRes = await callProxy('search_player', creds, { cpf: searchQuery, uuid: searchQuery });
+      const playerData = searchRes?.data;
+      if (playerData) setPlayer(playerData);
+
+      // Extract the real UUID from search results
+      const foundPlayer = playerData?.aaData?.[0];
+      const realUuid = foundPlayer?.uuid || searchQuery;
+
+      // Step 2: Fetch details using the real UUID
+      const detailParams = { uuid: realUuid, player_id: realUuid, cpf: searchQuery };
+      const [txRes, bonusRes] = await Promise.allSettled([
+        callProxy('player_transactions', creds, detailParams),
+        callProxy('bonus_history', creds, detailParams),
       ]);
 
-      if (searchRes.status === 'fulfilled' && searchRes.value?.data) setPlayer(searchRes.value.data);
-      if (balanceRes.status === 'fulfilled' && balanceRes.value?.data) setBalance(balanceRes.value.data);
       if (txRes.status === 'fulfilled' && txRes.value?.data) setTransactions(txRes.value.data);
       if (bonusRes.status === 'fulfilled' && bonusRes.value?.data) setBonusHistory(bonusRes.value.data);
+      
+      // Use transaction data for balance if available
+      const txData = txRes.status === 'fulfilled' ? txRes.value?.data : null;
+      if (txData?.carteiras) setBalance(txData.carteiras);
 
       toast.success('Dados carregados!');
     } catch (err: any) {

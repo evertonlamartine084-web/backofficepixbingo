@@ -201,11 +201,29 @@ Deno.serve(async (req) => {
 
       case 'search_player': {
         const query = body.cpf || body.uuid || '';
-        // Search in users list by CPF
         const params = new URLSearchParams({
           draw: '1', start: '0', length: '10',
-          busca_cpf: query,
         });
+        // Detect if query is UUID format or CPF
+        if (query.includes('-')) {
+          params.set('busca_uuid', query);
+        } else {
+          params.set('busca_cpf', query);
+        }
+        // Add mandatory DataTables columns (same as list_users)
+        const userCols = ['username','celular','cpf','created_at','ultimo_login','situacao','uuid'];
+        userCols.forEach((col, i) => {
+          params.set(`columns[${i}][data]`, col);
+          params.set(`columns[${i}][name]`, '');
+          params.set(`columns[${i}][searchable]`, 'true');
+          params.set(`columns[${i}][orderable]`, 'true');
+          params.set(`columns[${i}][search][value]`, '');
+          params.set(`columns[${i}][search][regex]`, 'false');
+        });
+        params.set('order[0][column]', '0');
+        params.set('order[0][dir]', 'asc');
+        params.set('search[value]', '');
+        params.set('search[regex]', 'false');
         result = await fetchJSON(`${baseUrl}/usuarios/listar?${params}`, headers);
         break;
       }
