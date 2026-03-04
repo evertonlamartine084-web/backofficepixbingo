@@ -95,7 +95,10 @@ export default function PlayerLookup() {
       if (txData) {
         if (txData.movimentacoes) setBonusHistory(txData.movimentacoes);
         if (txData.historico) setTransactions(txData.historico);
-        if (txData.carteiras) setBalance(txData.carteiras);
+        if (txData.carteiras) {
+          console.log('[DEBUG] carteiras raw:', JSON.stringify(txData.carteiras));
+          setBalance(txData.carteiras);
+        }
       }
 
       toast.success('Dados carregados!');
@@ -160,33 +163,47 @@ export default function PlayerLookup() {
   const balanceItems: { name: string; value: number }[] = (() => {
     if (!balance) return [];
     
+    // If it's a string (HTML or raw text), can't parse
+    if (typeof balance === 'string') return [];
+
     // If it's an array of objects like [{carteira: 'BONUS', saldo: 10}, ...]
     if (Array.isArray(balance)) {
-      return balance.map((b: any) => {
-        const name = b.nome || b.name || b.tipo || b.carteira || b.descricao || '—';
-        // Try multiple value fields
-        let val = b.saldo ?? b.valor ?? b.value ?? b.balance ?? 0;
-        if (typeof val === 'object') val = 0;
-        return { name: String(name), value: parseFloat(String(val)) || 0 };
-      });
+      return balance
+        .filter((b: any) => b && typeof b === 'object')
+        .map((b: any) => {
+          const name = b.nome || b.name || b.tipo || b.carteira || b.descricao || '—';
+          let val = b.saldo ?? b.valor ?? b.value ?? b.balance ?? 0;
+          if (typeof val === 'string') val = val.replace(/[^\d.,-]/g, '').replace(',', '.');
+          if (typeof val === 'object') val = 0;
+          return { name: String(name), value: parseFloat(String(val)) || 0 };
+        });
     }
     
-    // If it's an object like { BONUS: 10, CREDITO: 20 } or { BONUS: { saldo: 10 }, ... }
+    // If it's an object, filter out internal keys
     if (typeof balance === 'object' && balance !== null) {
-      return Object.entries(balance).map(([k, v]: [string, any]) => {
-        if (v === null || v === undefined) return { name: k, value: 0 };
-        if (typeof v === 'number') return { name: k, value: v };
-        if (typeof v === 'string') return { name: k, value: parseFloat(v) || 0 };
-        if (typeof v === 'object') {
-          const val = v.saldo ?? v.valor ?? v.value ?? v.balance ?? 0;
-          return { name: v.nome || v.name || v.carteira || k, value: parseFloat(String(val)) || 0 };
-        }
-        return { name: k, value: 0 };
-      });
+      return Object.entries(balance)
+        .filter(([k]) => !k.startsWith('_') && k !== 'DT_RowId')
+        .map(([k, v]: [string, any]) => {
+          if (v === null || v === undefined) return { name: k, value: 0 };
+          if (typeof v === 'number') return { name: k, value: v };
+          if (typeof v === 'string') {
+            const cleaned = v.replace(/[^\d.,-]/g, '').replace(',', '.');
+            return { name: k, value: parseFloat(cleaned) || 0 };
+          }
+          if (typeof v === 'object') {
+            let val = v.saldo ?? v.valor ?? v.value ?? v.balance ?? 0;
+            if (typeof val === 'string') val = val.replace(/[^\d.,-]/g, '').replace(',', '.');
+            return { name: v.nome || v.name || v.carteira || k, value: parseFloat(String(val)) || 0 };
+          }
+          return { name: k, value: 0 };
+        });
     }
     
     return [];
   })();
+  
+  // Raw balance fallback for debugging
+  const balanceRaw = balance && balanceItems.length === 0 ? JSON.stringify(balance, null, 2) : null;
 
   // Normalize history arrays
   const normalizeList = (data: any): any[] => {
@@ -329,6 +346,8 @@ export default function PlayerLookup() {
                     </div>
                   ))}
                 </div>
+              ) : balanceRaw ? (
+                <pre className="text-xs text-muted-foreground bg-secondary/40 p-3 rounded-lg overflow-auto max-h-40 font-mono whitespace-pre-wrap">{balanceRaw}</pre>
               ) : (
                 <p className="text-sm text-muted-foreground italic">Sem dados de saldo</p>
               )}
