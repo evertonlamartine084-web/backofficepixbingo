@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,11 +22,11 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Use anon client to verify the caller's identity
+    const token = authHeader.replace('Bearer ', '');
     const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user: caller }, error: callerError } = await callerClient.auth.getUser();
+    const { data: { user: caller }, error: callerError } = await callerClient.auth.getUser(token);
     if (callerError || !caller) {
       return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401, headers: corsHeaders });
     }
