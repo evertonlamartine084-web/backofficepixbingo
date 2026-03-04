@@ -30,7 +30,7 @@ export function FinancialKPICard({ title, value, icon: Icon, trend, trendValue, 
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-2 min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{title}</p>
-          <p className="text-2xl font-bold text-foreground font-mono break-all leading-tight">{value}</p>
+          <p className="text-2xl font-bold text-foreground font-mono whitespace-nowrap leading-tight">{value}</p>
           {trend && trendValue && (
             <div className={cn(
               'inline-flex items-center gap-1 text-xs font-medium rounded-full px-2 py-0.5',
