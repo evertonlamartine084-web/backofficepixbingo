@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Trash2, Users, ChevronRight, Loader2, Upload, X, Hash, Calendar, CreditCard, DollarSign, SearchCheck, ShieldCheck, ShieldX } from 'lucide-react';
+import { Plus, Trash2, Users, ChevronRight, Loader2, Upload, X, Hash, Calendar, CreditCard, DollarSign, SearchCheck, ShieldCheck, ShieldX, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,6 +65,10 @@ export default function Segments() {
   const [verifyProgress, setVerifyProgress] = useState({ current: 0, total: 0 });
   const [verifyResults, setVerifyResults] = useState<Record<string, { hasBonus: boolean; lastBonusDate?: string; bonusCount: number }>>({});
   const [verifyDone, setVerifyDone] = useState(false);
+
+  // Abort refs
+  const verifyCancelRef = useRef(false);
+  const creditCancelRef = useRef(false);
 
   // Fetch segments with item count
   const { data: segments, isLoading } = useQuery({
@@ -179,6 +183,7 @@ export default function Segments() {
     }
 
     setCreditLoading(true);
+    creditCancelRef.current = false;
     setCreditProgress({ current: 0, total: items.length, credited: 0, errors: 0 });
 
     try {
@@ -193,6 +198,12 @@ export default function Segments() {
 
       if (batchErr || !batch) throw new Error(batchErr?.message || 'Erro ao criar lote');
 
+      if (creditCancelRef.current) {
+        toast.info('Creditação cancelada');
+        setCreditLoading(false);
+        return;
+      }
+
       // 2. Insert batch_items from segment CPFs
       const batchItems = items.map((item: any) => ({
         batch_id: batch.id,
@@ -203,6 +214,12 @@ export default function Segments() {
 
       const { error: itemsErr } = await supabase.from('batch_items').insert(batchItems);
       if (itemsErr) throw new Error(itemsErr.message);
+
+      if (creditCancelRef.current) {
+        toast.info('Creditação cancelada');
+        setCreditLoading(false);
+        return;
+      }
 
       // 3. Trigger credit_batch via proxy
       const res = await callProxy('credit_batch', creds, {
@@ -227,7 +244,9 @@ export default function Segments() {
 
       qc.invalidateQueries({ queryKey: ['batches'] });
     } catch (err: any) {
-      toast.error(err.message || 'Erro na creditação em massa');
+      if (!creditCancelRef.current) {
+        toast.error(err.message || 'Erro na creditação em massa');
+      }
     } finally {
       setCreditLoading(false);
     }
@@ -249,10 +268,15 @@ export default function Segments() {
     setVerifyDone(false);
     setVerifyResults({});
     setVerifyProgress({ current: 0, total: items.length });
+    verifyCancelRef.current = false;
 
     const results: Record<string, { hasBonus: boolean; lastBonusDate?: string; bonusCount: number }> = {};
 
     for (let i = 0; i < items.length; i++) {
+      if (verifyCancelRef.current) {
+        toast.info('Verificação cancelada');
+        break;
+      }
       const item = items[i];
       setVerifyProgress({ current: i + 1, total: items.length });
 
@@ -556,14 +580,24 @@ export default function Segments() {
                       </div>
                       <DialogFooter>
                         <DialogClose asChild><Button variant="outline">Fechar</Button></DialogClose>
-                        <Button
-                          onClick={handleMassCredit}
-                          disabled={creditLoading || !creds.username || !items?.length}
-                          className="gradient-success border-0 text-success-foreground"
-                        >
-                          {creditLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <DollarSign className="w-4 h-4 mr-2" />}
-                          {creditLoading ? 'Processando...' : 'Iniciar Creditação'}
-                        </Button>
+                        {creditLoading ? (
+                          <Button
+                            onClick={() => { creditCancelRef.current = true; }}
+                            variant="destructive"
+                          >
+                            <Ban className="w-4 h-4 mr-2" />
+                            Cancelar
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={handleMassCredit}
+                            disabled={!creds.username || !items?.length}
+                            className="gradient-success border-0 text-success-foreground"
+                          >
+                            <DollarSign className="w-4 h-4 mr-2" />
+                            Iniciar Creditação
+                          </Button>
+                        )}
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
@@ -645,14 +679,24 @@ export default function Segments() {
                       <DialogFooter>
                         <DialogClose asChild><Button variant="outline">Fechar</Button></DialogClose>
                         {!verifyDone && (
-                          <Button
-                            onClick={handleVerifyBonus}
-                            disabled={verifyLoading || !creds.username || !items?.length}
-                            className="gradient-primary border-0"
-                          >
-                            {verifyLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <SearchCheck className="w-4 h-4 mr-2" />}
-                            {verifyLoading ? 'Verificando...' : 'Iniciar Verificação'}
-                          </Button>
+                          verifyLoading ? (
+                            <Button
+                              onClick={() => { verifyCancelRef.current = true; }}
+                              variant="destructive"
+                            >
+                              <Ban className="w-4 h-4 mr-2" />
+                              Cancelar
+                            </Button>
+                          ) : (
+                            <Button
+                              onClick={handleVerifyBonus}
+                              disabled={!creds.username || !items?.length}
+                              className="gradient-primary border-0"
+                            >
+                              <SearchCheck className="w-4 h-4 mr-2" />
+                              Iniciar Verificação
+                            </Button>
+                          )
                         )}
                       </DialogFooter>
                     </DialogContent>
