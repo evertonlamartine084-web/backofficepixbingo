@@ -240,7 +240,7 @@ export default function PlayerLookup() {
     if (val === null || val === undefined) return '—';
     const kl = key.toLowerCase();
     if (kl.includes('valor') || kl.includes('saldo') || kl.includes('amount') || kl.includes('deposito') || kl.includes('saque') || kl.includes('bonus') || kl.includes('comissao') || kl.includes('lucro') || kl.includes('ggr') || kl.includes('premio')) {
-      const n = parseFloat(val);
+      const n = parseBRL(val);
       if (!isNaN(n)) return fmtBRL(n);
     }
     if (kl.includes('data') || kl.includes('date') || kl.includes('created') || kl.includes('updated') || kl === 'ultimo_login') {
