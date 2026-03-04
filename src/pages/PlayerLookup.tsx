@@ -112,9 +112,9 @@ export default function PlayerLookup() {
       const res = await callProxy('cancel_bonus', creds, {
         cpf: query, uuid: query, player_id: query, bonus_id: bonusId || ''
       });
-      if (res?.data) {
-        toast.success('Bônus cancelado!');
-        handleSearch();
+      const msg = res?.data?.msg || res?.data?.Msg || '';
+      if (msg) {
+        toast.warning(msg);
       } else {
         toast.error('Falha ao cancelar bônus');
       }
