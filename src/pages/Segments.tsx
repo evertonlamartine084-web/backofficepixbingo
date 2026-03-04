@@ -2,15 +2,19 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Trash2, Users, ChevronRight, Loader2, Upload, X, Hash, Calendar } from 'lucide-react';
+import { Plus, Trash2, Users, ChevronRight, Loader2, Upload, X, Hash, Calendar, CreditCard, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Progress } from '@/components/ui/progress';
+import { ApiCredentialsBar } from '@/components/ApiCredentialsBar';
+import { useProxy } from '@/hooks/use-proxy';
+import { useNavigate } from 'react-router-dom';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, DialogDescription,
 } from '@/components/ui/dialog';
 
 const maskCPF = (cpf: string) => {
@@ -40,12 +44,19 @@ const parseCPFs = (text: string): string[] => {
 
 export default function Segments() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const { callProxy } = useProxy();
+  const [creds, setCreds] = useState({ username: '', password: '' });
   const [selectedSegment, setSelectedSegment] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [cpfInput, setCpfInput] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [addCpfOpen, setAddCpfOpen] = useState(false);
+  const [creditOpen, setCreditOpen] = useState(false);
+  const [creditAmount, setCreditAmount] = useState('10');
+  const [creditLoading, setCreditLoading] = useState(false);
+  const [creditProgress, setCreditProgress] = useState({ current: 0, total: 0, credited: 0, errors: 0 });
 
   // Fetch segments with item count
   const { data: segments, isLoading } = useQuery({
@@ -148,6 +159,72 @@ export default function Segments() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // Mass credit: create batch from segment and process
+  const handleMassCredit = async () => {
+    if (!creds.username || !creds.password) {
+      toast.error('Conecte-se primeiro com suas credenciais');
+      return;
+    }
+    if (!selectedSegment || !items || items.length === 0) {
+      toast.error('Segmento sem CPFs');
+      return;
+    }
+
+    setCreditLoading(true);
+    setCreditProgress({ current: 0, total: items.length, credited: 0, errors: 0 });
+
+    try {
+      // 1. Create a batch from segment
+      const batchName = `${selectedSeg?.name || 'Segmento'} - Crédito ${new Date().toLocaleDateString('pt-BR')}`;
+      const { data: batch, error: batchErr } = await supabase.from('batches').insert({
+        name: batchName,
+        bonus_valor: parseFloat(creditAmount) || 0,
+        total_items: items.length,
+        status: 'EM_ANDAMENTO',
+      }).select().single();
+
+      if (batchErr || !batch) throw new Error(batchErr?.message || 'Erro ao criar lote');
+
+      // 2. Insert batch_items from segment CPFs
+      const batchItems = items.map((item: any) => ({
+        batch_id: batch.id,
+        cpf: item.cpf,
+        cpf_masked: item.cpf_masked,
+        status: 'PENDENTE',
+      }));
+
+      const { error: itemsErr } = await supabase.from('batch_items').insert(batchItems);
+      if (itemsErr) throw new Error(itemsErr.message);
+
+      // 3. Trigger credit_batch via proxy
+      const res = await callProxy('credit_batch', creds, {
+        batch_id: batch.id,
+        bonus_amount: parseFloat(creditAmount),
+      });
+
+      const result = res?.data;
+      setCreditProgress({
+        current: items.length,
+        total: items.length,
+        credited: result?.credited || 0,
+        errors: result?.errors || 0,
+      });
+
+      if (result?.credited > 0) {
+        toast.success(`${result.credited} bônus creditados com sucesso!`);
+      }
+      if (result?.errors > 0) {
+        toast.warning(`${result.errors} erros durante o processamento`);
+      }
+
+      qc.invalidateQueries({ queryKey: ['batches'] });
+    } catch (err: any) {
+      toast.error(err.message || 'Erro na creditação em massa');
+    } finally {
+      setCreditLoading(false);
+    }
+  };
+
   const selectedSeg = segments?.find((s: any) => s.id === selectedSegment);
 
   return (
@@ -187,6 +264,8 @@ export default function Segments() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <ApiCredentialsBar onCredentials={setCreds} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Segments List */}
@@ -254,42 +333,127 @@ export default function Segments() {
                     <p className="text-sm text-muted-foreground">{selectedSeg.description}</p>
                   )}
                 </div>
-                <Dialog open={addCpfOpen} onOpenChange={setAddCpfOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="gradient-primary border-0" size="sm">
-                      <Upload className="w-4 h-4 mr-2" /> Adicionar CPFs
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Adicionar CPFs ao Segmento</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-3">
-                      <Label>Cole os CPFs (um por linha, separados por vírgula ou espaço)</Label>
-                      <Textarea
-                        value={cpfInput}
-                        onChange={e => setCpfInput(e.target.value)}
-                        placeholder={"12345678901\n98765432109\n11122233344"}
-                        rows={8}
-                        className="bg-secondary border-border font-mono text-sm"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {parseCPFs(cpfInput).length} CPF(s) válido(s) detectado(s)
-                      </p>
-                    </div>
-                    <DialogFooter>
-                      <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-                      <Button
-                        onClick={() => addCpfsMut.mutate()}
-                        disabled={parseCPFs(cpfInput).length === 0 || addCpfsMut.isPending}
-                        className="gradient-primary border-0"
-                      >
-                        {addCpfsMut.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                        Adicionar {parseCPFs(cpfInput).length} CPFs
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Dialog open={addCpfOpen} onOpenChange={setAddCpfOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="border-border">
+                        <Upload className="w-4 h-4 mr-2" /> Adicionar CPFs
                       </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Adicionar CPFs ao Segmento</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-3">
+                        <Label>Cole os CPFs (um por linha, separados por vírgula ou espaço)</Label>
+                        <Textarea
+                          value={cpfInput}
+                          onChange={e => setCpfInput(e.target.value)}
+                          placeholder={"12345678901\n98765432109\n11122233344"}
+                          rows={8}
+                          className="bg-secondary border-border font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {parseCPFs(cpfInput).length} CPF(s) válido(s) detectado(s)
+                        </p>
+                      </div>
+                      <DialogFooter>
+                        <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+                        <Button
+                          onClick={() => addCpfsMut.mutate()}
+                          disabled={parseCPFs(cpfInput).length === 0 || addCpfsMut.isPending}
+                          className="gradient-primary border-0"
+                        >
+                          {addCpfsMut.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                          Adicionar {parseCPFs(cpfInput).length} CPFs
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Mass Credit Button */}
+                  <Dialog open={creditOpen} onOpenChange={setCreditOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="gradient-success border-0 text-success-foreground" size="sm" disabled={!items || items.length === 0}>
+                        <CreditCard className="w-4 h-4 mr-2" /> Creditar Segmento
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Creditação em Massa</DialogTitle>
+                        <DialogDescription>
+                          Creditar bônus para todos os {items?.length || 0} CPFs do segmento "{selectedSeg?.name}"
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        {!creds.username && (
+                          <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 text-warning text-sm">
+                            ⚠️ Conecte-se primeiro na barra de credenciais acima
+                          </div>
+                        )}
+                        <div>
+                          <Label>Valor do Bônus (R$)</Label>
+                          <Input
+                            type="number"
+                            value={creditAmount}
+                            onChange={e => setCreditAmount(e.target.value)}
+                            className="bg-secondary border-border font-mono mt-1"
+                            placeholder="10"
+                          />
+                        </div>
+                        <div className="p-3 rounded-lg bg-secondary/50 text-sm space-y-1">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">CPFs no segmento</span>
+                            <span className="font-semibold text-foreground">{items?.length || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Valor por jogador</span>
+                            <span className="font-mono text-foreground">R$ {parseFloat(creditAmount) || 0}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-border pt-1 mt-1">
+                            <span className="text-muted-foreground font-semibold">Total estimado</span>
+                            <span className="font-mono font-bold text-foreground">
+                              R$ {((items?.length || 0) * (parseFloat(creditAmount) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        </div>
+
+                        {creditLoading && (
+                          <div className="space-y-2">
+                            <Progress value={creditProgress.total > 0 ? (creditProgress.current / creditProgress.total) * 100 : 0} className="h-2" />
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Processando {creditProgress.current}/{creditProgress.total}</span>
+                              <span>
+                                <span className="text-success">{creditProgress.credited} ✓</span>
+                                {creditProgress.errors > 0 && <span className="text-destructive ml-2">{creditProgress.errors} ✗</span>}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {!creditLoading && creditProgress.current > 0 && (
+                          <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-sm">
+                            <p className="font-semibold text-success">Processamento concluído!</p>
+                            <p className="text-muted-foreground mt-1">
+                              {creditProgress.credited} creditados, {creditProgress.errors} erros
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <DialogFooter>
+                        <DialogClose asChild><Button variant="outline">Fechar</Button></DialogClose>
+                        <Button
+                          onClick={handleMassCredit}
+                          disabled={creditLoading || !creds.username || !items?.length}
+                          className="gradient-success border-0 text-success-foreground"
+                        >
+                          {creditLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <DollarSign className="w-4 h-4 mr-2" />}
+                          {creditLoading ? 'Processando...' : 'Iniciar Creditação'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
 
               {itemsLoading ? (

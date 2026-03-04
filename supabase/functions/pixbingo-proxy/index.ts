@@ -328,9 +328,48 @@ Deno.serve(async (req) => {
 
         for (const item of items) {
           try {
-            const creditResult = await fetchJSON(`${baseUrl}/usuarios/creditos`, headers, 'POST', {
-              uuid: item.uuid || '', valor: String(bonusValor),
-            });
+            // Resolve UUID from CPF if missing
+            let itemUuid = item.uuid || '';
+            if (!itemUuid && item.cpf) {
+              const searchParams = new URLSearchParams({ draw: '1', start: '0', length: '1', busca_cpf: item.cpf });
+              const userCols = ['username','celular','cpf','created_at','ultimo_login','situacao','uuid'];
+              userCols.forEach((col, i) => {
+                searchParams.set(`columns[${i}][data]`, col);
+                searchParams.set(`columns[${i}][name]`, '');
+                searchParams.set(`columns[${i}][searchable]`, 'true');
+                searchParams.set(`columns[${i}][orderable]`, 'true');
+                searchParams.set(`columns[${i}][search][value]`, '');
+                searchParams.set(`columns[${i}][search][regex]`, 'false');
+              });
+              searchParams.set('order[0][column]', '0');
+              searchParams.set('order[0][dir]', 'asc');
+              searchParams.set('search[value]', '');
+              searchParams.set('search[regex]', 'false');
+              const searchResult = await fetchJSON(`${baseUrl}/usuarios/listar?${searchParams}`, headers);
+              const found = searchResult?.aaData?.[0];
+              if (found?.uuid) {
+                itemUuid = found.uuid;
+                // Save resolved UUID to batch_item
+                await supabase.from('batch_items').update({ uuid: itemUuid }).eq('id', item.id);
+              }
+            }
+
+            if (!itemUuid) {
+              await supabase.from('batch_items').update({
+                status: 'ERRO', tentativas: item.tentativas + 1,
+                log: ['UUID não encontrado para CPF: ' + item.cpf]
+              }).eq('id', item.id);
+              errors++;
+              continue;
+            }
+
+            const creditBody: Record<string, string> = {
+              uuid: itemUuid,
+              carteira: 'BONUS',
+              valor: String(bonusValor),
+              senha: body.password,
+            };
+            const creditResult = await fetchJSON(`${baseUrl}/usuarios/creditos`, headers, 'POST', creditBody);
 
             if (creditResult.status === true || creditResult.msg?.includes('sucesso')) {
               await supabase.from('batch_items').update({
