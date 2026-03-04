@@ -394,15 +394,17 @@ Deno.serve(async (req) => {
               aaData: [{
                 depositos: valorDeposito,
                 saques: valorSaque,
-                bonus: 0,
-                ggr: 0,
-                comissao: 0,
-                lucro: 0,
-                apostas: 0,
-                premios: 0,
-                turnover: valorDeposito,
+                bonus: null,
+                ggr: null,
+                comissao: null,
+                lucro: null,
+                apostas: null,
+                premios: null,
+                turnover: null,
               }],
               fonte: 'transferencias_fallback',
+              qtdeDeposito: Number(txSummary?.qtdeDeposito || 0),
+              qtdeSaque: Number(txSummary?.qtdeSaque || 0),
             };
           } else {
             const code = Number(lastError?.code ?? lastError?._status ?? 500);

@@ -63,13 +63,14 @@ function formatBRL(val: number): string {
 interface FinancialTotals {
   depositos: number;
   saques: number;
-  bonus: number;
-  ggr: number;
-  comissao: number;
-  lucro: number;
-  apostas: number;
-  premios: number;
-  turnover: number;
+  bonus: number | null;
+  ggr: number | null;
+  comissao: number | null;
+  lucro: number | null;
+  apostas: number | null;
+  premios: number | null;
+  turnover: number | null;
+  isFallback?: boolean;
 }
 
 export default function Dashboard() {
@@ -104,40 +105,36 @@ export default function Dashboard() {
       }
 
       const rows = res?.data?.aaData || res?.data?.data || [];
+      const isFallback = res?.data?.fonte === 'transferencias_fallback';
       const totals: FinancialTotals = {
-        depositos: 0, saques: 0, bonus: 0, ggr: 0,
-        comissao: 0, lucro: 0, apostas: 0, premios: 0, turnover: 0,
+        depositos: 0, saques: 0, bonus: isFallback ? null : 0, ggr: isFallback ? null : 0,
+        comissao: isFallback ? null : 0, lucro: isFallback ? null : 0,
+        apostas: isFallback ? null : 0, premios: isFallback ? null : 0,
+        turnover: isFallback ? null : 0, isFallback,
       };
 
       if (Array.isArray(rows)) {
         for (const row of rows) {
           totals.depositos += parseCurrency(row.depositos);
           totals.saques += parseCurrency(row.saques);
-          totals.bonus += parseCurrency(row.bonus);
-          totals.ggr += parseCurrency(row.ggr);
-          totals.comissao += parseCurrency(row.comissao);
-          totals.lucro += parseCurrency(row.lucro);
-          // apostas e premios may come as separate fields or need calculation
-          totals.apostas += parseCurrency(row.apostas || row.bets || 0);
-          totals.premios += parseCurrency(row.premios || row.prizes || 0);
-          totals.turnover += parseCurrency(row.turnover || row.apostas || row.bets || 0);
+          if (!isFallback) {
+            totals.bonus = (totals.bonus || 0) + parseCurrency(row.bonus);
+            totals.ggr = (totals.ggr || 0) + parseCurrency(row.ggr);
+            totals.comissao = (totals.comissao || 0) + parseCurrency(row.comissao);
+            totals.lucro = (totals.lucro || 0) + parseCurrency(row.lucro);
+            totals.apostas = (totals.apostas || 0) + parseCurrency(row.apostas || row.bets || 0);
+            totals.premios = (totals.premios || 0) + parseCurrency(row.premios || row.prizes || 0);
+            totals.turnover = (totals.turnover || 0) + parseCurrency(row.turnover || row.apostas || row.bets || 0);
+          }
         }
       }
 
-      // If apostas/turnover not in API, estimate: turnover ≈ depositos + bonus, GGR = apostas - premios
-      if (totals.turnover === 0 && totals.depositos > 0) {
-        totals.turnover = totals.depositos + totals.bonus;
-      }
-      if (totals.apostas === 0 && totals.ggr !== 0) {
-        // GGR = apostas - premios → apostas = ggr + premios
-        totals.apostas = totals.turnover;
-      }
-      if (totals.premios === 0 && totals.apostas > 0) {
-        totals.premios = totals.apostas - totals.ggr;
-      }
-
       setFinancials(totals);
-      toast.success('Financeiro atualizado!');
+      if (isFallback) {
+        toast.info('Dados parciais: apenas depósitos e saques disponíveis');
+      } else {
+        toast.success('Financeiro atualizado!');
+      }
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -232,45 +229,18 @@ export default function Dashboard() {
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
           </div>
         ) : financials ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            <FinancialKPICard
-              title="Depósitos"
-              value={formatBRL(financials.depositos)}
-              icon={ArrowDownToLine}
-              variant="green"
-            />
-            <FinancialKPICard
-              title="Saques"
-              value={formatBRL(financials.saques)}
-              icon={ArrowUpFromLine}
-              variant="red"
-            />
-            <FinancialKPICard
-              title="Apostas"
-              value={formatBRL(financials.apostas)}
-              icon={Dices}
-              variant="blue"
-            />
-            <FinancialKPICard
-              title="Prêmios"
-              value={formatBRL(financials.premios)}
-              icon={Trophy}
-              variant="amber"
-            />
-            <FinancialKPICard
-              title="Turnover"
-              value={formatBRL(financials.turnover)}
-              icon={TrendingUp}
-              variant="purple"
-            />
-            <FinancialKPICard
-              title="GGR"
-              value={formatBRL(financials.ggr)}
-              icon={BarChart3}
-              variant={financials.ggr >= 0 ? 'green' : 'red'}
-              trend={financials.ggr >= 0 ? 'up' : 'down'}
-              trendValue={financials.turnover > 0 ? `${((financials.ggr / financials.turnover) * 100).toFixed(1)}% margem` : undefined}
-            />
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+              <FinancialKPICard title="Depósitos" value={formatBRL(financials.depositos)} icon={ArrowDownToLine} variant="green" />
+              <FinancialKPICard title="Saques" value={formatBRL(financials.saques)} icon={ArrowUpFromLine} variant="red" />
+              <FinancialKPICard title="Apostas" value={financials.apostas !== null ? formatBRL(financials.apostas) : 'N/D'} icon={Dices} variant={financials.apostas !== null ? 'blue' : 'default'} />
+              <FinancialKPICard title="Prêmios" value={financials.premios !== null ? formatBRL(financials.premios) : 'N/D'} icon={Trophy} variant={financials.premios !== null ? 'amber' : 'default'} />
+              <FinancialKPICard title="Turnover" value={financials.turnover !== null ? formatBRL(financials.turnover) : 'N/D'} icon={TrendingUp} variant={financials.turnover !== null ? 'purple' : 'default'} />
+              <FinancialKPICard title="GGR" value={financials.ggr !== null ? formatBRL(financials.ggr) : 'N/D'} icon={BarChart3} variant={financials.ggr !== null ? (financials.ggr >= 0 ? 'green' : 'red') : 'default'} trend={financials.ggr !== null ? (financials.ggr >= 0 ? 'up' : 'down') : undefined} trendValue={financials.ggr !== null && financials.turnover !== null && financials.turnover > 0 ? `${((financials.ggr / financials.turnover) * 100).toFixed(1)}% margem` : undefined} />
+            </div>
+            {financials.isFallback && (
+              <p className="text-xs text-muted-foreground">⚠️ Dados parciais — endpoint financeiro indisponível, exibindo apenas depósitos e saques.</p>
+            )}
           </div>
         ) : null}
       </div>
