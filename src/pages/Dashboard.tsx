@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { format } from 'date-fns';
 import {
   Package, Users, CheckCircle, XCircle, AlertTriangle, Clock, Zap, Shield,
   Loader2, RefreshCw, Activity, ArrowDownToLine, ArrowUpFromLine,
-  Dices, Trophy, TrendingUp, BarChart3, Wallet, DollarSign
+  Dices, Trophy, TrendingUp, BarChart3, Wallet, DollarSign, CalendarIcon
 } from 'lucide-react';
 import { StatsCard } from '@/components/StatsCard';
 import { FinancialKPICard } from '@/components/FinancialKPICard';
@@ -13,39 +14,43 @@ import { ApiCredentialsBar } from '@/components/ApiCredentialsBar';
 import { useProxy } from '@/hooks/use-proxy';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import type { BatchStatus } from '@/types';
 
-type PeriodFilter = 'today' | 'yesterday' | '7d' | '30d';
+type PeriodFilter = 'today' | 'yesterday' | '7d' | '30d' | 'custom';
 
-function getDateRange(period: PeriodFilter) {
+const fmtDate = (d: Date) => {
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+};
+
+function getDateRange(period: PeriodFilter, customStart?: Date, customEnd?: Date) {
   const now = new Date();
-  // API expects dd/mm/yyyy format
-  const fmt = (d: Date) => {
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
-  };
-
   switch (period) {
     case 'today':
-      return { start: fmt(now), end: fmt(now) };
+      return { start: fmtDate(now), end: fmtDate(now) };
     case 'yesterday': {
       const y = new Date(now);
       y.setDate(y.getDate() - 1);
-      return { start: fmt(y), end: fmt(y) };
+      return { start: fmtDate(y), end: fmtDate(y) };
     }
     case '7d': {
       const d = new Date(now);
       d.setDate(d.getDate() - 7);
-      return { start: fmt(d), end: fmt(now) };
+      return { start: fmtDate(d), end: fmtDate(now) };
     }
     case '30d': {
       const d = new Date(now);
       d.setDate(d.getDate() - 30);
-      return { start: fmt(d), end: fmt(now) };
+      return { start: fmtDate(d), end: fmtDate(now) };
     }
+    case 'custom':
+      return { start: fmtDate(customStart || now), end: fmtDate(customEnd || now) };
   }
 }
 
@@ -82,6 +87,8 @@ export default function Dashboard() {
   const { data: batches, isLoading: loadingBatches } = useBatches();
   const [creds, setCreds] = useState({ username: '', password: '' });
   const [period, setPeriod] = useState<PeriodFilter>('today');
+  const [customStart, setCustomStart] = useState<Date>(new Date());
+  const [customEnd, setCustomEnd] = useState<Date>(new Date());
   const [financials, setFinancials] = useState<FinancialData | null>(null);
   const [loadingFinancials, setLoadingFinancials] = useState(false);
   const { callProxy } = useProxy();
@@ -90,7 +97,7 @@ export default function Dashboard() {
     if (!creds.username) return;
     setLoadingFinancials(true);
     try {
-      const range = getDateRange(period);
+      const range = getDateRange(period, customStart, customEnd);
       const res = await callProxy('financeiro', creds, {
         busca_data_inicio: range.start,
         busca_data_fim: range.end,
@@ -155,7 +162,7 @@ export default function Dashboard() {
   // Auto-fetch when creds or period change
   useEffect(() => {
     if (creds.username) fetchFinancials();
-  }, [period]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [period, customStart, customEnd]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loadingStats || loadingBatches) {
     return (
@@ -168,12 +175,12 @@ export default function Dashboard() {
   const stats = s || { total_batches: 0, total_items: 0, pendente: 0, processando: 0, sem_bonus: 0, bonus_1x: 0, bonus_2x_plus: 0, erro: 0 };
   const recentBatches = (batches || []).slice(0, 5);
 
-  const periodLabels: Record<PeriodFilter, string> = {
-    today: 'Hoje',
-    yesterday: 'Ontem',
-    '7d': '7 dias',
-    '30d': '30 dias',
-  };
+  const quickFilters: { key: PeriodFilter; label: string }[] = [
+    { key: 'today', label: 'Hoje' },
+    { key: 'yesterday', label: 'Ontem' },
+    { key: '7d', label: '7 dias' },
+    { key: '30d', label: '30 dias' },
+  ];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -201,22 +208,64 @@ export default function Dashboard() {
             <DollarSign className="w-5 h-5 text-primary" />
             <h2 className="text-lg font-semibold text-foreground">Financeiro</h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="flex rounded-lg border border-border overflow-hidden">
-              {(Object.keys(periodLabels) as PeriodFilter[]).map((p) => (
+              {quickFilters.map((f) => (
                 <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
+                  key={f.key}
+                  onClick={() => setPeriod(f.key)}
                   className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    period === p
+                    period === f.key
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
                   }`}
                 >
-                  {periodLabels[p]}
+                  {f.label}
                 </button>
               ))}
             </div>
+
+            {/* Custom date pickers */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={period === 'custom' ? 'default' : 'outline'}
+                  size="sm"
+                  className={cn('gap-1.5 text-xs', period !== 'custom' && 'border-border')}
+                  onClick={() => setPeriod('custom')}
+                >
+                  <CalendarIcon className="w-3.5 h-3.5" />
+                  {period === 'custom'
+                    ? `${format(customStart, 'dd/MM')} - ${format(customEnd, 'dd/MM')}`
+                    : 'Personalizado'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <div className="flex flex-col sm:flex-row">
+                  <div className="p-3 border-b sm:border-b-0 sm:border-r border-border">
+                    <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Data início</p>
+                    <Calendar
+                      mode="single"
+                      selected={customStart}
+                      onSelect={(d) => { if (d) { setCustomStart(d); setPeriod('custom'); } }}
+                      disabled={(d) => d > new Date()}
+                      className={cn("p-0 pointer-events-auto")}
+                    />
+                  </div>
+                  <div className="p-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Data fim</p>
+                    <Calendar
+                      mode="single"
+                      selected={customEnd}
+                      onSelect={(d) => { if (d) { setCustomEnd(d); setPeriod('custom'); } }}
+                      disabled={(d) => d > new Date() || d < customStart}
+                      className={cn("p-0 pointer-events-auto")}
+                    />
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
             <Button
               onClick={fetchFinancials}
               disabled={loadingFinancials || !creds.username}
