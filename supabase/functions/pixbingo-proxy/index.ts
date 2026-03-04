@@ -300,9 +300,10 @@ Deno.serve(async (req) => {
         params.set('search[regex]', 'false');
         if (body.busca_data_inicio) params.set('busca_periodo_ini', body.busca_data_inicio);
         if (body.busca_data_fim) params.set('busca_periodo_fim', body.busca_data_fim);
-        console.log(`[financeiro] periodo_ini=${body.busca_data_inicio}, periodo_fim=${body.busca_data_fim}`);
         if (body.busca_agrupamento) params.set('busca_agrupamento', body.busca_agrupamento);
-        result = await fetchJSON(`${baseUrl}/financeiro/listar?${params}`, headers);
+        console.log(`[financeiro] POST body params: busca_periodo_ini=${body.busca_data_inicio}, busca_periodo_fim=${body.busca_data_fim}`);
+        // Use POST with form body to avoid URL-encoding issues with date slashes
+        result = await fetchJSON(`${baseUrl}/financeiro/listar`, headers, 'POST', Object.fromEntries(params.entries()));
         break;
       }
 
