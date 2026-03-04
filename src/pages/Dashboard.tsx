@@ -93,10 +93,13 @@ export default function Dashboard() {
       });
 
       // Handle API error responses
-      if (res?.data?.code === 500 || res?.data?.Msg) {
-        console.error('API financeiro error:', res.data.Msg);
-        toast.error('Erro na API financeira: ' + (res.data.Msg || 'Erro desconhecido'));
-        setLoadingFinancials(false);
+      const apiErrorCode = Number(res?.data?.code ?? res?.data?._status ?? 0);
+      const apiErrorMessage = res?.data?.Msg || res?.data?._raw;
+      if (apiErrorCode >= 400 || apiErrorMessage) {
+        const message = String(apiErrorMessage || `Erro HTTP ${apiErrorCode || 'desconhecido'}`);
+        console.error('API financeiro error:', message);
+        toast.error('Erro na API financeira: ' + message);
+        setFinancials(null);
         return;
       }
 

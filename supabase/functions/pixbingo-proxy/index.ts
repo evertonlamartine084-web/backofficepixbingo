@@ -281,29 +281,135 @@ Deno.serve(async (req) => {
       }
 
       case 'financeiro': {
-        const params = new URLSearchParams();
-        params.set('draw', String(body.draw || 1));
-        params.set('start', String(body.start || 0));
-        params.set('length', String(body.length || 50));
-        const finCols = ['data','depositos','saques','bonus','ggr','comissao','lucro'];
-        finCols.forEach((col, i) => {
-          params.set(`columns[${i}][data]`, col);
-          params.set(`columns[${i}][name]`, '');
-          params.set(`columns[${i}][searchable]`, 'true');
-          params.set(`columns[${i}][orderable]`, 'true');
-          params.set(`columns[${i}][search][value]`, '');
-          params.set(`columns[${i}][search][regex]`, 'false');
+        const buildDtParams = (usePeriodoKeys: boolean) => {
+          const p = new URLSearchParams();
+          p.set('draw', String(body.draw || 1));
+          p.set('start', String(body.start || 0));
+          p.set('length', String(body.length || 50));
+          p.set('exportar', '0');
+
+          const finCols = ['data', 'depositos', 'saques', 'bonus', 'ggr', 'comissao', 'lucro'];
+          finCols.forEach((col, i) => {
+            p.set(`columns[${i}][data]`, col);
+            p.set(`columns[${i}][name]`, '');
+            p.set(`columns[${i}][searchable]`, 'true');
+            p.set(`columns[${i}][orderable]`, 'true');
+            p.set(`columns[${i}][search][value]`, '');
+            p.set(`columns[${i}][search][regex]`, 'false');
+          });
+
+          p.set('order[0][column]', '0');
+          p.set('order[0][dir]', 'desc');
+          p.set('search[value]', '');
+          p.set('search[regex]', 'false');
+
+          if (body.busca_data_inicio) p.set(usePeriodoKeys ? 'busca_periodo_ini' : 'busca_data_inicio', body.busca_data_inicio);
+          if (body.busca_data_fim) p.set(usePeriodoKeys ? 'busca_periodo_fim' : 'busca_data_fim', body.busca_data_fim);
+          p.set('busca_agrupamento', body.busca_agrupamento || 'dia');
+          if (csrfToken) p.set('_token', csrfToken);
+          return p;
+        };
+
+        const buildMinimalParams = (usePeriodoKeys: boolean) => {
+          const p = new URLSearchParams();
+          if (body.busca_data_inicio) p.set(usePeriodoKeys ? 'busca_periodo_ini' : 'busca_data_inicio', body.busca_data_inicio);
+          if (body.busca_data_fim) p.set(usePeriodoKeys ? 'busca_periodo_fim' : 'busca_data_fim', body.busca_data_fim);
+          p.set('busca_agrupamento', body.busca_agrupamento || 'dia');
+          if (csrfToken) p.set('_token', csrfToken);
+          return p;
+        };
+
+        const financePageRes = await fetch(`${baseUrl}/financeiro`, {
+          method: 'GET',
+          headers: { ...headers, Accept: 'text/html,application/xhtml+xml,*/*' },
+          signal: AbortSignal.timeout(12000),
         });
-        params.set('order[0][column]', '0');
-        params.set('order[0][dir]', 'desc');
-        params.set('search[value]', '');
-        params.set('search[regex]', 'false');
-        if (body.busca_data_inicio) params.set('busca_periodo_ini', body.busca_data_inicio);
-        if (body.busca_data_fim) params.set('busca_periodo_fim', body.busca_data_fim);
-        if (body.busca_agrupamento) params.set('busca_agrupamento', body.busca_agrupamento);
-        console.log(`[financeiro] POST body params: busca_periodo_ini=${body.busca_data_inicio}, busca_periodo_fim=${body.busca_data_fim}`);
-        // Use POST with form body to avoid URL-encoding issues with date slashes
-        result = await fetchJSON(`${baseUrl}/financeiro/listar`, headers, 'POST', Object.fromEntries(params.entries()));
+        const financeHtml = await financePageRes.text();
+
+        const detectedPathMatch = financeHtml.match(/['"`](\/[^'"`]*financeiro[^'"`]*listar[^'"`]*)['"`]/i);
+        const detectedPath = detectedPathMatch?.[1] || '/financeiro/listar';
+        const csrfMatch = financeHtml.match(/name=["']_token["'][^>]*value=["']([^"']+)["']/i)
+          || financeHtml.match(/meta[^>]*name=["']csrf-token["'][^>]*content=["']([^"']+)["']/i);
+        const csrfToken = csrfMatch?.[1] || '';
+
+        console.log(`[financeiro] page_status=${financePageRes.status}, login_page=${financeHtml.toLowerCase().includes('<h1>login')}, endpoint=${detectedPath}, csrf=${csrfToken ? 'yes' : 'no'}`);
+
+        const isFinanceError = (r: any) => {
+          const code = Number(r?.code ?? r?._status ?? 0);
+          const msg = String(r?.Msg || r?._raw || '').toLowerCase();
+          return code >= 400 || msg.includes('inválid') || msg.includes('inval') || msg.includes('não encontrada') || msg.includes('nao encontrada');
+        };
+
+        const attempts: Array<{ label: string; method: 'GET' | 'POST'; url: string; body?: Record<string, string> }> = [
+          { label: 'GET dt + periodo', method: 'GET', url: `${baseUrl}${detectedPath}?${buildDtParams(true).toString()}` },
+          { label: 'GET dt + data', method: 'GET', url: `${baseUrl}${detectedPath}?${buildDtParams(false).toString()}` },
+          { label: 'GET minimal + periodo', method: 'GET', url: `${baseUrl}${detectedPath}?${buildMinimalParams(true).toString()}` },
+          { label: 'GET minimal + data', method: 'GET', url: `${baseUrl}${detectedPath}?${buildMinimalParams(false).toString()}` },
+          { label: 'POST dt + periodo', method: 'POST', url: `${baseUrl}${detectedPath}`, body: Object.fromEntries(buildDtParams(true).entries()) },
+          { label: 'POST dt + data', method: 'POST', url: `${baseUrl}${detectedPath}`, body: Object.fromEntries(buildDtParams(false).entries()) },
+          { label: 'POST minimal + periodo', method: 'POST', url: `${baseUrl}${detectedPath}`, body: Object.fromEntries(buildMinimalParams(true).entries()) },
+          { label: 'POST minimal + data', method: 'POST', url: `${baseUrl}${detectedPath}`, body: Object.fromEntries(buildMinimalParams(false).entries()) },
+        ];
+
+        let lastError: any = null;
+        for (const attempt of attempts) {
+          console.log(`[financeiro] tentativa: ${attempt.label}`);
+          const current = await fetchJSON(attempt.url, headers, attempt.method, attempt.body);
+          if (!isFinanceError(current)) {
+            result = current;
+            break;
+          }
+          lastError = current;
+        }
+
+        if (!result) {
+          // Fallback: use transferências resumo (depósitos/saques) when financeiro endpoint fails
+          const txParams = new URLSearchParams();
+          txParams.set('draw', String(body.draw || 1));
+          txParams.set('start', '0');
+          txParams.set('length', String(body.length || 100));
+          txParams.set('exportar', '0');
+          const txCols = ['id', 'tipo', 'valor', 'saldo_anterior', 'saldo_posterior', 'cpf', 'username', 'created_at', 'descricao', 'status'];
+          txCols.forEach((col, i) => {
+            txParams.set(`columns[${i}][data]`, col);
+            txParams.set(`columns[${i}][name]`, '');
+            txParams.set(`columns[${i}][searchable]`, 'true');
+            txParams.set(`columns[${i}][orderable]`, 'true');
+            txParams.set(`columns[${i}][search][value]`, '');
+            txParams.set(`columns[${i}][search][regex]`, 'false');
+          });
+          txParams.set('order[0][column]', '0');
+          txParams.set('order[0][dir]', 'desc');
+          txParams.set('search[value]', '');
+          txParams.set('search[regex]', 'false');
+          if (body.busca_data_inicio) txParams.set('busca_data_inicio', body.busca_data_inicio);
+          if (body.busca_data_fim) txParams.set('busca_data_fim', body.busca_data_fim);
+
+          const txSummary = await fetchJSON(`${baseUrl}/transferencias/listar?${txParams.toString()}`, headers, 'GET');
+          const valorDeposito = Number(txSummary?.valorDeposito || 0);
+          const valorSaque = Number(txSummary?.valorSaque || 0);
+
+          if (Number.isFinite(valorDeposito) && Number.isFinite(valorSaque) && (valorDeposito > 0 || valorSaque > 0)) {
+            result = {
+              aaData: [{
+                depositos: valorDeposito,
+                saques: valorSaque,
+                bonus: 0,
+                ggr: 0,
+                comissao: 0,
+                lucro: 0,
+                apostas: 0,
+                premios: 0,
+                turnover: valorDeposito,
+              }],
+              fonte: 'transferencias_fallback',
+            };
+          } else {
+            const code = Number(lastError?.code ?? lastError?._status ?? 500);
+            const msg = String(lastError?.Msg || lastError?._raw || 'Falha ao consultar financeiro');
+            result = { code, Msg: msg };
+          }
+        }
         break;
       }
 
