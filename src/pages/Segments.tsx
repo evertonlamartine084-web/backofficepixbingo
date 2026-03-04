@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Trash2, Users, ChevronRight, Loader2, Upload, X, Hash, Calendar, CreditCard, DollarSign } from 'lucide-react';
+import { Plus, Trash2, Users, ChevronRight, Loader2, Upload, X, Hash, Calendar, CreditCard, DollarSign, SearchCheck, ShieldCheck, ShieldX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,6 +57,14 @@ export default function Segments() {
   const [creditAmount, setCreditAmount] = useState('10');
   const [creditLoading, setCreditLoading] = useState(false);
   const [creditProgress, setCreditProgress] = useState({ current: 0, total: 0, credited: 0, errors: 0 });
+
+  // Verification state
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifyDays, setVerifyDays] = useState('7');
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyProgress, setVerifyProgress] = useState({ current: 0, total: 0 });
+  const [verifyResults, setVerifyResults] = useState<Record<string, { hasBonus: boolean; lastBonusDate?: string; bonusCount: number }>>({});
+  const [verifyDone, setVerifyDone] = useState(false);
 
   // Fetch segments with item count
   const { data: segments, isLoading } = useQuery({
@@ -223,6 +231,112 @@ export default function Segments() {
     } finally {
       setCreditLoading(false);
     }
+  };
+
+  // Verify bonus for all CPFs in segment
+  const handleVerifyBonus = async () => {
+    if (!creds.username || !creds.password) {
+      toast.error('Conecte-se primeiro com suas credenciais');
+      return;
+    }
+    if (!items || items.length === 0) return;
+
+    const days = parseInt(verifyDays) || 7;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    setVerifyLoading(true);
+    setVerifyDone(false);
+    setVerifyResults({});
+    setVerifyProgress({ current: 0, total: items.length });
+
+    const results: Record<string, { hasBonus: boolean; lastBonusDate?: string; bonusCount: number }> = {};
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      setVerifyProgress({ current: i + 1, total: items.length });
+
+      try {
+        // Search player to get UUID
+        const searchRes = await callProxy('search_player', creds, { cpf: item.cpf });
+        const foundPlayer = searchRes?.data?.aaData?.[0];
+        const uuid = foundPlayer?.uuid;
+
+        if (!uuid) {
+          results[item.cpf] = { hasBonus: false, bonusCount: 0 };
+          setVerifyResults({ ...results });
+          continue;
+        }
+
+        // Get transactions
+        const txRes = await callProxy('player_transactions', creds, { uuid, player_id: uuid, cpf: item.cpf });
+        const movimentacoes = txRes?.data?.movimentacoes || txRes?.data?.historico || [];
+        const txList = Array.isArray(movimentacoes) ? movimentacoes : [];
+
+        // Filter bonus transactions within the date range
+        let bonusCount = 0;
+        let lastBonusDate: string | undefined;
+
+        for (const tx of txList) {
+          const tipo = (tx.tipo || tx.type || tx.descricao || '').toString().toLowerCase();
+          const isBonus = tipo.includes('bonus') || tipo.includes('bônus') || tipo.includes('credito') || tipo.includes('crédito');
+          if (!isBonus) continue;
+
+          const dateStr = tx.created_at || tx.data || tx.date || '';
+          if (!dateStr) { bonusCount++; continue; }
+
+          const txDate = new Date(dateStr);
+          if (txDate >= cutoffDate) {
+            bonusCount++;
+            if (!lastBonusDate || txDate > new Date(lastBonusDate)) {
+              lastBonusDate = dateStr;
+            }
+          }
+        }
+
+        results[item.cpf] = { hasBonus: bonusCount > 0, lastBonusDate, bonusCount };
+      } catch {
+        results[item.cpf] = { hasBonus: false, bonusCount: 0 };
+      }
+
+      setVerifyResults({ ...results });
+    }
+
+    setVerifyLoading(false);
+    setVerifyDone(true);
+
+    const withBonus = Object.values(results).filter(r => r.hasBonus).length;
+    if (withBonus > 0) {
+      toast.warning(`${withBonus} jogador(es) já receberam bônus nos últimos ${days} dias`);
+    } else {
+      toast.success('Nenhum jogador recebeu bônus no período!');
+    }
+  };
+
+  // Remove all CPFs that have bonus
+  const handleRemoveWithBonus = async () => {
+    if (!items) return;
+    const cpfsWithBonus = items.filter((item: any) => verifyResults[item.cpf]?.hasBonus);
+    if (cpfsWithBonus.length === 0) {
+      toast.info('Nenhum CPF com bônus para remover');
+      return;
+    }
+
+    const ids = cpfsWithBonus.map((item: any) => item.id);
+    const { error } = await supabase.from('segment_items').delete().in('id', ids);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    // Clear results for removed items
+    const newResults = { ...verifyResults };
+    cpfsWithBonus.forEach((item: any) => delete newResults[item.cpf]);
+    setVerifyResults(newResults);
+
+    qc.invalidateQueries({ queryKey: ['segment_items', selectedSegment] });
+    qc.invalidateQueries({ queryKey: ['segments'] });
+    toast.success(`${cpfsWithBonus.length} CPF(s) removidos do segmento!`);
   };
 
   const selectedSeg = segments?.find((s: any) => s.id === selectedSegment);
@@ -453,6 +567,96 @@ export default function Segments() {
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
+
+                  {/* Verify Bonus Button */}
+                  <Dialog open={verifyOpen} onOpenChange={(o) => { setVerifyOpen(o); if (!o) { setVerifyDone(false); } }}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="border-border" disabled={!items || items.length === 0}>
+                        <SearchCheck className="w-4 h-4 mr-2" /> Verificar Bônus
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle>Verificar Bônus no Segmento</DialogTitle>
+                        <DialogDescription>
+                          Verifica quais jogadores já receberam bônus nos últimos X dias e permite removê-los do segmento.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        {!creds.username && (
+                          <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 text-warning text-sm">
+                            ⚠️ Conecte-se primeiro na barra de credenciais acima
+                          </div>
+                        )}
+                        <div>
+                          <Label>Período (dias)</Label>
+                          <Input
+                            type="number"
+                            value={verifyDays}
+                            onChange={e => setVerifyDays(e.target.value)}
+                            className="bg-secondary border-border font-mono mt-1"
+                            placeholder="7"
+                            min="1"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Jogadores que receberam bônus nos últimos {verifyDays || '0'} dias serão marcados
+                          </p>
+                        </div>
+
+                        {verifyLoading && (
+                          <div className="space-y-2">
+                            <Progress value={verifyProgress.total > 0 ? (verifyProgress.current / verifyProgress.total) * 100 : 0} className="h-2" />
+                            <p className="text-xs text-muted-foreground text-center">
+                              Verificando {verifyProgress.current}/{verifyProgress.total} jogadores...
+                            </p>
+                          </div>
+                        )}
+
+                        {verifyDone && (
+                          <div className="space-y-3">
+                            <div className="p-3 rounded-lg bg-secondary/50 text-sm space-y-1">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Total verificados</span>
+                                <span className="font-semibold text-foreground">{Object.keys(verifyResults).length}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground flex items-center gap-1"><ShieldX className="w-3 h-3 text-destructive" /> Com bônus</span>
+                                <span className="font-semibold text-destructive">{Object.values(verifyResults).filter(r => r.hasBonus).length}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground flex items-center gap-1"><ShieldCheck className="w-3 h-3 text-success" /> Sem bônus</span>
+                                <span className="font-semibold text-success">{Object.values(verifyResults).filter(r => !r.hasBonus).length}</span>
+                              </div>
+                            </div>
+
+                            {Object.values(verifyResults).filter(r => r.hasBonus).length > 0 && (
+                              <Button
+                                onClick={handleRemoveWithBonus}
+                                className="w-full"
+                                variant="destructive"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Remover {Object.values(verifyResults).filter(r => r.hasBonus).length} CPFs com bônus
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <DialogFooter>
+                        <DialogClose asChild><Button variant="outline">Fechar</Button></DialogClose>
+                        {!verifyDone && (
+                          <Button
+                            onClick={handleVerifyBonus}
+                            disabled={verifyLoading || !creds.username || !items?.length}
+                            className="gradient-primary border-0"
+                          >
+                            {verifyLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <SearchCheck className="w-4 h-4 mr-2" />}
+                            {verifyLoading ? 'Verificando...' : 'Iniciar Verificação'}
+                          </Button>
+                        )}
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
 
@@ -466,27 +670,59 @@ export default function Segments() {
                         <TableHead className="text-xs font-semibold uppercase tracking-wider">CPF</TableHead>
                         <TableHead className="text-xs font-semibold uppercase tracking-wider">CPF Mascarado</TableHead>
                         <TableHead className="text-xs font-semibold uppercase tracking-wider">Adicionado em</TableHead>
+                        {Object.keys(verifyResults).length > 0 && (
+                          <TableHead className="text-xs font-semibold uppercase tracking-wider">Status Bônus</TableHead>
+                        )}
                         <TableHead className="text-xs font-semibold uppercase tracking-wider w-12"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {items.map((item: any) => (
-                        <TableRow key={item.id} className="hover:bg-secondary/30">
-                          <TableCell className="font-mono text-sm">{fmtCPF(item.cpf)}</TableCell>
-                          <TableCell className="font-mono text-sm text-muted-foreground">{item.cpf_masked}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{fmtDate(item.created_at)}</TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive"
-                              onClick={() => removeCpfMut.mutate(item.id)}
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {items.map((item: any) => {
+                        const vr = verifyResults[item.cpf];
+                        return (
+                          <TableRow key={item.id} className={`hover:bg-secondary/30 ${vr?.hasBonus ? 'bg-destructive/5' : ''}`}>
+                            <TableCell className="font-mono text-sm">{fmtCPF(item.cpf)}</TableCell>
+                            <TableCell className="font-mono text-sm text-muted-foreground">{item.cpf_masked}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{fmtDate(item.created_at)}</TableCell>
+                            {Object.keys(verifyResults).length > 0 && (
+                              <TableCell>
+                                {vr ? (
+                                  vr.hasBonus ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <ShieldX className="w-3.5 h-3.5 text-destructive" />
+                                      <span className="text-xs text-destructive font-medium">
+                                        {vr.bonusCount}x bônus
+                                        {vr.lastBonusDate && (
+                                          <span className="text-muted-foreground font-normal ml-1">
+                                            ({fmtDate(vr.lastBonusDate)})
+                                          </span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5">
+                                      <ShieldCheck className="w-3.5 h-3.5 text-success" />
+                                      <span className="text-xs text-success font-medium">Sem bônus</span>
+                                    </div>
+                                  )
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                            )}
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() => removeCpfMut.mutate(item.id)}
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
