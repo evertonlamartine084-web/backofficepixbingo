@@ -219,10 +219,14 @@ Deno.serve(async (req) => {
       case 'credit_bonus': {
         const id = body.player_id || body.uuid || '';
         const amount = body.bonus_amount || 0;
-        result = await fetchJSON(`${baseUrl}/usuarios/creditos`, headers, 'POST', {
+        const creditBody: Record<string, string> = {
           uuid: id,
           valor: String(amount),
-        });
+          tipo: body.tipo || 'BONUS',
+          carteira: body.carteira || 'BONUS',
+          descricao: body.descricao || 'Crédito via painel',
+        };
+        result = await fetchJSON(`${baseUrl}/usuarios/creditos`, headers, 'POST', creditBody);
         break;
       }
 

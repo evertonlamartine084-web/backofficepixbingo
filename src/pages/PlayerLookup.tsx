@@ -72,8 +72,11 @@ export default function PlayerLookup() {
         cpf: query, uuid: query, player_id: query,
         bonus_amount: parseFloat(bonusAmount)
       });
-      if (res?.data) {
-        toast.success('Bônus creditado com sucesso!');
+      const msg = res?.data?.msg || res?.data?.Msg || '';
+      if (msg && (msg.includes('não tem permissão') || msg.includes('erro') || msg.includes('inválid'))) {
+        toast.error(msg);
+      } else if (res?.data) {
+        toast.success(msg || 'Bônus creditado com sucesso!');
         handleSearch();
       } else {
         toast.error('Falha ao creditar bônus');
