@@ -2,8 +2,8 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-const DEFAULT_SITE = 'https://pixbingobr.com';
-const DEFAULT_LOGIN = 'https://pixbingobr.com/api/auth/login';
+const DEFAULT_SITE = 'https://pixbingobr.concurso.club';
+const DEFAULT_LOGIN = 'https://pixbingobr.concurso.club/login';
 
 // Persist credentials in sessionStorage so user doesn't retype every page
 const CRED_KEY = 'pixbingo_creds';
