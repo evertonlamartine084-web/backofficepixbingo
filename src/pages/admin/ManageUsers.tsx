@@ -47,8 +47,10 @@ export default function AdminUsers() {
   const callManageUsers = useCallback(async (body: Record<string, any>) => {
     const { data, error } = await supabase.functions.invoke('manage-users', { body });
     if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-    return data;
+
+    const payload = typeof data === 'string' ? JSON.parse(data) : data;
+    if (payload?.error) throw new Error(payload.error);
+    return payload;
   }, []);
 
   const loadUsers = useCallback(async () => {
