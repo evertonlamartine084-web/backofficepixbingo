@@ -15,6 +15,7 @@ import Transactions from "@/pages/Transactions";
 import Endpoints from "@/pages/admin/Endpoints";
 import BonusRules from "@/pages/admin/BonusRules";
 import Discovery from "@/pages/admin/Discovery";
+import Segments from "@/pages/Segments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/" element={<Dashboard />} />
             <Route path="/batches" element={<Batches />} />
             <Route path="/batches/:id" element={<BatchDetail />} />
+            <Route path="/segments" element={<Segments />} />
             <Route path="/duplicates" element={<Duplicates />} />
             <Route path="/player" element={<PlayerLookup />} />
             <Route path="/users" element={<Users />} />

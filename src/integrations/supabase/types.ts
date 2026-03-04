@@ -379,6 +379,62 @@ export type Database = {
         }
         Relationships: []
       }
+      segment_items: {
+        Row: {
+          cpf: string
+          cpf_masked: string
+          created_at: string
+          id: string
+          segment_id: string
+        }
+        Insert: {
+          cpf: string
+          cpf_masked: string
+          created_at?: string
+          id?: string
+          segment_id: string
+        }
+        Update: {
+          cpf?: string
+          cpf_masked?: string
+          created_at?: string
+          id?: string
+          segment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "segment_items_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      segments: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
