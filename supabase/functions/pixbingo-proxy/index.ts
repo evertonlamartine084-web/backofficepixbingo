@@ -404,38 +404,40 @@ Deno.serve(async (req) => {
           const valorDeposito = Number(txSummary?.valorDeposito || 0);
           const valorSaque = Number(txSummary?.valorSaque || 0);
 
-          // Sum total_compra (bets) and total_premio (prizes) from all products
-          let totalCompra = 0;
-          let totalPremio = 0;
+          // Sum total_compra (bets) and total_premio (prizes) per product
           const kenoRows = frData?.keno || [];
           const cassinoRows = frData?.cassino || [];
-          const allRows = [...kenoRows, ...cassinoRows];
-          for (const row of allRows) {
-            totalCompra += Number(row?.total_compra || 0);
-            totalPremio += Number(row?.total_premio || 0);
-          }
-          // Also check totals
+
+          const sumRows = (rows: any[]) => {
+            let compra = 0, premio = 0;
+            for (const row of rows) {
+              compra += Number(row?.total_compra || 0);
+              premio += Number(row?.total_premio || 0);
+            }
+            return { apostas: compra, premios: premio, turnover: compra, ggr: compra - premio };
+          };
+
           const totalKeno = frData?.totalKeno?.[0] || {};
           const totalCassino = frData?.totalCassino?.[0] || {};
-          if (allRows.length === 0) {
-            totalCompra = Number(totalKeno?.total_compra || 0) + Number(totalCassino?.total_compra || 0);
-            totalPremio = Number(totalKeno?.total_premio || 0) + Number(totalCassino?.total_premio || 0);
-          }
 
-          const ggr = totalCompra - totalPremio;
+          const kenoTotals = kenoRows.length > 0
+            ? sumRows(kenoRows)
+            : { apostas: Number(totalKeno?.total_compra || 0), premios: Number(totalKeno?.total_premio || 0), turnover: Number(totalKeno?.total_compra || 0), ggr: Number(totalKeno?.total_compra || 0) - Number(totalKeno?.total_premio || 0) };
+
+          const cassinoTotals = cassinoRows.length > 0
+            ? sumRows(cassinoRows)
+            : { apostas: Number(totalCassino?.total_compra || 0), premios: Number(totalCassino?.total_premio || 0), turnover: Number(totalCassino?.total_compra || 0), ggr: Number(totalCassino?.total_compra || 0) - Number(totalCassino?.total_premio || 0) };
+
+          const totalApostas = kenoTotals.apostas + cassinoTotals.apostas;
+          const totalPremios = kenoTotals.premios + cassinoTotals.premios;
+          const totalGGR = totalApostas - totalPremios;
 
           result = {
-            aaData: [{
-              depositos: valorDeposito,
-              saques: valorSaque,
-              bonus: 0,
-              ggr: ggr,
-              comissao: 0,
-              lucro: 0,
-              apostas: totalCompra,
-              premios: totalPremio,
-              turnover: totalCompra,
-            }],
+            depositos: valorDeposito,
+            saques: valorSaque,
+            keno: kenoTotals,
+            cassino: cassinoTotals,
+            total: { apostas: totalApostas, premios: totalPremios, turnover: totalApostas, ggr: totalGGR },
             fonte: 'combined_fallback',
           };
         }

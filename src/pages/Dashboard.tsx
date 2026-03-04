@@ -12,6 +12,7 @@ import { useDashboardStats, useBatches } from '@/hooks/use-supabase-data';
 import { ApiCredentialsBar } from '@/components/ApiCredentialsBar';
 import { useProxy } from '@/hooks/use-proxy';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import type { BatchStatus } from '@/types';
 
@@ -60,16 +61,19 @@ function formatBRL(val: number): string {
   return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-interface FinancialTotals {
+interface ProductTotals {
+  apostas: number;
+  premios: number;
+  turnover: number;
+  ggr: number;
+}
+
+interface FinancialData {
   depositos: number;
   saques: number;
-  bonus: number | null;
-  ggr: number | null;
-  comissao: number | null;
-  lucro: number | null;
-  apostas: number | null;
-  premios: number | null;
-  turnover: number | null;
+  keno: ProductTotals;
+  cassino: ProductTotals;
+  total: ProductTotals;
   isFallback?: boolean;
 }
 
@@ -78,7 +82,7 @@ export default function Dashboard() {
   const { data: batches, isLoading: loadingBatches } = useBatches();
   const [creds, setCreds] = useState({ username: '', password: '' });
   const [period, setPeriod] = useState<PeriodFilter>('today');
-  const [financials, setFinancials] = useState<FinancialTotals | null>(null);
+  const [financials, setFinancials] = useState<FinancialData | null>(null);
   const [loadingFinancials, setLoadingFinancials] = useState(false);
   const { callProxy } = useProxy();
 
@@ -104,29 +108,42 @@ export default function Dashboard() {
         return;
       }
 
-      const rows = res?.data?.aaData || res?.data?.data || [];
-      const fonte = res?.data?.fonte || '';
-      const totals: FinancialTotals = {
-        depositos: 0, saques: 0, bonus: 0, ggr: 0,
-        comissao: 0, lucro: 0, apostas: 0, premios: 0, turnover: 0,
-        isFallback: fonte.includes('fallback'),
-      };
+      const d = res?.data;
+      const fonte = d?.fonte || '';
 
-      if (Array.isArray(rows)) {
-        for (const row of rows) {
-          totals.depositos += parseCurrency(row.depositos);
-          totals.saques += parseCurrency(row.saques);
-          totals.bonus = (totals.bonus || 0) + parseCurrency(row.bonus);
-          totals.ggr = (totals.ggr || 0) + parseCurrency(row.ggr);
-          totals.comissao = (totals.comissao || 0) + parseCurrency(row.comissao);
-          totals.lucro = (totals.lucro || 0) + parseCurrency(row.lucro);
-          totals.apostas = (totals.apostas || 0) + parseCurrency(row.apostas || row.bets || 0);
-          totals.premios = (totals.premios || 0) + parseCurrency(row.premios || row.prizes || 0);
-          totals.turnover = (totals.turnover || 0) + parseCurrency(row.turnover || row.apostas || row.bets || 0);
+      // New separated format from proxy
+      if (d?.keno || d?.cassino || d?.total) {
+        const zeroProduct: ProductTotals = { apostas: 0, premios: 0, turnover: 0, ggr: 0 };
+        setFinancials({
+          depositos: Number(d.depositos || 0),
+          saques: Number(d.saques || 0),
+          keno: d.keno || zeroProduct,
+          cassino: d.cassino || zeroProduct,
+          total: d.total || zeroProduct,
+          isFallback: fonte.includes('fallback'),
+        });
+      } else {
+        // Legacy aaData format
+        const rows = d?.aaData || d?.data || [];
+        let depositos = 0, saques = 0, apostas = 0, premios = 0;
+        if (Array.isArray(rows)) {
+          for (const row of rows) {
+            depositos += parseCurrency(row.depositos);
+            saques += parseCurrency(row.saques);
+            apostas += parseCurrency(row.apostas || row.bets || 0);
+            premios += parseCurrency(row.premios || row.prizes || 0);
+          }
         }
+        const totalP: ProductTotals = { apostas, premios, turnover: apostas, ggr: apostas - premios };
+        setFinancials({
+          depositos, saques,
+          keno: { apostas: 0, premios: 0, turnover: 0, ggr: 0 },
+          cassino: { apostas: 0, premios: 0, turnover: 0, ggr: 0 },
+          total: totalP,
+          isFallback: fonte.includes('fallback'),
+        });
       }
 
-      setFinancials(totals);
       toast.success('Financeiro atualizado!');
     } catch (err: any) {
       toast.error(err.message);
@@ -223,14 +240,31 @@ export default function Dashboard() {
           </div>
         ) : financials ? (
           <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
               <FinancialKPICard title="Depósitos" value={formatBRL(financials.depositos)} icon={ArrowDownToLine} variant="green" />
               <FinancialKPICard title="Saques" value={formatBRL(financials.saques)} icon={ArrowUpFromLine} variant="red" />
-              <FinancialKPICard title="Apostas" value={formatBRL(financials.apostas ?? 0)} icon={Dices} variant="blue" />
-              <FinancialKPICard title="Prêmios" value={formatBRL(financials.premios ?? 0)} icon={Trophy} variant="amber" />
-              <FinancialKPICard title="Turnover" value={formatBRL(financials.turnover ?? 0)} icon={TrendingUp} variant="purple" />
-              <FinancialKPICard title="GGR" value={formatBRL(financials.ggr ?? 0)} icon={BarChart3} variant={(financials.ggr ?? 0) >= 0 ? 'green' : 'red'} trend={(financials.ggr ?? 0) >= 0 ? 'up' : 'down'} trendValue={(financials.turnover ?? 0) > 0 ? `${(((financials.ggr ?? 0) / (financials.turnover ?? 1)) * 100).toFixed(1)}% margem` : undefined} />
             </div>
+
+            <Tabs defaultValue="total" className="w-full">
+              <TabsList>
+                <TabsTrigger value="total">Total</TabsTrigger>
+                <TabsTrigger value="keno">Keno</TabsTrigger>
+                <TabsTrigger value="cassino">Cassino</TabsTrigger>
+              </TabsList>
+              {(['total', 'keno', 'cassino'] as const).map((tab) => {
+                const data = financials[tab];
+                return (
+                  <TabsContent key={tab} value={tab}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <FinancialKPICard title="Apostas" value={formatBRL(data.apostas)} icon={Dices} variant="blue" />
+                      <FinancialKPICard title="Prêmios" value={formatBRL(data.premios)} icon={Trophy} variant="amber" />
+                      <FinancialKPICard title="Turnover" value={formatBRL(data.turnover)} icon={TrendingUp} variant="purple" />
+                      <FinancialKPICard title="GGR" value={formatBRL(data.ggr)} icon={BarChart3} variant={data.ggr >= 0 ? 'green' : 'red'} trend={data.ggr >= 0 ? 'up' : 'down'} trendValue={data.turnover > 0 ? `${((data.ggr / data.turnover) * 100).toFixed(1)}% margem` : undefined} />
+                    </div>
+                  </TabsContent>
+                );
+              })}
+            </Tabs>
           </div>
         ) : null}
       </div>
