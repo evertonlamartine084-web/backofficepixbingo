@@ -6,7 +6,7 @@ const corsHeaders = {
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 type Action = 'login' | 'list_users' | 'search_player' | 'player_transactions'
-  | 'credit_bonus' | 'list_transactions' | 'financeiro' | 'credit_batch';
+  | 'credit_bonus' | 'cancel_bonus' | 'list_transactions' | 'financeiro' | 'credit_batch';
 
 interface ProxyRequest {
   action: Action;
@@ -374,6 +374,11 @@ Deno.serve(async (req) => {
         }).eq('id', body.batch_id);
 
         result = { credited, errors, total: items.length };
+        break;
+      }
+      case 'cancel_bonus': {
+        // The platform does not have a cancel bonus endpoint
+        result = { status: false, msg: 'A plataforma não suporta cancelamento de bônus. Use o painel original para esta operação.' };
         break;
       }
     }
