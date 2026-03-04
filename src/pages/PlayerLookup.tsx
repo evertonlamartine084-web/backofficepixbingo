@@ -159,18 +159,32 @@ export default function PlayerLookup() {
   // Normalize balance into array of { name, value }
   const balanceItems: { name: string; value: number }[] = (() => {
     if (!balance) return [];
+    
+    // If it's an array of objects like [{carteira: 'BONUS', saldo: 10}, ...]
     if (Array.isArray(balance)) {
-      return balance.map((b: any) => ({
-        name: b.nome || b.name || b.tipo || b.carteira || '—',
-        value: parseFloat(b.saldo || b.valor || b.value || 0),
-      }));
+      return balance.map((b: any) => {
+        const name = b.nome || b.name || b.tipo || b.carteira || b.descricao || '—';
+        // Try multiple value fields
+        let val = b.saldo ?? b.valor ?? b.value ?? b.balance ?? 0;
+        if (typeof val === 'object') val = 0;
+        return { name: String(name), value: parseFloat(String(val)) || 0 };
+      });
     }
-    if (typeof balance === 'object') {
-      return Object.entries(balance).map(([k, v]: any) => ({
-        name: k,
-        value: parseFloat(v?.saldo || v?.valor || v || 0),
-      }));
+    
+    // If it's an object like { BONUS: 10, CREDITO: 20 } or { BONUS: { saldo: 10 }, ... }
+    if (typeof balance === 'object' && balance !== null) {
+      return Object.entries(balance).map(([k, v]: [string, any]) => {
+        if (v === null || v === undefined) return { name: k, value: 0 };
+        if (typeof v === 'number') return { name: k, value: v };
+        if (typeof v === 'string') return { name: k, value: parseFloat(v) || 0 };
+        if (typeof v === 'object') {
+          const val = v.saldo ?? v.valor ?? v.value ?? v.balance ?? 0;
+          return { name: v.nome || v.name || v.carteira || k, value: parseFloat(String(val)) || 0 };
+        }
+        return { name: k, value: 0 };
+      });
     }
+    
     return [];
   })();
 
