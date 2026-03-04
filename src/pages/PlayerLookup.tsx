@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, User, DollarSign, Gift, History, Loader2, CreditCard, XCircle } from 'lucide-react';
+import { Search, User, DollarSign, Gift, History, Loader2, CreditCard, XCircle, Wallet, Calendar, Phone, Mail, Shield, Hash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,45 @@ import { ApiCredentialsBar } from '@/components/ApiCredentialsBar';
 import { useProxy } from '@/hooks/use-proxy';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+
+// Format currency
+const fmtBRL = (v: any) => {
+  const n = parseFloat(v);
+  if (isNaN(n)) return v ?? '—';
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
+
+// Format date
+const fmtDate = (v: any) => {
+  if (!v) return '—';
+  try {
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return String(v);
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch { return String(v); }
+};
+
+// Mask CPF
+const fmtCPF = (v: any) => {
+  if (!v) return '—';
+  const s = String(v).replace(/\D/g, '');
+  if (s.length === 11) return `${s.slice(0, 3)}.${s.slice(3, 6)}.${s.slice(6, 9)}-${s.slice(9)}`;
+  return v;
+};
+
+// Player info field config
+const playerFields = [
+  { key: 'username', label: 'Usuário', icon: User },
+  { key: 'cpf', label: 'CPF', icon: Hash, format: fmtCPF },
+  { key: 'celular', label: 'Celular', icon: Phone },
+  { key: 'email', label: 'E-mail', icon: Mail },
+  { key: 'created_at', label: 'Cadastro', icon: Calendar, format: fmtDate },
+  { key: 'ultimo_login', label: 'Último Login', icon: Calendar, format: fmtDate },
+  { key: 'situacao', label: 'Situação', icon: Shield },
+  { key: 'uuid', label: 'UUID', icon: Hash },
+];
 
 export default function PlayerLookup() {
   const [searchParams] = useSearchParams();
@@ -23,7 +62,6 @@ export default function PlayerLookup() {
   const [transactions, setTransactions] = useState<any>(null);
   const [bonusHistory, setBonusHistory] = useState<any>(null);
 
-  // Auto-search when navigated with ?q=
   useEffect(() => {
     const q = searchParams.get('q');
     if (q && creds.username) {
@@ -43,22 +81,18 @@ export default function PlayerLookup() {
     setPlayer(null); setBalance(null); setTransactions(null); setBonusHistory(null);
 
     try {
-      // Step 1: Search player to get real UUID
       const searchRes = await callProxy('search_player', creds, { cpf: searchQuery, uuid: searchQuery });
       const playerData = searchRes?.data;
       if (playerData) setPlayer(playerData);
 
-      // Extract the real UUID from search results
       const foundPlayer = playerData?.aaData?.[0];
       const realUuid = foundPlayer?.uuid || searchQuery;
 
-      // Step 2: Fetch transaction details using the real UUID
       const detailParams = { uuid: realUuid, player_id: realUuid, cpf: searchQuery };
       const txRes = await callProxy('player_transactions', creds, detailParams);
       const txData = txRes?.data;
 
       if (txData) {
-        // movimentacoes = bonus/credit movements, historico = game history
         if (txData.movimentacoes) setBonusHistory(txData.movimentacoes);
         if (txData.historico) setTransactions(txData.historico);
         if (txData.carteiras) setBalance(txData.carteiras);
@@ -74,7 +108,6 @@ export default function PlayerLookup() {
 
   const handleCreditBonus = async () => {
     if (!creds.username || !query) return;
-    // Get the real UUID from player data if available
     const playerData = player?.aaData?.[0] || player;
     const playerUuid = playerData?.uuid || query;
     setCreditLoading(true);
@@ -86,8 +119,8 @@ export default function PlayerLookup() {
       });
       const msg = res?.data?.msg || res?.data?.Msg || '';
       const isError = msg && (
-        msg.toLowerCase().includes('não tem permissão') || 
-        msg.toLowerCase().includes('erro') || 
+        msg.toLowerCase().includes('não tem permissão') ||
+        msg.toLowerCase().includes('erro') ||
         msg.toLowerCase().includes('inválid') ||
         msg.toLowerCase().includes('falha')
       );
@@ -120,37 +153,78 @@ export default function PlayerLookup() {
     finally { setCancelLoading(false); }
   };
 
-  const renderData = (data: any) => {
-    if (!data) return <p className="text-sm text-muted-foreground italic">Sem dados</p>;
-    const items = Array.isArray(data) ? data : data.data ? (Array.isArray(data.data) ? data.data : [data.data]) : [data];
-    if (items.length === 0) return <p className="text-sm text-muted-foreground italic">Nenhum registro</p>;
-    const keys = Object.keys(items[0] || {}).filter(k => !k.startsWith('_'));
+  // Extract player object from search results
+  const playerInfo = player?.aaData?.[0] || player?.data?.[0] || null;
 
-    return (
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-border">
-              {keys.slice(0, 8).map(k => (
-                <th key={k} className="text-left p-2 text-muted-foreground font-semibold uppercase tracking-wider">{k}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {items.slice(0, 50).map((item: any, i: number) => (
-              <tr key={i} className="border-b border-border/30 hover:bg-secondary/20">
-                {keys.slice(0, 8).map(k => (
-                  <td key={k} className="p-2 font-mono text-foreground max-w-[200px] truncate">
-                    {typeof item[k] === 'object' ? JSON.stringify(item[k]) : String(item[k] ?? '—')}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {items.length > 50 && <p className="text-xs text-muted-foreground p-2">Mostrando 50 de {items.length}</p>}
-      </div>
-    );
+  // Normalize balance into array of { name, value }
+  const balanceItems: { name: string; value: number }[] = (() => {
+    if (!balance) return [];
+    if (Array.isArray(balance)) {
+      return balance.map((b: any) => ({
+        name: b.nome || b.name || b.tipo || b.carteira || '—',
+        value: parseFloat(b.saldo || b.valor || b.value || 0),
+      }));
+    }
+    if (typeof balance === 'object') {
+      return Object.entries(balance).map(([k, v]: any) => ({
+        name: k,
+        value: parseFloat(v?.saldo || v?.valor || v || 0),
+      }));
+    }
+    return [];
+  })();
+
+  // Normalize history arrays
+  const normalizeList = (data: any): any[] => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (data.data && Array.isArray(data.data)) return data.data;
+    if (data.aaData && Array.isArray(data.aaData)) return data.aaData;
+    return [data];
+  };
+
+  const bonusList = normalizeList(bonusHistory);
+  const txList = normalizeList(transactions);
+
+  // Detect column keys from first item
+  const getColumns = (list: any[]) => {
+    if (list.length === 0) return [];
+    return Object.keys(list[0]).filter(k => !k.startsWith('_') && k !== 'DT_RowId');
+  };
+
+  // Smart formatting for known column patterns
+  const fmtCell = (key: string, val: any) => {
+    if (val === null || val === undefined) return '—';
+    const kl = key.toLowerCase();
+    if (kl.includes('valor') || kl.includes('saldo') || kl.includes('amount') || kl.includes('deposito') || kl.includes('saque') || kl.includes('bonus') || kl.includes('comissao') || kl.includes('lucro') || kl.includes('ggr') || kl.includes('premio')) {
+      const n = parseFloat(val);
+      if (!isNaN(n)) return fmtBRL(n);
+    }
+    if (kl.includes('data') || kl.includes('date') || kl.includes('created') || kl.includes('updated') || kl === 'ultimo_login') {
+      return fmtDate(val);
+    }
+    if (kl === 'cpf') return fmtCPF(val);
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  };
+
+  // Friendly column labels
+  const friendlyLabel = (key: string) => {
+    const map: Record<string, string> = {
+      username: 'Usuário', cpf: 'CPF', celular: 'Celular', email: 'E-mail',
+      created_at: 'Data Criação', ultimo_login: 'Último Login', situacao: 'Situação',
+      uuid: 'UUID', tipo: 'Tipo', valor: 'Valor', saldo_anterior: 'Saldo Anterior',
+      saldo_posterior: 'Saldo Posterior', descricao: 'Descrição', status: 'Status',
+      id: 'ID', data: 'Data', nome: 'Nome', carteira: 'Carteira', saldo: 'Saldo',
+    };
+    return map[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  const situacaoColor = (s: any) => {
+    const v = String(s).toLowerCase();
+    if (v === 'ativo' || v === 'active') return 'bg-success/20 text-success';
+    if (v === 'inativo' || v === 'inactive' || v === 'bloqueado') return 'bg-destructive/20 text-destructive';
+    return 'bg-muted text-muted-foreground';
   };
 
   return (
@@ -185,28 +259,75 @@ export default function PlayerLookup() {
       {/* Results */}
       {(player || balance || transactions || bonusHistory) && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="glass-card p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <User className="w-4 h-4 text-primary" />
-                <h3 className="font-semibold text-foreground">Dados do Jogador</h3>
+          {/* Player Info Card */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 glass-card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                  <User className="w-4 h-4 text-primary" />
+                </div>
+                <h3 className="font-semibold text-foreground text-lg">Dados do Jogador</h3>
+                {playerInfo?.situacao && (
+                  <Badge className={`ml-auto ${situacaoColor(playerInfo.situacao)}`}>
+                    {String(playerInfo.situacao).toUpperCase()}
+                  </Badge>
+                )}
               </div>
-              {renderData(player)}
+              {playerInfo ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {playerFields.map(({ key, label, icon: Icon, format }) => {
+                    const val = playerInfo[key];
+                    if (val === undefined || val === null) return null;
+                    return (
+                      <div key={key} className="flex items-start gap-3 p-3 rounded-lg bg-secondary/40">
+                        <Icon className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">{label}</p>
+                          <p className="text-sm font-medium text-foreground truncate font-mono">
+                            {format ? format(val) : String(val)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Sem dados do jogador</p>
+              )}
             </div>
+
+            {/* Balance Card */}
             <div className="glass-card p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <DollarSign className="w-4 h-4 text-success" />
-                <h3 className="font-semibold text-foreground">Saldo</h3>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center">
+                  <Wallet className="w-4 h-4 text-success" />
+                </div>
+                <h3 className="font-semibold text-foreground text-lg">Saldo</h3>
               </div>
-              {renderData(balance)}
+              {balanceItems.length > 0 ? (
+                <div className="space-y-3">
+                  {balanceItems.map((b, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-secondary/40">
+                      <span className="text-sm text-muted-foreground capitalize">{b.name.toLowerCase()}</span>
+                      <span className={`text-lg font-bold font-mono ${b.value > 0 ? 'text-success' : 'text-foreground'}`}>
+                        {fmtBRL(b.value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Sem dados de saldo</p>
+              )}
             </div>
           </div>
 
-          {/* Credit & Cancel Bonus */}
+          {/* Bonus Actions */}
           <div className="glass-card p-5">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-2">
-                <Gift className="w-4 h-4 text-accent" />
+                <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                  <Gift className="w-4 h-4 text-accent" />
+                </div>
                 <h3 className="font-semibold text-foreground">Ações de Bônus</h3>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
@@ -228,20 +349,86 @@ export default function PlayerLookup() {
 
           {/* Bonus History */}
           <div className="glass-card p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Gift className="w-4 h-4 text-warning" />
-              <h3 className="font-semibold text-foreground">Histórico de Bônus</h3>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center">
+                <Gift className="w-4 h-4 text-warning" />
+              </div>
+              <h3 className="font-semibold text-foreground text-lg">Histórico de Bônus</h3>
+              {bonusList.length > 0 && (
+                <Badge variant="secondary" className="ml-2">{bonusList.length} registros</Badge>
+              )}
             </div>
-            {renderData(bonusHistory)}
+            {bonusList.length > 0 ? (
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-secondary/50">
+                      {getColumns(bonusList).map(k => (
+                        <TableHead key={k} className="text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
+                          {friendlyLabel(k)}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bonusList.slice(0, 50).map((item: any, i: number) => (
+                      <TableRow key={i} className="hover:bg-secondary/30">
+                        {getColumns(bonusList).map(k => (
+                          <TableCell key={k} className="text-xs font-mono whitespace-nowrap">
+                            {fmtCell(k, item[k])}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {bonusList.length > 50 && <p className="text-xs text-muted-foreground p-3 text-center">Mostrando 50 de {bonusList.length}</p>}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">Nenhum registro de bônus</p>
+            )}
           </div>
 
           {/* Transactions */}
           <div className="glass-card p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <History className="w-4 h-4 text-info" />
-              <h3 className="font-semibold text-foreground">Transações</h3>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                <History className="w-4 h-4 text-primary" />
+              </div>
+              <h3 className="font-semibold text-foreground text-lg">Transações</h3>
+              {txList.length > 0 && (
+                <Badge variant="secondary" className="ml-2">{txList.length} registros</Badge>
+              )}
             </div>
-            {renderData(transactions)}
+            {txList.length > 0 ? (
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-secondary/50">
+                      {getColumns(txList).map(k => (
+                        <TableHead key={k} className="text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
+                          {friendlyLabel(k)}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {txList.slice(0, 50).map((item: any, i: number) => (
+                      <TableRow key={i} className="hover:bg-secondary/30">
+                        {getColumns(txList).map(k => (
+                          <TableCell key={k} className="text-xs font-mono whitespace-nowrap">
+                            {fmtCell(k, item[k])}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {txList.length > 50 && <p className="text-xs text-muted-foreground p-3 text-center">Mostrando 50 de {txList.length}</p>}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">Nenhuma transação encontrada</p>
+            )}
           </div>
         </div>
       )}
