@@ -159,12 +159,12 @@ export default function Transactions() {
           {/* Tipo */}
           <div className="space-y-1.5 min-w-[140px]">
             <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Tipo</label>
-            <Select value={tipoFilter} onValueChange={(v) => setTipoFilter(v as TipoFilter)}>
+            <Select value={tipoFilter || 'all'} onValueChange={(v) => setTipoFilter((v === 'all' ? '' : v) as TipoFilter)}>
               <SelectTrigger className="bg-secondary border-border h-9 text-sm">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="DEPOSITO">Depósito</SelectItem>
                 <SelectItem value="SAQUE">Saque</SelectItem>
                 <SelectItem value="BONUS">Bônus</SelectItem>
