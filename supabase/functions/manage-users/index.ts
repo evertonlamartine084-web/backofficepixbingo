@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
   'Content-Type': 'application/json',
 };
 
@@ -13,8 +13,8 @@ Deno.serve(async (req) => {
 
   try {
     // Verify the caller is an admin
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401, headers: corsHeaders });
     }
 
@@ -26,17 +26,22 @@ Deno.serve(async (req) => {
     const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user: caller }, error: callerError } = await callerClient.auth.getUser(token);
-    if (callerError || !caller) {
+    
+    // Use getClaims for robust validation on Lovable Cloud (ES256)
+    const { data: claimsData, error: claimsError } = await callerClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      console.error('Auth error:', claimsError?.message);
       return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401, headers: corsHeaders });
     }
+    
+    const callerId = claimsData.claims.sub as string;
 
     // Check if caller is admin using service role
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: roleData } = await adminClient
       .from('user_roles')
       .select('role')
-      .eq('user_id', caller.id)
+      .eq('user_id', callerId)
       .eq('role', 'admin')
       .maybeSingle();
 
@@ -120,7 +125,7 @@ Deno.serve(async (req) => {
       if (!user_id) {
         return new Response(JSON.stringify({ error: 'user_id é obrigatório' }), { status: 400, headers: corsHeaders });
       }
-      if (user_id === caller.id) {
+      if (user_id === callerId) {
         return new Response(JSON.stringify({ error: 'Não é possível deletar a si mesmo' }), { status: 400, headers: corsHeaders });
       }
 
