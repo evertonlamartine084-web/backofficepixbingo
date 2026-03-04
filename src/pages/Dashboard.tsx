@@ -19,7 +19,13 @@ type PeriodFilter = 'today' | 'yesterday' | '7d' | '30d';
 
 function getDateRange(period: PeriodFilter) {
   const now = new Date();
-  const fmt = (d: Date) => d.toISOString().split('T')[0];
+  // API expects dd/mm/yyyy format
+  const fmt = (d: Date) => {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
 
   switch (period) {
     case 'today':
@@ -85,6 +91,14 @@ export default function Dashboard() {
         busca_data_fim: range.end,
         length: 100,
       });
+
+      // Handle API error responses
+      if (res?.data?.code === 500 || res?.data?.Msg) {
+        console.error('API financeiro error:', res.data.Msg);
+        toast.error('Erro na API financeira: ' + (res.data.Msg || 'Erro desconhecido'));
+        setLoadingFinancials(false);
+        return;
+      }
 
       const rows = res?.data?.aaData || res?.data?.data || [];
       const totals: FinancialTotals = {
