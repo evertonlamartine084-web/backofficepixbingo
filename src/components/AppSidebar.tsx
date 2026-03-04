@@ -1,24 +1,20 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Package, AlertTriangle, Globe,
-  Search, LogOut, ChevronRight, Zap, Radar, UserSearch,
-  Users, ArrowUpDown, ListFilter, ShieldCheck
+  LayoutDashboard, Globe,
+  LogOut, ChevronRight, Zap, Radar, UserSearch,
+  ArrowUpDown, ListFilter, ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/batches', icon: Package, label: 'Lotes' },
   { to: '/player', icon: UserSearch, label: 'Consultar Jogador' },
-  { to: '/users', icon: Users, label: 'Usuários' },
   { to: '/transactions', icon: ArrowUpDown, label: 'Transações' },
   { to: '/segments', icon: ListFilter, label: 'Segmentos' },
-  { to: '/duplicates', icon: AlertTriangle, label: 'Duplicados' },
 ];
 
 const adminItems = [
   { to: '/admin/endpoints', icon: Globe, label: 'Endpoints' },
-  { to: '/admin/bonus-rules', icon: Search, label: 'Regras de Bônus' },
   { to: '/admin/discovery', icon: Radar, label: 'Auto-Discovery' },
   { to: '/admin/manage-users', icon: ShieldCheck, label: 'Gestão de Usuários' },
 ];
