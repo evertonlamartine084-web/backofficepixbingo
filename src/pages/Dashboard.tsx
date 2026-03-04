@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Package, Users, CheckCircle, XCircle, AlertTriangle, Clock, Zap, Shield,
-  BarChart3, Loader2, RefreshCw, Activity
+  Loader2, RefreshCw, Activity, ArrowDownToLine, ArrowUpFromLine,
+  Dices, Trophy, TrendingUp, BarChart3, Wallet, DollarSign
 } from 'lucide-react';
 import { StatsCard } from '@/components/StatsCard';
+import { FinancialKPICard } from '@/components/FinancialKPICard';
 import { BatchStatusBadge } from '@/components/StatusBadge';
 import { Link } from 'react-router-dom';
 import { useDashboardStats, useBatches } from '@/hooks/use-supabase-data';
@@ -13,32 +15,123 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import type { BatchStatus } from '@/types';
 
+type PeriodFilter = 'today' | 'yesterday' | '7d' | '30d';
+
+function getDateRange(period: PeriodFilter) {
+  const now = new Date();
+  const fmt = (d: Date) => d.toISOString().split('T')[0];
+
+  switch (period) {
+    case 'today':
+      return { start: fmt(now), end: fmt(now) };
+    case 'yesterday': {
+      const y = new Date(now);
+      y.setDate(y.getDate() - 1);
+      return { start: fmt(y), end: fmt(y) };
+    }
+    case '7d': {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 7);
+      return { start: fmt(d), end: fmt(now) };
+    }
+    case '30d': {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 30);
+      return { start: fmt(d), end: fmt(now) };
+    }
+  }
+}
+
+function parseCurrency(val: any): number {
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    return parseFloat(val.replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
+  }
+  return 0;
+}
+
+function formatBRL(val: number): string {
+  return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+interface FinancialTotals {
+  depositos: number;
+  saques: number;
+  bonus: number;
+  ggr: number;
+  comissao: number;
+  lucro: number;
+  apostas: number;
+  premios: number;
+  turnover: number;
+}
+
 export default function Dashboard() {
   const { data: s, isLoading: loadingStats } = useDashboardStats();
   const { data: batches, isLoading: loadingBatches } = useBatches();
   const [creds, setCreds] = useState({ username: '', password: '' });
-  const [liveData, setLiveData] = useState<any>(null);
-  const [siteStatus, setSiteStatus] = useState<any>(null);
-  const { callProxy, loading: _l } = useProxy();
-  const [loadingLive, setLoadingLive] = useState(false);
+  const [period, setPeriod] = useState<PeriodFilter>('today');
+  const [financials, setFinancials] = useState<FinancialTotals | null>(null);
+  const [loadingFinancials, setLoadingFinancials] = useState(false);
+  const { callProxy } = useProxy();
 
-  const fetchLiveData = async () => {
+  const fetchFinancials = useCallback(async () => {
     if (!creds.username) return;
-    setLoadingLive(true);
+    setLoadingFinancials(true);
     try {
-      const [dashRes, statusRes] = await Promise.allSettled([
-        callProxy('dashboard', creds),
-        callProxy('site_status', creds),
-      ]);
-      if (dashRes.status === 'fulfilled') setLiveData(dashRes.value?.data);
-      if (statusRes.status === 'fulfilled') setSiteStatus(statusRes.value?.data);
-      toast.success('Dados ao vivo carregados!');
+      const range = getDateRange(period);
+      const res = await callProxy('financeiro', creds, {
+        busca_data_inicio: range.start,
+        busca_data_fim: range.end,
+        length: 100,
+      });
+
+      const rows = res?.data?.aaData || res?.data?.data || [];
+      const totals: FinancialTotals = {
+        depositos: 0, saques: 0, bonus: 0, ggr: 0,
+        comissao: 0, lucro: 0, apostas: 0, premios: 0, turnover: 0,
+      };
+
+      if (Array.isArray(rows)) {
+        for (const row of rows) {
+          totals.depositos += parseCurrency(row.depositos);
+          totals.saques += parseCurrency(row.saques);
+          totals.bonus += parseCurrency(row.bonus);
+          totals.ggr += parseCurrency(row.ggr);
+          totals.comissao += parseCurrency(row.comissao);
+          totals.lucro += parseCurrency(row.lucro);
+          // apostas e premios may come as separate fields or need calculation
+          totals.apostas += parseCurrency(row.apostas || row.bets || 0);
+          totals.premios += parseCurrency(row.premios || row.prizes || 0);
+          totals.turnover += parseCurrency(row.turnover || row.apostas || row.bets || 0);
+        }
+      }
+
+      // If apostas/turnover not in API, estimate: turnover ≈ depositos + bonus, GGR = apostas - premios
+      if (totals.turnover === 0 && totals.depositos > 0) {
+        totals.turnover = totals.depositos + totals.bonus;
+      }
+      if (totals.apostas === 0 && totals.ggr !== 0) {
+        // GGR = apostas - premios → apostas = ggr + premios
+        totals.apostas = totals.turnover;
+      }
+      if (totals.premios === 0 && totals.apostas > 0) {
+        totals.premios = totals.apostas - totals.ggr;
+      }
+
+      setFinancials(totals);
+      toast.success('Financeiro atualizado!');
     } catch (err: any) {
       toast.error(err.message);
     } finally {
-      setLoadingLive(false);
+      setLoadingFinancials(false);
     }
-  };
+  }, [creds, period, callProxy]);
+
+  // Auto-fetch when creds or period change
+  useEffect(() => {
+    if (creds.username) fetchFinancials();
+  }, [period]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loadingStats || loadingBatches) {
     return (
@@ -51,74 +144,138 @@ export default function Dashboard() {
   const stats = s || { total_batches: 0, total_items: 0, pendente: 0, processando: 0, sem_bonus: 0, bonus_1x: 0, bonus_2x_plus: 0, erro: 0 };
   const recentBatches = (batches || []).slice(0, 5);
 
-  const renderLiveKV = (data: any) => {
-    if (!data) return null;
-    const entries = typeof data === 'object' && !Array.isArray(data) ? Object.entries(data) : [];
-    if (entries.length === 0) return <p className="text-xs text-muted-foreground">Sem dados</p>;
-    return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-        {entries.filter(([k]) => !k.startsWith('_')).slice(0, 12).map(([k, v]) => (
-          <div key={k} className="bg-secondary/50 rounded-lg p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{k}</p>
-            <p className="text-sm font-semibold text-foreground font-mono mt-1">
-              {typeof v === 'object' ? JSON.stringify(v) : String(v ?? '—')}
-            </p>
-          </div>
-        ))}
-      </div>
-    );
+  const periodLabels: Record<PeriodFilter, string> = {
+    today: 'Hoje',
+    yesterday: 'Ontem',
+    '7d': '7 dias',
+    '30d': '30 dias',
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Visão geral do processamento de bônus</p>
+          <p className="text-sm text-muted-foreground mt-1">Visão geral financeira e de bônus</p>
         </div>
       </div>
 
-      {/* Local stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Total Itens" value={stats.total_items} subtitle={`${stats.total_batches} lotes`} icon={Users} variant="primary" />
-        <StatsCard title="Sem Bônus" value={stats.sem_bonus} icon={XCircle} variant="default" />
-        <StatsCard title="Bônus 1x" value={stats.bonus_1x} icon={CheckCircle} variant="success" />
-        <StatsCard title="Bônus 2x+" value={stats.bonus_2x_plus} subtitle="Duplicados!" icon={AlertTriangle} variant="danger" />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Pendentes" value={stats.pendente} icon={Clock} />
-        <StatsCard title="Erros" value={stats.erro} icon={XCircle} variant="warning" />
-        <StatsCard title="Processando" value={stats.processando} icon={Zap} variant="primary" />
-        <StatsCard title="Alertas 2x+" value={stats.bonus_2x_plus} subtitle="Duplicados" icon={Shield} variant="danger" />
-      </div>
-
-      {/* Live API data */}
-      <div className="glass-card p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">Dados ao Vivo (API)</h2>
-          </div>
-          <Button onClick={fetchLiveData} disabled={loadingLive || !creds.username} variant="outline" className="border-border">
-            {loadingLive ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-            Atualizar
-          </Button>
+      {/* API Connection */}
+      <div className="glass-card p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Activity className="w-4 h-4 text-primary" />
+          <span className="text-sm font-semibold text-foreground">Conexão API</span>
         </div>
         <ApiCredentialsBar onCredentials={(c) => { setCreds(c); }} />
+      </div>
 
-        {siteStatus && (
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status do Site</p>
-            {renderLiveKV(siteStatus)}
+      {/* Period Filter + Financial KPIs */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Financeiro</h2>
           </div>
-        )}
-        {liveData && (
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dashboard do Site</p>
-            {renderLiveKV(liveData)}
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              {(Object.keys(periodLabels) as PeriodFilter[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    period === p
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
+                  }`}
+                >
+                  {periodLabels[p]}
+                </button>
+              ))}
+            </div>
+            <Button
+              onClick={fetchFinancials}
+              disabled={loadingFinancials || !creds.username}
+              variant="outline"
+              size="sm"
+              className="border-border"
+            >
+              {loadingFinancials ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            </Button>
           </div>
-        )}
+        </div>
+
+        {!creds.username ? (
+          <div className="glass-card p-8 text-center">
+            <Wallet className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-50" />
+            <p className="text-sm text-muted-foreground">Conecte-se à API acima para visualizar os dados financeiros</p>
+          </div>
+        ) : loadingFinancials && !financials ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          </div>
+        ) : financials ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <FinancialKPICard
+              title="Depósitos"
+              value={formatBRL(financials.depositos)}
+              icon={ArrowDownToLine}
+              variant="green"
+            />
+            <FinancialKPICard
+              title="Saques"
+              value={formatBRL(financials.saques)}
+              icon={ArrowUpFromLine}
+              variant="red"
+            />
+            <FinancialKPICard
+              title="Apostas"
+              value={formatBRL(financials.apostas)}
+              icon={Dices}
+              variant="blue"
+            />
+            <FinancialKPICard
+              title="Prêmios"
+              value={formatBRL(financials.premios)}
+              icon={Trophy}
+              variant="amber"
+            />
+            <FinancialKPICard
+              title="Turnover"
+              value={formatBRL(financials.turnover)}
+              icon={TrendingUp}
+              variant="purple"
+            />
+            <FinancialKPICard
+              title="GGR"
+              value={formatBRL(financials.ggr)}
+              icon={BarChart3}
+              variant={financials.ggr >= 0 ? 'green' : 'red'}
+              trend={financials.ggr >= 0 ? 'up' : 'down'}
+              trendValue={financials.turnover > 0 ? `${((financials.ggr / financials.turnover) * 100).toFixed(1)}% margem` : undefined}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      {/* Bonus processing stats */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Zap className="w-5 h-5 text-accent" />
+          <h2 className="text-lg font-semibold text-foreground">Processamento de Bônus</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatsCard title="Total Itens" value={stats.total_items} subtitle={`${stats.total_batches} lotes`} icon={Users} variant="primary" />
+          <StatsCard title="Sem Bônus" value={stats.sem_bonus} icon={XCircle} variant="default" />
+          <StatsCard title="Bônus 1x" value={stats.bonus_1x} icon={CheckCircle} variant="success" />
+          <StatsCard title="Bônus 2x+" value={stats.bonus_2x_plus} subtitle="Duplicados!" icon={AlertTriangle} variant="danger" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatsCard title="Pendentes" value={stats.pendente} icon={Clock} />
+          <StatsCard title="Erros" value={stats.erro} icon={XCircle} variant="warning" />
+          <StatsCard title="Processando" value={stats.processando} icon={Zap} variant="primary" />
+          <StatsCard title="Alertas 2x+" value={stats.bonus_2x_plus} subtitle="Duplicados" icon={Shield} variant="danger" />
+        </div>
       </div>
 
       {/* Recent batches */}
