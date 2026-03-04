@@ -232,6 +232,19 @@ Deno.serve(async (req) => {
         params.set('start', String(body.start || 0));
         params.set('length', String(body.length || 50));
         params.set('exportar', '0');
+        const txCols = ['id','tipo','valor','saldo_anterior','saldo_posterior','cpf','username','created_at','descricao','status'];
+        txCols.forEach((col, i) => {
+          params.set(`columns[${i}][data]`, col);
+          params.set(`columns[${i}][name]`, '');
+          params.set(`columns[${i}][searchable]`, 'true');
+          params.set(`columns[${i}][orderable]`, 'true');
+          params.set(`columns[${i}][search][value]`, '');
+          params.set(`columns[${i}][search][regex]`, 'false');
+        });
+        params.set('order[0][column]', '0');
+        params.set('order[0][dir]', 'desc');
+        params.set('search[value]', '');
+        params.set('search[regex]', 'false');
         if (body.busca_data_inicio) params.set('busca_data_inicio', body.busca_data_inicio);
         if (body.busca_data_fim) params.set('busca_data_fim', body.busca_data_fim);
         if (body.busca_tipo_transacao) params.set('busca_tipo_transacao', body.busca_tipo_transacao);
@@ -250,6 +263,19 @@ Deno.serve(async (req) => {
         params.set('draw', String(body.draw || 1));
         params.set('start', String(body.start || 0));
         params.set('length', String(body.length || 50));
+        const finCols = ['data','depositos','saques','bonus','ggr','comissao','lucro'];
+        finCols.forEach((col, i) => {
+          params.set(`columns[${i}][data]`, col);
+          params.set(`columns[${i}][name]`, '');
+          params.set(`columns[${i}][searchable]`, 'true');
+          params.set(`columns[${i}][orderable]`, 'true');
+          params.set(`columns[${i}][search][value]`, '');
+          params.set(`columns[${i}][search][regex]`, 'false');
+        });
+        params.set('order[0][column]', '0');
+        params.set('order[0][dir]', 'desc');
+        params.set('search[value]', '');
+        params.set('search[regex]', 'false');
         if (body.busca_data_inicio) params.set('busca_periodo_ini', body.busca_data_inicio);
         if (body.busca_data_fim) params.set('busca_periodo_fim', body.busca_data_fim);
         if (body.busca_agrupamento) params.set('busca_agrupamento', body.busca_agrupamento);
