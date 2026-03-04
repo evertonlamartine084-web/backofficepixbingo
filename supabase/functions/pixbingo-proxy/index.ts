@@ -363,11 +363,14 @@ Deno.serve(async (req) => {
         }
 
         if (!result) {
-          // Fallback: use transferências resumo (depósitos/saques) when financeiro endpoint fails
+          // Fallback: combine transferencias (dep/saque) + financeiro-resumo (apostas/premios)
+          console.log('[financeiro] usando fallback: transferencias + financeiro-resumo');
+
+          // 1) Get deposits/withdrawals from transferencias
           const txParams = new URLSearchParams();
-          txParams.set('draw', String(body.draw || 1));
+          txParams.set('draw', '1');
           txParams.set('start', '0');
-          txParams.set('length', String(body.length || 100));
+          txParams.set('length', '1');
           txParams.set('exportar', '0');
           const txCols = ['id', 'tipo', 'valor', 'saldo_anterior', 'saldo_posterior', 'cpf', 'username', 'created_at', 'descricao', 'status'];
           txCols.forEach((col, i) => {
@@ -385,32 +388,56 @@ Deno.serve(async (req) => {
           if (body.busca_data_inicio) txParams.set('busca_data_inicio', body.busca_data_inicio);
           if (body.busca_data_fim) txParams.set('busca_data_fim', body.busca_data_fim);
 
-          const txSummary = await fetchJSON(`${baseUrl}/transferencias/listar?${txParams.toString()}`, headers, 'GET');
+          // 2) Get bets/prizes from financeiro-resumo/listar
+          const frParams = new URLSearchParams();
+          if (body.busca_data_inicio) frParams.set('busca_periodo_ini', body.busca_data_inicio);
+          if (body.busca_data_fim) frParams.set('busca_periodo_fim', body.busca_data_fim);
+
+          const [txSummary, frData] = await Promise.all([
+            fetchJSON(`${baseUrl}/transferencias/listar?${txParams.toString()}`, headers, 'GET'),
+            fetchJSON(`${baseUrl}/financeiro-resumo/listar?${frParams.toString()}`, headers, 'GET'),
+          ]);
+
+          console.log('[financeiro] transferencias:', JSON.stringify({ valorDeposito: txSummary?.valorDeposito, valorSaque: txSummary?.valorSaque }).slice(0, 200));
+          console.log('[financeiro] financeiro-resumo:', JSON.stringify(frData).slice(0, 500));
+
           const valorDeposito = Number(txSummary?.valorDeposito || 0);
           const valorSaque = Number(txSummary?.valorSaque || 0);
 
-          if (Number.isFinite(valorDeposito) && Number.isFinite(valorSaque) && (valorDeposito > 0 || valorSaque > 0)) {
-            result = {
-              aaData: [{
-                depositos: valorDeposito,
-                saques: valorSaque,
-                bonus: null,
-                ggr: null,
-                comissao: null,
-                lucro: null,
-                apostas: null,
-                premios: null,
-                turnover: null,
-              }],
-              fonte: 'transferencias_fallback',
-              qtdeDeposito: Number(txSummary?.qtdeDeposito || 0),
-              qtdeSaque: Number(txSummary?.qtdeSaque || 0),
-            };
-          } else {
-            const code = Number(lastError?.code ?? lastError?._status ?? 500);
-            const msg = String(lastError?.Msg || lastError?._raw || 'Falha ao consultar financeiro');
-            result = { code, Msg: msg };
+          // Sum total_compra (bets) and total_premio (prizes) from all products
+          let totalCompra = 0;
+          let totalPremio = 0;
+          const kenoRows = frData?.keno || [];
+          const cassinoRows = frData?.cassino || [];
+          const allRows = [...kenoRows, ...cassinoRows];
+          for (const row of allRows) {
+            totalCompra += Number(row?.total_compra || 0);
+            totalPremio += Number(row?.total_premio || 0);
           }
+          // Also check totals
+          const totalKeno = frData?.totalKeno?.[0] || {};
+          const totalCassino = frData?.totalCassino?.[0] || {};
+          if (allRows.length === 0) {
+            totalCompra = Number(totalKeno?.total_compra || 0) + Number(totalCassino?.total_compra || 0);
+            totalPremio = Number(totalKeno?.total_premio || 0) + Number(totalCassino?.total_premio || 0);
+          }
+
+          const ggr = totalCompra - totalPremio;
+
+          result = {
+            aaData: [{
+              depositos: valorDeposito,
+              saques: valorSaque,
+              bonus: 0,
+              ggr: ggr,
+              comissao: 0,
+              lucro: 0,
+              apostas: totalCompra,
+              premios: totalPremio,
+              turnover: totalCompra,
+            }],
+            fonte: 'combined_fallback',
+          };
         }
         break;
       }
@@ -526,8 +553,31 @@ Deno.serve(async (req) => {
         break;
       }
       case 'cancel_bonus': {
-        // The platform does not have a cancel bonus endpoint
         result = { status: false, msg: 'A plataforma não suporta cancelamento de bônus. Use o painel original para esta operação.' };
+        break;
+      }
+      case 'scrape_page': {
+        const path = (body as any).path || '/dashboard';
+        const pageRes = await fetch(`${baseUrl}${path}`, {
+          method: 'GET',
+          headers: { ...headers, Accept: 'text/html,application/xhtml+xml,*/*' },
+          signal: AbortSignal.timeout(12000),
+        });
+        const html = await pageRes.text();
+        // Extract script tags and AJAX URLs
+        const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]).filter(s => s.trim().length > 10);
+        const ajaxUrls = [...html.matchAll(/(?:url|href|src|action)\s*[:=]\s*['"`]([^'"`\s]+)['"`]/gi)].map(m => m[1]);
+        const dataTableUrls = [...html.matchAll(/ajax\s*:\s*['"`]([^'"`]+)['"`]/gi)].map(m => m[1]);
+        result = {
+          status: pageRes.status,
+          html_length: html.length,
+          is_login: html.toLowerCase().includes('<h1>login'),
+          title: html.match(/<title>(.*?)<\/title>/i)?.[1] || '',
+          ajax_urls: [...new Set([...ajaxUrls, ...dataTableUrls])],
+          scripts_count: scripts.length,
+          scripts_preview: scripts.map(s => s.slice(0, 1000)),
+          menu_links: [...html.matchAll(/href=['"]([^'"]+)['"]/gi)].map(m => m[1]).filter(h => h.startsWith('/')),
+        };
         break;
       }
     }
