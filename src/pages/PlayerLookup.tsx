@@ -11,8 +11,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 
 // Format currency
+const parseBRL = (v: any): number => {
+  if (typeof v === 'number') return v;
+  if (typeof v !== 'string') return NaN;
+  // Remove currency symbol and spaces, then handle Brazilian format: 3.380,71 → 3380.71
+  const cleaned = v.replace(/[R$\s]/g, '').trim();
+  // If has both dot and comma, dot is thousands sep, comma is decimal
+  if (cleaned.includes('.') && cleaned.includes(',')) {
+    return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
+  }
+  // If only comma, it's decimal separator
+  if (cleaned.includes(',')) {
+    return parseFloat(cleaned.replace(',', '.'));
+  }
+  return parseFloat(cleaned);
+};
+
 const fmtBRL = (v: any) => {
-  const n = parseFloat(v);
+  const n = parseBRL(v);
   if (isNaN(n)) return v ?? '—';
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
@@ -173,9 +189,7 @@ export default function PlayerLookup() {
         .map((b: any) => {
           const name = b.nome || b.name || b.tipo || b.carteira || b.descricao || '—';
           let val = b.saldo ?? b.valor ?? b.value ?? b.balance ?? 0;
-          if (typeof val === 'string') val = val.replace(/[^\d.,-]/g, '').replace(',', '.');
-          if (typeof val === 'object') val = 0;
-          return { name: String(name), value: parseFloat(String(val)) || 0 };
+          return { name: String(name), value: parseBRL(val) || 0 };
         });
     }
     
@@ -187,13 +201,11 @@ export default function PlayerLookup() {
           if (v === null || v === undefined) return { name: k, value: 0 };
           if (typeof v === 'number') return { name: k, value: v };
           if (typeof v === 'string') {
-            const cleaned = v.replace(/[^\d.,-]/g, '').replace(',', '.');
-            return { name: k, value: parseFloat(cleaned) || 0 };
+            return { name: k, value: parseBRL(v) || 0 };
           }
           if (typeof v === 'object') {
             let val = v.saldo ?? v.valor ?? v.value ?? v.balance ?? 0;
-            if (typeof val === 'string') val = val.replace(/[^\d.,-]/g, '').replace(',', '.');
-            return { name: v.nome || v.name || v.carteira || k, value: parseFloat(String(val)) || 0 };
+            return { name: v.nome || v.name || v.carteira || k, value: parseBRL(val) || 0 };
           }
           return { name: k, value: 0 };
         });
