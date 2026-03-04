@@ -219,12 +219,12 @@ Deno.serve(async (req) => {
       case 'credit_bonus': {
         const id = body.player_id || body.uuid || '';
         const amount = body.bonus_amount || 0;
+        // Real form fields: uuid, carteira, valor, senha (admin password required)
         const creditBody: Record<string, string> = {
           uuid: id,
+          carteira: (body as any).carteira || 'BONUS',
           valor: String(amount),
-          tipo: body.tipo || 'BONUS',
-          carteira: body.carteira || 'BONUS',
-          descricao: body.descricao || 'Crédito via painel',
+          senha: body.password, // admin password is required by the form
         };
         result = await fetchJSON(`${baseUrl}/usuarios/creditos`, headers, 'POST', creditBody);
         break;
@@ -359,6 +359,7 @@ Deno.serve(async (req) => {
         break;
       }
     }
+
 
     return new Response(
       JSON.stringify({ success: true, action: body.action, data: result }),
