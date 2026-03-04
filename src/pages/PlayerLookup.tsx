@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { PaginatedTable } from '@/components/PaginatedTable';
 
 // Format currency
 const parseBRL = (v: any): number => {
@@ -404,31 +405,12 @@ export default function PlayerLookup() {
               )}
             </div>
             {bonusList.length > 0 ? (
-              <div className="overflow-x-auto rounded-lg border border-border">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-secondary/50">
-                      {getColumns(bonusList).map(k => (
-                        <TableHead key={k} className="text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
-                          {friendlyLabel(k)}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {bonusList.slice(0, 50).map((item: any, i: number) => (
-                      <TableRow key={i} className="hover:bg-secondary/30">
-                        {getColumns(bonusList).map(k => (
-                          <TableCell key={k} className="text-xs font-mono whitespace-nowrap">
-                            {fmtCell(k, item[k])}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {bonusList.length > 50 && <p className="text-xs text-muted-foreground p-3 text-center">Mostrando 50 de {bonusList.length}</p>}
-              </div>
+              <PaginatedTable
+                data={bonusList}
+                columns={getColumns(bonusList)}
+                formatCell={fmtCell}
+                formatLabel={friendlyLabel}
+              />
             ) : (
               <p className="text-sm text-muted-foreground italic">Nenhum registro de bônus</p>
             )}
@@ -446,31 +428,12 @@ export default function PlayerLookup() {
               )}
             </div>
             {txList.length > 0 ? (
-              <div className="overflow-x-auto rounded-lg border border-border">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-secondary/50">
-                      {getColumns(txList).map(k => (
-                        <TableHead key={k} className="text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
-                          {friendlyLabel(k)}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {txList.slice(0, 50).map((item: any, i: number) => (
-                      <TableRow key={i} className="hover:bg-secondary/30">
-                        {getColumns(txList).map(k => (
-                          <TableCell key={k} className="text-xs font-mono whitespace-nowrap">
-                            {fmtCell(k, item[k])}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {txList.length > 50 && <p className="text-xs text-muted-foreground p-3 text-center">Mostrando 50 de {txList.length}</p>}
-              </div>
+              <PaginatedTable
+                data={txList}
+                columns={getColumns(txList)}
+                formatCell={fmtCell}
+                formatLabel={friendlyLabel}
+              />
             ) : (
               <p className="text-sm text-muted-foreground italic">Nenhuma transação encontrada</p>
             )}
