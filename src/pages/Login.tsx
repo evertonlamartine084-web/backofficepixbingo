@@ -1,21 +1,36 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { Zap, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export default function Login() {
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const { session, loading } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  if (loading) return null;
+  if (session) return <Navigate to="/" replace />;
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      navigate('/');
-      setLoading(false);
-    }, 800);
+    if (!email || !password) {
+      toast.error('Preencha email e senha');
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      toast.error(error.message === 'Invalid login credentials'
+        ? 'Email ou senha inválidos'
+        : error.message);
+    }
+    setSubmitting(false);
   };
 
   return (
@@ -34,8 +49,9 @@ export default function Login() {
             <Label className="text-foreground">Email</Label>
             <Input
               type="email"
-              placeholder="admin@pixbingobr.com"
-              defaultValue="admin@pixbingobr.com"
+              placeholder="seu@email.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
               className="mt-1 bg-secondary border-border"
             />
           </div>
@@ -44,17 +60,15 @@ export default function Login() {
             <Input
               type="password"
               placeholder="••••••••"
-              defaultValue="admin123"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
               className="mt-1 bg-secondary border-border"
             />
           </div>
-          <Button type="submit" className="w-full gradient-primary border-0" disabled={loading}>
+          <Button type="submit" className="w-full gradient-primary border-0" disabled={submitting}>
             <LogIn className="w-4 h-4 mr-2" />
-            {loading ? 'Entrando...' : 'Entrar'}
+            {submitting ? 'Entrando...' : 'Entrar'}
           </Button>
-          <p className="text-[10px] text-muted-foreground text-center">
-            Roles: ADMIN · OPERADOR · VISUALIZADOR
-          </p>
         </form>
       </div>
     </div>

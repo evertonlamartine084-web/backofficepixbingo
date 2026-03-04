@@ -1,9 +1,10 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Package, AlertTriangle, Globe,
   Search, LogOut, ChevronRight, Zap, Radar, UserSearch,
   Users, ArrowUpDown, ListFilter
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -23,6 +24,13 @@ const adminItems = [
 
 export function AppSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { signOut, user } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
+  };
 
   const linkClass = (path: string) => {
     const active = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
@@ -74,7 +82,13 @@ export function AppSidebar() {
       </nav>
 
       <div className="p-3 border-t border-sidebar-border">
-        <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full">
+        {user && (
+          <p className="px-3 pb-2 text-[10px] text-muted-foreground truncate">{user.email}</p>
+        )}
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full"
+        >
           <LogOut className="w-4 h-4" />
           Sair
         </button>
