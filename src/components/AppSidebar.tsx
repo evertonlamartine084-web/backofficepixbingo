@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Package, AlertTriangle, Globe,
   Search, LogOut, ChevronRight, Zap, Radar, UserSearch,
-  Users, ArrowUpDown, ListFilter
+  Users, ArrowUpDown, ListFilter, ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -20,6 +20,7 @@ const adminItems = [
   { to: '/admin/endpoints', icon: Globe, label: 'Endpoints' },
   { to: '/admin/bonus-rules', icon: Search, label: 'Regras de Bônus' },
   { to: '/admin/discovery', icon: Radar, label: 'Auto-Discovery' },
+  { to: '/admin/manage-users', icon: ShieldCheck, label: 'Gestão de Usuários' },
 ];
 
 export function AppSidebar() {

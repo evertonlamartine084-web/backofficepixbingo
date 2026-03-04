@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.pixbingo-proxy]
 verify_jwt = false
+
+[functions.manage-users]
+verify_jwt = false

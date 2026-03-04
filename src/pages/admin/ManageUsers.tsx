@@ -1,0 +1,280 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { UserPlus, Trash2, KeyRound, Shield, Loader2, RefreshCw } from 'lucide-react';
+import { format } from 'date-fns';
+
+interface ManagedUser {
+  id: string;
+  email: string;
+  created_at: string;
+  last_sign_in_at: string | null;
+  role: string;
+}
+
+const roleBadge: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
+  admin: { label: 'Admin', variant: 'default' },
+  operador: { label: 'Operador', variant: 'secondary' },
+  visualizador: { label: 'Visualizador', variant: 'outline' },
+  sem_role: { label: 'Sem role', variant: 'outline' },
+};
+
+export default function AdminUsers() {
+  const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Create user form
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole] = useState('operador');
+  const [creating, setCreating] = useState(false);
+
+  // Reset password
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetUserId, setResetUserId] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetting, setResetting] = useState(false);
+
+  const callManageUsers = useCallback(async (body: Record<string, any>) => {
+    const { data, error } = await supabase.functions.invoke('manage-users', { body });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  }, []);
+
+  const loadUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await callManageUsers({ action: 'list' });
+      setUsers(data.users || []);
+    } catch (err: any) {
+      toast.error('Erro ao carregar usuários: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [callManageUsers]);
+
+  useEffect(() => { loadUsers(); }, [loadUsers]);
+
+  const handleCreate = async () => {
+    if (!newEmail || !newPassword) { toast.error('Preencha todos os campos'); return; }
+    setCreating(true);
+    try {
+      await callManageUsers({ action: 'create', email: newEmail, password: newPassword, role: newRole });
+      toast.success('Usuário criado com sucesso');
+      setCreateOpen(false);
+      setNewEmail('');
+      setNewPassword('');
+      setNewRole('operador');
+      loadUsers();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDelete = async (user: ManagedUser) => {
+    if (!confirm(`Tem certeza que deseja excluir ${user.email}?`)) return;
+    try {
+      await callManageUsers({ action: 'delete', user_id: user.id });
+      toast.success('Usuário excluído');
+      loadUsers();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleRoleChange = async (userId: string, role: string) => {
+    try {
+      await callManageUsers({ action: 'update_role', user_id: userId, role });
+      toast.success('Role atualizada');
+      loadUsers();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPassword) { toast.error('Informe a nova senha'); return; }
+    setResetting(true);
+    try {
+      await callManageUsers({ action: 'reset_password', user_id: resetUserId, new_password: resetPassword });
+      toast.success('Senha resetada com sucesso');
+      setResetOpen(false);
+      setResetPassword('');
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Gestão de Usuários</h1>
+          <p className="text-sm text-muted-foreground mt-1">Crie, edite e gerencie usuários do sistema</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={loadUsers} disabled={loading}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button className="gradient-primary border-0" size="sm">
+                <UserPlus className="w-4 h-4 mr-2" /> Novo Usuário
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Criar Novo Usuário</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div>
+                  <Label>Email</Label>
+                  <Input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="usuario@email.com" className="mt-1" />
+                </div>
+                <div>
+                  <Label>Senha</Label>
+                  <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="mt-1" />
+                </div>
+                <div>
+                  <Label>Role</Label>
+                  <Select value={newRole} onValueChange={setNewRole}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="operador">Operador</SelectItem>
+                      <SelectItem value="visualizador">Visualizador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+                <Button onClick={handleCreate} disabled={creating} className="gradient-primary border-0">
+                  {creating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <UserPlus className="w-4 h-4 mr-2" />}
+                  Criar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      <div className="glass-card overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Email</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Criado em</TableHead>
+              <TableHead>Último login</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
+                </TableCell>
+              </TableRow>
+            ) : users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  Nenhum usuário encontrado
+                </TableCell>
+              </TableRow>
+            ) : users.map(user => {
+              const rb = roleBadge[user.role] || roleBadge.sem_role;
+              return (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.email}</TableCell>
+                  <TableCell>
+                    <Select defaultValue={user.role} onValueChange={val => handleRoleChange(user.id, val)}>
+                      <SelectTrigger className="w-[140px] h-8 text-xs">
+                        <Badge variant={rb.variant} className="text-xs">{rb.label}</Badge>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="operador">Operador</SelectItem>
+                        <SelectItem value="visualizador">Visualizador</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {format(new Date(user.created_at), 'dd/MM/yyyy HH:mm')}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {user.last_sign_in_at ? format(new Date(user.last_sign_in_at), 'dd/MM/yyyy HH:mm') : '—'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="Resetar senha"
+                        onClick={() => {
+                          setResetUserId(user.id);
+                          setResetEmail(user.email);
+                          setResetPassword('');
+                          setResetOpen(true);
+                        }}
+                      >
+                        <KeyRound className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        title="Excluir usuário"
+                        onClick={() => handleDelete(user)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resetar Senha</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Definir nova senha para <strong>{resetEmail}</strong></p>
+          <div>
+            <Label>Nova Senha</Label>
+            <Input type="password" value={resetPassword} onChange={e => setResetPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="mt-1" />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+            <Button onClick={handleResetPassword} disabled={resetting} className="gradient-primary border-0">
+              {resetting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <KeyRound className="w-4 h-4 mr-2" />}
+              Resetar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

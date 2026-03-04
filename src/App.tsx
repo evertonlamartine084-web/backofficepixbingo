@@ -18,6 +18,7 @@ import Endpoints from "@/pages/admin/Endpoints";
 import BonusRules from "@/pages/admin/BonusRules";
 import Discovery from "@/pages/admin/Discovery";
 import Segments from "@/pages/Segments";
+import ManageUsers from "@/pages/admin/ManageUsers";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,7 +43,8 @@ const App = () => (
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/admin/endpoints" element={<Endpoints />} />
               <Route path="/admin/bonus-rules" element={<BonusRules />} />
-              <Route path="/admin/discovery" element={<Discovery />} />
+            <Route path="/admin/discovery" element={<Discovery />} />
+            <Route path="/admin/manage-users" element={<ManageUsers />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
