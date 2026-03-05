@@ -1,0 +1,268 @@
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+};
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const DEFAULT_SITE = 'https://pixbingobr.concurso.club';
+const DEFAULT_LOGIN = 'https://pixbingobr.concurso.club/login';
+
+async function doLogin(username: string, password: string): Promise<{ cookies: string; success: boolean }> {
+  let initialCookies = '';
+  try {
+    const initRes = await fetch(DEFAULT_SITE, { method: 'GET', headers: { 'Accept': 'text/html' }, redirect: 'manual', signal: AbortSignal.timeout(10000) });
+    const setCookies = initRes.headers.getSetCookie?.() || [];
+    initialCookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
+  } catch {}
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'text/html,application/json,*/*',
+      'Referer': `${DEFAULT_SITE}/`,
+      'Origin': DEFAULT_SITE,
+    };
+    if (initialCookies) headers['Cookie'] = initialCookies;
+
+    const res = await fetch(DEFAULT_LOGIN, {
+      method: 'POST', headers,
+      body: new URLSearchParams({ usuario: username, senha: password }).toString(),
+      redirect: 'manual', signal: AbortSignal.timeout(10000),
+    });
+
+    const setCookies = res.headers.getSetCookie?.() || [];
+    const cookieMap = new Map<string, string>();
+    for (const c of initialCookies.split('; ').filter(Boolean)) { const [k, ...v] = c.split('='); cookieMap.set(k, v.join('=')); }
+    for (const sc of setCookies) { const [kv] = sc.split(';'); const [k, ...v] = kv.split('='); cookieMap.set(k.trim(), v.join('=')); }
+    const cookies = Array.from(cookieMap.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
+
+    if (res.status === 302 || res.status === 301) {
+      const location = res.headers.get('location') || '';
+      if (!location.includes('/login') && !location.includes('error')) return { cookies, success: true };
+    }
+    if (res.ok) {
+      const text = await res.text();
+      try { const data = JSON.parse(text); if (data.status === true || data.logged === true) return { cookies, success: true }; } catch {}
+    }
+  } catch {}
+  return { cookies: '', success: false };
+}
+
+function buildHeaders(cookies: string): Record<string, string> {
+  return { 'Accept': 'application/json, text/javascript, */*', 'X-Requested-With': 'XMLHttpRequest', 'Cookie': cookies, 'Referer': DEFAULT_SITE };
+}
+
+async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: any): Promise<any> {
+  const opts: RequestInit = { method, headers: { ...headers }, signal: AbortSignal.timeout(15000) };
+  if (body && method === 'POST') {
+    opts.body = new URLSearchParams(body).toString();
+    (opts.headers as Record<string, string>)['Content-Type'] = 'application/x-www-form-urlencoded';
+  }
+  const res = await fetch(url, opts);
+  const text = await res.text();
+  try { return JSON.parse(text); } catch { return { _raw: text.slice(0, 500), _status: res.status }; }
+}
+
+async function resolveUuid(cpf: string, headers: Record<string, string>): Promise<string | null> {
+  const params = new URLSearchParams({ draw: '1', start: '0', length: '1', busca_cpf: cpf });
+  const cols = ['username', 'celular', 'cpf', 'created_at', 'ultimo_login', 'situacao', 'uuid'];
+  cols.forEach((col, i) => {
+    params.set(`columns[${i}][data]`, col); params.set(`columns[${i}][name]`, '');
+    params.set(`columns[${i}][searchable]`, 'true'); params.set(`columns[${i}][orderable]`, 'true');
+    params.set(`columns[${i}][search][value]`, ''); params.set(`columns[${i}][search][regex]`, 'false');
+  });
+  params.set('order[0][column]', '0'); params.set('order[0][dir]', 'asc');
+  params.set('search[value]', ''); params.set('search[regex]', 'false');
+  const result = await fetchJSON(`${DEFAULT_SITE}/usuarios/listar?${params}`, headers);
+  return result?.aaData?.[0]?.uuid || null;
+}
+
+async function getPlayerTransactions(cpf: string, headers: Record<string, string>, dateStart: string, dateEnd: string, type: string): Promise<number> {
+  const params = new URLSearchParams();
+  params.set('draw', '1'); params.set('start', '0'); params.set('length', '5000'); params.set('exportar', '0');
+  const txCols = ['id', 'tipo', 'valor', 'saldo_anterior', 'saldo_posterior', 'cpf', 'username', 'created_at', 'descricao', 'status'];
+  txCols.forEach((col, i) => {
+    params.set(`columns[${i}][data]`, col); params.set(`columns[${i}][name]`, '');
+    params.set(`columns[${i}][searchable]`, 'true'); params.set(`columns[${i}][orderable]`, 'true');
+    params.set(`columns[${i}][search][value]`, ''); params.set(`columns[${i}][search][regex]`, 'false');
+  });
+  params.set('order[0][column]', '0'); params.set('order[0][dir]', 'desc');
+  params.set('search[value]', ''); params.set('search[regex]', 'false');
+  params.set('busca_cpf', cpf);
+  params.set('busca_data_inicio', dateStart);
+  params.set('busca_data_fim', dateEnd);
+  // Filter by type: DEPOSITO or APOSTA (bet)
+  if (type === 'deposite_e_ganhe') {
+    params.set('busca_tipo_transacao', 'DEPOSITO');
+  }
+  // For aposte_e_ganhe we look at all bet-related transactions
+  // The platform uses different transaction types for bets
+
+  const result = await fetchJSON(`${DEFAULT_SITE}/transferencias/listar?${params}`, headers);
+  const transactions = result?.aaData || [];
+  
+  let totalValue = 0;
+  for (const tx of transactions) {
+    const valor = Math.abs(parseFloat(tx.valor) || 0);
+    if (type === 'deposite_e_ganhe') {
+      // Only count DEPOSITO
+      if (String(tx.tipo_transacao || tx.tipo || '').toUpperCase().includes('DEPOSITO')) {
+        totalValue += valor;
+      }
+    } else {
+      // aposte_e_ganhe - count bets (not deposits/withdrawals)
+      const tipoStr = String(tx.tipo_transacao || tx.tipo || tx.descricao || '').toUpperCase();
+      if (tipoStr.includes('APOSTA') || tipoStr.includes('BET') || tipoStr.includes('KENO') || tipoStr.includes('CASSINO') || tipoStr.includes('JOGO')) {
+        totalValue += valor;
+      }
+    }
+  }
+  
+  return totalValue;
+}
+
+function formatDate(isoDate: string): string {
+  const d = new Date(isoDate);
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+
+  try {
+    const body = await req.json();
+    const { campaign_id, username, password, action } = body;
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get campaign details
+    const { data: campaign, error: campErr } = await supabase
+      .from('campaigns').select('*').eq('id', campaign_id).single();
+    if (campErr || !campaign) {
+      return new Response(JSON.stringify({ success: false, error: 'Campanha não encontrada' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // Get segment players
+    if (!campaign.segment_id) {
+      return new Response(JSON.stringify({ success: false, error: 'Campanha sem segmento vinculado' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const { data: segmentItems, error: segErr } = await supabase
+      .from('segment_items').select('cpf, cpf_masked').eq('segment_id', campaign.segment_id);
+    if (segErr || !segmentItems?.length) {
+      return new Response(JSON.stringify({ success: false, error: 'Segmento vazio ou erro ao buscar jogadores' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // Login to platform
+    const auth = await doLogin(username, password);
+    if (!auth.success) {
+      return new Response(JSON.stringify({ success: false, error: 'Login na plataforma falhou' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    const headers = buildHeaders(auth.cookies);
+
+    const dateStart = formatDate(campaign.start_date);
+    const dateEnd = formatDate(campaign.end_date);
+
+    // Upsert participants
+    const participantsToUpsert = segmentItems.map(si => ({
+      campaign_id,
+      cpf: si.cpf,
+      cpf_masked: si.cpf_masked,
+      status: 'PENDENTE',
+    }));
+
+    // Insert in batches of 500
+    for (let i = 0; i < participantsToUpsert.length; i += 500) {
+      await supabase.from('campaign_participants')
+        .upsert(participantsToUpsert.slice(i, i + 500), { onConflict: 'campaign_id,cpf', ignoreDuplicates: true });
+    }
+
+    // Get all participants that haven't been credited yet
+    const { data: participants } = await supabase
+      .from('campaign_participants').select('*')
+      .eq('campaign_id', campaign_id)
+      .eq('prize_credited', false);
+
+    if (!participants?.length) {
+      return new Response(JSON.stringify({ success: true, data: { processed: 0, eligible: 0, credited: 0, errors: 0, message: 'Todos já foram processados' } }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    let processed = 0, eligible = 0, credited = 0, errors = 0;
+
+    for (const participant of participants) {
+      processed++;
+
+      try {
+        // 1. Check transactions
+        const totalValue = await getPlayerTransactions(participant.cpf, headers, dateStart, dateEnd, campaign.type);
+        
+        await supabase.from('campaign_participants').update({ total_value: totalValue }).eq('id', participant.id);
+
+        if (totalValue < Number(campaign.min_value)) {
+          await supabase.from('campaign_participants').update({ status: 'NAO_ELEGIVEL' }).eq('id', participant.id);
+          continue;
+        }
+
+        eligible++;
+
+        // 2. Resolve UUID
+        let uuid = participant.uuid;
+        if (!uuid) {
+          uuid = await resolveUuid(participant.cpf, headers);
+          if (uuid) {
+            await supabase.from('campaign_participants').update({ uuid }).eq('id', participant.id);
+          }
+        }
+
+        if (!uuid) {
+          await supabase.from('campaign_participants').update({ status: 'ERRO', credit_result: 'UUID não encontrado' }).eq('id', participant.id);
+          errors++;
+          continue;
+        }
+
+        // 3. Credit prize
+        const creditBody = { uuid, carteira: 'BONUS', valor: String(campaign.prize_value), senha: password };
+        const creditResult = await fetchJSON(`${DEFAULT_SITE}/usuarios/creditos`, headers, 'POST', creditBody);
+
+        if (creditResult.status === true || creditResult.msg?.includes('sucesso')) {
+          await supabase.from('campaign_participants').update({
+            status: 'CREDITADO', prize_credited: true,
+            credit_result: JSON.stringify(creditResult).slice(0, 200),
+          }).eq('id', participant.id);
+          credited++;
+        } else {
+          await supabase.from('campaign_participants').update({
+            status: 'ERRO',
+            credit_result: JSON.stringify(creditResult).slice(0, 200),
+          }).eq('id', participant.id);
+          errors++;
+        }
+      } catch (e) {
+        await supabase.from('campaign_participants').update({
+          status: 'ERRO', credit_result: (e as Error).message,
+        }).eq('id', participant.id);
+        errors++;
+      }
+
+      // Small delay to avoid rate limiting
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: { processed, eligible, credited, errors, total: participants.length },
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+  } catch (error) {
+    return new Response(JSON.stringify({ success: false, error: (error as Error).message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+});
