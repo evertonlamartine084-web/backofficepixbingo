@@ -403,8 +403,10 @@ Deno.serve(async (req) => {
 
           const valorDeposito = Number(txSummary?.valorDeposito || 0);
           const valorSaque = Number(txSummary?.valorSaque || 0);
-          const qtdDeposito = Number(txSummary?.qtdDeposito || txSummary?.quantidadeDeposito || 0);
-          const qtdSaque = Number(txSummary?.qtdSaque || txSummary?.quantidadeSaque || 0);
+          // API returns qtdeDeposito/qtdeSaque (with 'e')
+          const qtdDeposito = Number(txSummary?.qtdeDeposito || txSummary?.qtdDeposito || 0);
+          const qtdSaque = Number(txSummary?.qtdeSaque || txSummary?.qtdSaque || 0);
+          // These are not available in the API
           const qtdDepositantes = Number(txSummary?.qtdDepositantes || txSummary?.depositantes || 0);
           const qtdSacantes = Number(txSummary?.qtdSacantes || txSummary?.sacantes || 0);
 
@@ -446,45 +448,27 @@ Deno.serve(async (req) => {
           const totalBonusTurnover = kenoTotals.bonusTurnover + cassinoTotals.bonusTurnover;
           const totalBonusGgr = kenoTotals.bonusGgr + cassinoTotals.bonusGgr;
 
-          // FTD data
-          const ftdValor = Number(frData?.ftdValor || txSummary?.ftdValor || 0);
-          const ftdQtd = Number(frData?.ftdQtd || txSummary?.ftdQtd || 0);
+          // FTD data - API returns valorPrimeiroDeposito / qtdePrimeiroDeposito
+          const ftdValor = Number(txSummary?.valorPrimeiroDeposito || txSummary?.ftdValor || 0);
+          const ftdQtd = Number(txSummary?.qtdePrimeiroDeposito || txSummary?.ftdQtd || 0);
 
-          // Users data
-          const activeUsers = Number(frData?.activeUsers || txSummary?.activeUsers || 0);
-          const registeredUsers = Number(frData?.registeredUsers || txSummary?.registeredUsers || 0);
-          const logins = Number(frData?.logins || txSummary?.logins || 0);
-          const kycApproved = Number(frData?.kycApproved || txSummary?.kycApproved || 0);
-
-          // Wallet/Bonus
-          const walletBonus = Number(frData?.walletBonus || txSummary?.walletBonus || 0);
-          const bonusRedemption = Number(frData?.bonusRedemption || txSummary?.bonusRedemption || 0);
-          const bonusRedemptionQtd = Number(frData?.bonusRedemptionQtd || txSummary?.bonusRedemptionQtd || 0);
-
-          // Wallet Balance
-          const walletBalance = Number(frData?.walletBalance || txSummary?.walletBalance || 0);
-          const walletBalanceKyc = Number(frData?.walletBalanceKyc || txSummary?.walletBalanceKyc || 0);
-          const openBetBalance = Number(frData?.openBetBalance || txSummary?.openBetBalance || 0);
-          const openBets = Number(frData?.openBets || txSummary?.openBets || 0);
-
-          // Adjustments
-          const cashIn = Number(frData?.cashIn || txSummary?.cashIn || txSummary?.valorCashIn || 0);
-          const cashInQtd = Number(frData?.cashInQtd || txSummary?.cashInQtd || txSummary?.qtdCashIn || 0);
-          const cashOut = Number(frData?.cashOut || txSummary?.cashOut || txSummary?.valorCashOut || 0);
-          const cashOutQtd = Number(frData?.cashOutQtd || txSummary?.cashOutQtd || txSummary?.qtdCashOut || 0);
+          // iTotalDisplayRecords = total transactions count
+          const totalTransactions = Number(txSummary?.iTotalDisplayRecords || txSummary?.iTotalRecords || 0);
 
           result = {
             depositos: valorDeposito,
             saques: valorSaque,
             qtdDeposito, qtdSaque, qtdDepositantes, qtdSacantes,
+            totalTransactions,
             keno: kenoTotals,
             cassino: cassinoTotals,
             total: { apostas: totalApostas, premios: totalPremios, turnover: totalApostas, ggr: totalGGR, bonusTurnover: totalBonusTurnover, bonusGgr: totalBonusGgr, margin: totalApostas > 0 ? ((totalGGR / totalApostas) * 100) : 0 },
             ftd: { valor: ftdValor, qtd: ftdQtd },
-            users: { active: activeUsers, registered: registeredUsers, logins, kycApproved },
-            walletBonus: { valor: walletBonus, redemption: bonusRedemption, redemptionQtd: bonusRedemptionQtd },
-            walletBalance: { balance: walletBalance, balanceKyc: walletBalanceKyc, openBetBalance, openBets },
-            adjustments: { cashIn, cashInQtd, cashOut, cashOutQtd },
+            // These are NOT available from the external API
+            users: null,
+            walletBonus: null,
+            walletBalance: null,
+            adjustments: null,
             fonte: 'combined_fallback',
             _raw_tx_keys: Object.keys(txSummary || {}),
             _raw_fr_keys: Object.keys(frData || {}),

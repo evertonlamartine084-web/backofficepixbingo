@@ -73,14 +73,15 @@ interface FinancialData {
   qtdSaque?: number;
   qtdDepositantes?: number;
   qtdSacantes?: number;
+  totalTransactions?: number;
   keno: ProductTotals;
   cassino: ProductTotals;
   total: ProductTotals;
-  ftd?: { valor: number; qtd: number };
-  users?: { active: number; registered: number; logins: number; kycApproved: number };
-  walletBonus?: { valor: number; redemption: number; redemptionQtd: number };
-  walletBalance?: { balance: number; balanceKyc: number; openBetBalance: number; openBets: number };
-  adjustments?: { cashIn: number; cashInQtd: number; cashOut: number; cashOutQtd: number };
+  ftd?: { valor: number; qtd: number } | null;
+  users?: { active: number; registered: number; logins: number; kycApproved: number } | null;
+  walletBonus?: { valor: number; redemption: number; redemptionQtd: number } | null;
+  walletBalance?: { balance: number; balanceKyc: number; openBetBalance: number; openBets: number } | null;
+  adjustments?: { cashIn: number; cashInQtd: number; cashOut: number; cashOutQtd: number } | null;
   isFallback?: boolean;
 }
 
@@ -128,11 +129,12 @@ export default function Dashboard() {
         keno: d.keno || zeroProduct,
         cassino: d.cassino || zeroProduct,
         total: d.total || zeroProduct,
-        ftd: d.ftd || { valor: 0, qtd: 0 },
-        users: d.users || { active: 0, registered: 0, logins: 0, kycApproved: 0 },
-        walletBonus: d.walletBonus || { valor: 0, redemption: 0, redemptionQtd: 0 },
-        walletBalance: d.walletBalance || { balance: 0, balanceKyc: 0, openBetBalance: 0, openBets: 0 },
-        adjustments: d.adjustments || { cashIn: 0, cashInQtd: 0, cashOut: 0, cashOutQtd: 0 },
+        ftd: d.ftd || null,
+        users: d.users || null,
+        walletBonus: d.walletBonus || null,
+        walletBalance: d.walletBalance || null,
+        adjustments: d.adjustments || null,
+        totalTransactions: Number(d.totalTransactions || 0),
         isFallback: fonte.includes('fallback'),
       });
 
@@ -173,6 +175,7 @@ export default function Dashboard() {
   const avgSaque = f && f.qtdSaque ? f.saques / f.qtdSaque : 0;
   const avgFtd = f?.ftd && f.ftd.qtd > 0 ? f.ftd.valor / f.ftd.qtd : 0;
   const avgRedemption = f?.walletBonus && f.walletBonus.redemptionQtd > 0 ? f.walletBonus.redemption / f.walletBonus.redemptionQtd : 0;
+  const nd = 'N/D';
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -348,40 +351,40 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <DashboardInfoCard
               title="FTD"
-              mainValue={formatBRL(f!.ftd?.valor || 0)}
+              mainValue={f!.ftd ? formatBRL(f!.ftd.valor) : nd}
               mainLabel="FTD Value"
               icon={TrendingUp}
               iconColor="text-primary"
-              stats={[
-                { label: 'Transactions', value: f!.ftd?.qtd || 0 },
+              stats={f!.ftd ? [
+                { label: 'Transactions', value: f!.ftd.qtd },
                 { label: 'AVG Value', value: formatBRL(avgFtd) },
-              ]}
+              ] : [{ label: '', value: 'Dados indisponíveis' }]}
             />
             <DashboardInfoCard
               title="Usuários"
-              mainValue={String(f!.users?.active || 0)}
+              mainValue={f!.users ? String(f!.users.active) : nd}
               mainLabel="Active Users"
               icon={Users}
               iconColor="text-primary"
-              secondaryValue={String(f!.users?.logins || 0)}
-              secondaryLabel="Number of Logins"
-              stats={[
-                { label: 'Registered Users', value: f!.users?.registered || 0 },
-                { label: 'KYC Approved', value: f!.users?.kycApproved || 0 },
-              ]}
+              secondaryValue={f!.users ? String(f!.users.logins) : undefined}
+              secondaryLabel={f!.users ? 'Number of Logins' : undefined}
+              stats={f!.users ? [
+                { label: 'Registered Users', value: f!.users.registered },
+                { label: 'KYC Approved', value: f!.users.kycApproved },
+              ] : [{ label: '', value: 'Dados indisponíveis' }]}
             />
             <DashboardInfoCard
               title="Wallet Bonus"
-              mainValue={formatBRL(f!.walletBonus?.valor || 0)}
+              mainValue={f!.walletBonus ? formatBRL(f!.walletBonus.valor) : nd}
               mainLabel="Wallet Bonus"
               icon={Gift}
               iconColor="text-primary"
-              secondaryValue={formatBRL(f!.walletBonus?.redemption || 0)}
-              secondaryLabel="Bonus Redemption"
-              stats={[
-                { label: 'Transactions', value: f!.walletBonus?.redemptionQtd || 0 },
+              secondaryValue={f!.walletBonus ? formatBRL(f!.walletBonus.redemption) : undefined}
+              secondaryLabel={f!.walletBonus ? 'Bonus Redemption' : undefined}
+              stats={f!.walletBonus ? [
+                { label: 'Transactions', value: f!.walletBonus.redemptionQtd },
                 { label: 'AVG Redemption', value: formatBRL(avgRedemption) },
-              ]}
+              ] : [{ label: '', value: 'Dados indisponíveis' }]}
             />
           </div>
 
@@ -389,38 +392,38 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <DashboardInfoCard
               title="Wallet Balance"
-              mainValue={formatBRL(f!.walletBalance?.balance || 0)}
+              mainValue={f!.walletBalance ? formatBRL(f!.walletBalance.balance) : nd}
               mainLabel="Wallet Balance"
               icon={Landmark}
               iconColor="text-primary"
-              secondaryValue={formatBRL(f!.walletBalance?.balanceKyc || 0)}
-              secondaryLabel="Wallet Balance (KYC)"
-              stats={[
-                { label: 'Open Bet Balance', value: formatBRL(f!.walletBalance?.openBetBalance || 0) },
-                { label: 'Open Bets', value: f!.walletBalance?.openBets || 0 },
-              ]}
+              secondaryValue={f!.walletBalance ? formatBRL(f!.walletBalance.balanceKyc) : undefined}
+              secondaryLabel={f!.walletBalance ? 'Wallet Balance (KYC)' : undefined}
+              stats={f!.walletBalance ? [
+                { label: 'Open Bet Balance', value: formatBRL(f!.walletBalance.openBetBalance) },
+                { label: 'Open Bets', value: f!.walletBalance.openBets },
+              ] : [{ label: '', value: 'Dados indisponíveis' }]}
             />
             <DashboardInfoCard
               title="Adjustments"
-              mainValue={formatBRL(f!.adjustments?.cashIn || 0)}
+              mainValue={f!.adjustments ? formatBRL(f!.adjustments.cashIn) : nd}
               mainLabel="Cash in"
               icon={ArrowDownToLine}
               iconColor="text-success"
-              stats={[
-                { label: 'Transactions', value: f!.adjustments?.cashInQtd || 0 },
-                { label: 'AVG Deposit', value: f!.adjustments?.cashInQtd ? formatBRL(f!.adjustments.cashIn / f!.adjustments.cashInQtd) : formatBRL(0) },
-              ]}
+              stats={f!.adjustments ? [
+                { label: 'Transactions', value: f!.adjustments.cashInQtd },
+                { label: 'AVG Deposit', value: f!.adjustments.cashInQtd ? formatBRL(f!.adjustments.cashIn / f!.adjustments.cashInQtd) : formatBRL(0) },
+              ] : [{ label: '', value: 'Dados indisponíveis' }]}
             />
             <DashboardInfoCard
               title="Adjustments"
-              mainValue={formatBRL(f!.adjustments?.cashOut || 0)}
+              mainValue={f!.adjustments ? formatBRL(f!.adjustments.cashOut) : nd}
               mainLabel="Cash out"
               icon={ArrowUpFromLine}
               iconColor="text-destructive"
-              stats={[
-                { label: 'Transactions', value: f!.adjustments?.cashOutQtd || 0 },
-                { label: 'AVG Withdrawals', value: f!.adjustments?.cashOutQtd ? formatBRL(f!.adjustments.cashOut / f!.adjustments.cashOutQtd) : formatBRL(0) },
-              ]}
+              stats={f!.adjustments ? [
+                { label: 'Transactions', value: f!.adjustments.cashOutQtd },
+                { label: 'AVG Withdrawals', value: f!.adjustments.cashOutQtd ? formatBRL(f!.adjustments.cashOut / f!.adjustments.cashOutQtd) : formatBRL(0) },
+              ] : [{ label: '', value: 'Dados indisponíveis' }]}
             />
           </div>
         </div>
