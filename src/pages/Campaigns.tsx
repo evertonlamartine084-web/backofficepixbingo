@@ -59,6 +59,7 @@ interface Campaign {
   end_date: string;
   status: CampaignStatus;
   created_at: string;
+  wallet_type: 'REAL' | 'BONUS';
   segment_name?: string;
 }
 
@@ -88,6 +89,7 @@ export default function Campaigns() {
     min_value: '',
     prize_value: '',
     prize_description: '',
+    wallet_type: 'REAL' as 'REAL' | 'BONUS',
     start_date: undefined as Date | undefined,
     end_date: undefined as Date | undefined,
   });
@@ -158,6 +160,7 @@ export default function Campaigns() {
         segment_id: form.segment_id || null,
         min_value: Number(form.min_value) || 0, prize_value: Number(form.prize_value) || 0,
         prize_description: form.prize_description,
+        wallet_type: form.wallet_type,
         start_date: form.start_date.toISOString(), end_date: form.end_date.toISOString(),
       } as any);
       if (error) throw error;
@@ -231,7 +234,7 @@ export default function Campaigns() {
 
   const resetForm = () => setForm({
     name: '', type: 'aposte_e_ganhe', description: '', segment_id: '',
-    min_value: '', prize_value: '', prize_description: '',
+    min_value: '', prize_value: '', prize_description: '', wallet_type: 'REAL',
     start_date: undefined, end_date: undefined,
   });
 
@@ -297,9 +300,10 @@ export default function Campaigns() {
 
         {/* Regras */}
         <Card className="border-border">
-          <CardContent className="p-4 grid grid-cols-4 gap-4 text-sm">
+          <CardContent className="p-4 grid grid-cols-5 gap-4 text-sm">
             <div><span className="text-muted-foreground text-xs block">Valor Mínimo</span> R$ {Number(selectedCampaign.min_value).toFixed(2)}</div>
             <div><span className="text-muted-foreground text-xs block">Prêmio</span> R$ {Number(selectedCampaign.prize_value).toFixed(2)}</div>
+            <div><span className="text-muted-foreground text-xs block">Carteira</span> <Badge variant="outline" className="text-xs">{selectedCampaign.wallet_type}</Badge></div>
             <div><span className="text-muted-foreground text-xs block">Início</span> {format(new Date(selectedCampaign.start_date), 'dd/MM/yyyy')}</div>
             <div><span className="text-muted-foreground text-xs block">Fim</span> {format(new Date(selectedCampaign.end_date), 'dd/MM/yyyy')}</div>
           </CardContent>
@@ -389,6 +393,16 @@ export default function Campaigns() {
               <div className="space-y-1.5">
                 <Label>Descrição</Label>
                 <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Detalhes da campanha..." rows={2} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Carteira da aposta/depósito *</Label>
+                <Select value={form.wallet_type} onValueChange={v => setForm(f => ({ ...f, wallet_type: v as 'REAL' | 'BONUS' }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="REAL">💰 Saldo Real</SelectItem>
+                    <SelectItem value="BONUS">🎁 Saldo Bônus</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">

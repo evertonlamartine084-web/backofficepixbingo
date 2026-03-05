@@ -78,7 +78,7 @@ async function resolveUuid(cpf: string, headers: Record<string, string>): Promis
   return result?.aaData?.[0]?.uuid || null;
 }
 
-async function getPlayerTransactions(cpf: string, headers: Record<string, string>, dateStart: string, dateEnd: string, type: string): Promise<number> {
+async function getPlayerTransactions(cpf: string, headers: Record<string, string>, dateStart: string, dateEnd: string, type: string, walletType: string): Promise<number> {
   const params = new URLSearchParams();
   params.set('draw', '1'); params.set('start', '0'); params.set('length', '5000'); params.set('exportar', '0');
   const txCols = ['id', 'tipo', 'valor', 'saldo_anterior', 'saldo_posterior', 'cpf', 'username', 'created_at', 'descricao', 'status'];
@@ -92,12 +92,9 @@ async function getPlayerTransactions(cpf: string, headers: Record<string, string
   params.set('busca_cpf', cpf);
   params.set('busca_data_inicio', dateStart);
   params.set('busca_data_fim', dateEnd);
-  // Filter by type: DEPOSITO or APOSTA (bet)
   if (type === 'deposite_e_ganhe') {
     params.set('busca_tipo_transacao', 'DEPOSITO');
   }
-  // For aposte_e_ganhe we look at all bet-related transactions
-  // The platform uses different transaction types for bets
 
   const result = await fetchJSON(`${DEFAULT_SITE}/transferencias/listar?${params}`, headers);
   const transactions = result?.aaData || [];
@@ -105,14 +102,21 @@ async function getPlayerTransactions(cpf: string, headers: Record<string, string
   let totalValue = 0;
   for (const tx of transactions) {
     const valor = Math.abs(parseFloat(tx.valor) || 0);
+    const tipoStr = String(tx.tipo_transacao || tx.tipo || tx.descricao || '').toUpperCase();
+    const descStr = String(tx.descricao || '').toUpperCase();
+    
+    // Check wallet type: filter by REAL or BONUS based on campaign config
+    const isBonusTransaction = descStr.includes('BONUS') || descStr.includes('BÔNUS') || tipoStr.includes('BONUS');
+    
+    if (walletType === 'BONUS' && !isBonusTransaction) continue;
+    if (walletType === 'REAL' && isBonusTransaction) continue;
+
     if (type === 'deposite_e_ganhe') {
-      // Only count DEPOSITO
-      if (String(tx.tipo_transacao || tx.tipo || '').toUpperCase().includes('DEPOSITO')) {
+      if (tipoStr.includes('DEPOSITO')) {
         totalValue += valor;
       }
     } else {
-      // aposte_e_ganhe - count bets (not deposits/withdrawals)
-      const tipoStr = String(tx.tipo_transacao || tx.tipo || tx.descricao || '').toUpperCase();
+      // aposte_e_ganhe - count bets
       if (tipoStr.includes('APOSTA') || tipoStr.includes('BET') || tipoStr.includes('KENO') || tipoStr.includes('CASSINO') || tipoStr.includes('JOGO')) {
         totalValue += valor;
       }
@@ -202,7 +206,7 @@ Deno.serve(async (req) => {
 
       try {
         // 1. Check transactions
-        const totalValue = await getPlayerTransactions(participant.cpf, headers, dateStart, dateEnd, campaign.type);
+        const totalValue = await getPlayerTransactions(participant.cpf, headers, dateStart, dateEnd, campaign.type, campaign.wallet_type || 'REAL');
         
         await supabase.from('campaign_participants').update({ total_value: totalValue }).eq('id', participant.id);
 
