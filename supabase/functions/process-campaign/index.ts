@@ -91,21 +91,26 @@ function normalizeMoney(value: unknown): number {
   return Number.isFinite(num) ? num : 0;
 }
 
-function extractDateKey(value: unknown): string | null {
+function extractDateTime(value: unknown): string | null {
   const raw = String(value ?? '').trim();
   if (!raw) return null;
 
-  const directMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (directMatch) return directMatch[1];
+  // Handle "2026-03-05 17:04:23" format
+  const directMatch = raw.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/);
+  if (directMatch) return `${directMatch[1]}T${directMatch[2]}`;
+
+  // Handle "2026-03-05" (date only)
+  const dateOnly = raw.match(/^(\d{4}-\d{2}-\d{2})$/);
+  if (dateOnly) return `${dateOnly[1]}T00:00:00`;
 
   const parsed = new Date(raw.includes(' ') ? raw.replace(' ', 'T') : raw);
   if (Number.isNaN(parsed.getTime())) return null;
-  return parsed.toISOString().slice(0, 10);
+  return parsed.toISOString().slice(0, 19);
 }
 
-function isDateInRange(dateKey: string | null, startDateKey: string, endDateKey: string): boolean {
-  if (!dateKey) return false;
-  return dateKey >= startDateKey && dateKey <= endDateKey;
+function isDateTimeInRange(dt: string | null, startDt: string, endDt: string): boolean {
+  if (!dt) return false;
+  return dt >= startDt && dt <= endDt;
 }
 
 async function getPlayerDepositTotal(cpf: string, headers: Record<string, string>, dateStart: string, dateEnd: string, type: string, walletType: string): Promise<number> {
@@ -148,7 +153,7 @@ async function getPlayerDepositTotal(cpf: string, headers: Record<string, string
   return totalValue;
 }
 
-async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, startDateKey: string, endDateKey: string, walletType: string): Promise<number> {
+async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, startDt: string, endDt: string, walletType: string): Promise<number> {
   const result = await fetchJSON(`${DEFAULT_SITE}/usuarios/transacoes?id=${encodeURIComponent(uuid)}`, headers);
   const transactions = result?.historico || result?.data?.historico || [];
 
@@ -161,8 +166,8 @@ async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, 
     if (walletType === 'BONUS' && wallet !== 'BONUS') continue;
     if (walletType === 'REAL' && wallet === 'BONUS') continue;
 
-    const txDateKey = extractDateKey(tx.data_registro || tx.created_at || tx.data);
-    if (!isDateInRange(txDateKey, startDateKey, endDateKey)) continue;
+    const txDt = extractDateTime(tx.data_registro || tx.created_at || tx.data);
+    if (!isDateTimeInRange(txDt, startDt, endDt)) continue;
 
     totalValue += Math.abs(normalizeMoney(tx.valor));
   }
@@ -217,8 +222,8 @@ Deno.serve(async (req) => {
 
     const dateStart = formatDate(campaign.start_date);
     const dateEnd = formatDate(campaign.end_date);
-    const startDateKey = String(campaign.start_date).slice(0, 10);
-    const endDateKey = String(campaign.end_date).slice(0, 10);
+    const startDt = new Date(campaign.start_date).toISOString().slice(0, 19);
+    const endDt = new Date(campaign.end_date).toISOString().slice(0, 19);
 
     // Upsert participants
     const participantsToUpsert = segmentItems.map(si => ({
@@ -272,8 +277,8 @@ Deno.serve(async (req) => {
           totalValue = await getPlayerBetTotal(
             uuid,
             headers,
-            startDateKey,
-            endDateKey,
+            startDt,
+            endDt,
             campaign.wallet_type || 'REAL',
           );
         } else {
