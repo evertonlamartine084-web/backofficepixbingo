@@ -268,14 +268,21 @@ export default function Campaigns() {
             <h1 className="text-2xl font-bold tracking-tight">{selectedCampaign.name}</h1>
             <p className="text-sm text-muted-foreground">{TYPE_LABELS[selectedCampaign.type]} • {selectedCampaign.segment_name || 'Sem segmento'}</p>
           </div>
-          <Button
-            onClick={() => processCampaign(selectedCampaign)}
-            disabled={processing || !selectedCampaign.segment_id}
-            className="gap-2"
-          >
-            {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-            {processing ? 'Processando...' : 'Processar Campanha'}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-xs">
+              ⚡ Auto a cada 5 min
+            </Badge>
+            <Button
+              onClick={() => processCampaign(selectedCampaign)}
+              disabled={processing || !selectedCampaign.segment_id}
+              className="gap-2"
+              variant="outline"
+              size="sm"
+            >
+              {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              {processing ? 'Processando...' : 'Processar Agora'}
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}
