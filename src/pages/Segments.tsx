@@ -42,11 +42,14 @@ const parseCPFs = (text: string): string[] => {
     .map(s => s.slice(0, 11));
 };
 
+const ALL_USERS_ID = '__all_users__';
+
 export default function Segments() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { callProxy } = useProxy();
   const [creds, setCreds] = useState({ username: '', password: '' });
+  const [allUsersLoading, setAllUsersLoading] = useState(false);
   const [selectedSegment, setSelectedSegment] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -87,10 +90,34 @@ export default function Segments() {
     },
   });
 
+  // Fetch all users from API (for "All Users" virtual segment)
+  const { data: allUsersItems, isLoading: allUsersQueryLoading, refetch: refetchAllUsers } = useQuery({
+    queryKey: ['all_users_segment', creds.username],
+    enabled: selectedSegment === ALL_USERS_ID && !!creds.username,
+    queryFn: async () => {
+      setAllUsersLoading(true);
+      try {
+        const res = await callProxy('list_users', creds, { length: 10000 });
+        const users = res?.data?.aaData || [];
+        return users.map((u: any, i: number) => ({
+          id: `all-user-${i}`,
+          cpf: u.cpf || '',
+          cpf_masked: maskCPF(u.cpf || ''),
+          created_at: u.created_at || '',
+          username: u.username || u.name || '',
+          uuid: u.uuid || '',
+        }));
+      } finally {
+        setAllUsersLoading(false);
+      }
+    },
+    staleTime: 5 * 60 * 1000, // cache 5 min
+  });
+
   // Fetch ALL items for selected segment (paginated to bypass 1000-row limit)
   const { data: items, isLoading: itemsLoading } = useQuery({
     queryKey: ['segment_items', selectedSegment],
-    enabled: !!selectedSegment,
+    enabled: !!selectedSegment && selectedSegment !== ALL_USERS_ID,
     queryFn: async () => {
       const allItems: any[] = [];
       const batchSize = 1000;
@@ -115,6 +142,11 @@ export default function Segments() {
       return allItems;
     },
   });
+
+  // Effective items based on selected segment
+  const effectiveItems = selectedSegment === ALL_USERS_ID ? allUsersItems : items;
+  const effectiveItemsLoading = selectedSegment === ALL_USERS_ID ? (allUsersQueryLoading || allUsersLoading) : itemsLoading;
+  const isAllUsers = selectedSegment === ALL_USERS_ID;
 
   // Create segment
   const createMut = useMutation({
@@ -192,14 +224,14 @@ export default function Segments() {
       toast.error('Conecte-se primeiro com suas credenciais');
       return;
     }
-    if (!selectedSegment || !items || items.length === 0) {
+    if (!selectedSegment || !effectiveItems || effectiveItems.length === 0) {
       toast.error('Segmento sem CPFs');
       return;
     }
 
     setCreditLoading(true);
     creditCancelRef.current = false;
-    setCreditProgress({ current: 0, total: items.length, credited: 0, errors: 0 });
+    setCreditProgress({ current: 0, total: effectiveItems.length, credited: 0, errors: 0 });
 
     try {
       // 1. Create a batch from segment
@@ -207,7 +239,7 @@ export default function Segments() {
       const { data: batch, error: batchErr } = await supabase.from('batches').insert({
         name: batchName,
         bonus_valor: parseFloat(creditAmount) || 0,
-        total_items: items.length,
+        total_items: effectiveItems.length,
         status: 'EM_ANDAMENTO',
       }).select().single();
 
@@ -220,7 +252,7 @@ export default function Segments() {
       }
 
       // 2. Insert batch_items from segment CPFs
-      const batchItems = items.map((item: any) => ({
+      const batchItems = effectiveItems.map((item: any) => ({
         batch_id: batch.id,
         cpf: item.cpf,
         cpf_masked: item.cpf_masked,
@@ -244,8 +276,8 @@ export default function Segments() {
 
       const result = res?.data;
       setCreditProgress({
-        current: items.length,
-        total: items.length,
+        current: effectiveItems.length,
+        total: effectiveItems.length,
         credited: result?.credited || 0,
         errors: result?.errors || 0,
       });
@@ -273,7 +305,7 @@ export default function Segments() {
       toast.error('Conecte-se primeiro com suas credenciais');
       return;
     }
-    if (!items || items.length === 0) return;
+    if (!effectiveItems || effectiveItems.length === 0) return;
 
     const days = parseInt(verifyDays) || 7;
     const cutoffDate = new Date();
@@ -282,7 +314,7 @@ export default function Segments() {
     setVerifyLoading(true);
     setVerifyDone(false);
     setVerifyResults({});
-    setVerifyProgress({ current: 0, total: items.length });
+    setVerifyProgress({ current: 0, total: effectiveItems.length });
     verifyCancelRef.current = false;
 
     const concurrency = Math.max(1, Math.min(20, parseInt(verifyConcurrency) || 5));
@@ -329,20 +361,20 @@ export default function Segments() {
         results[item.cpf] = { hasBonus: false, bonusCount: 0 };
       }
       processed++;
-      setVerifyProgress({ current: processed, total: items.length });
+      setVerifyProgress({ current: processed, total: effectiveItems.length });
       // Update results periodically (every batch) to avoid too many re-renders
-      if (processed % concurrency === 0 || processed === items.length) {
+      if (processed % concurrency === 0 || processed === effectiveItems.length) {
         setVerifyResults({ ...results });
       }
     };
 
     // Process in concurrent batches
-    for (let i = 0; i < items.length; i += concurrency) {
+    for (let i = 0; i < effectiveItems.length; i += concurrency) {
       if (verifyCancelRef.current) {
         toast.info('Verificação cancelada');
         break;
       }
-      const batch = items.slice(i, i + concurrency);
+      const batch = effectiveItems.slice(i, i + concurrency);
       await Promise.all(batch.map(verifySingleCPF));
     }
 
@@ -360,8 +392,8 @@ export default function Segments() {
 
   // Remove all CPFs that have bonus
   const handleRemoveWithBonus = async () => {
-    if (!items) return;
-    const cpfsWithBonus = items.filter((item: any) => verifyResults[item.cpf]?.hasBonus);
+    if (!effectiveItems) return;
+    const cpfsWithBonus = effectiveItems.filter((item: any) => verifyResults[item.cpf]?.hasBonus);
     if (cpfsWithBonus.length === 0) {
       toast.info('Nenhum CPF com bônus para remover');
       return;
@@ -384,7 +416,9 @@ export default function Segments() {
     toast.success(`${cpfsWithBonus.length} CPF(s) removidos do segmento!`);
   };
 
-  const selectedSeg = segments?.find((s: any) => s.id === selectedSegment);
+  const selectedSeg = selectedSegment === ALL_USERS_ID
+    ? { id: ALL_USERS_ID, name: 'All Users', description: 'Todos os jogadores cadastrados na plataforma', item_count: allUsersItems?.length || 0 }
+    : segments?.find((s: any) => s.id === selectedSegment);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -431,53 +465,84 @@ export default function Segments() {
         <div className="space-y-2">
           {isLoading ? (
             <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-          ) : segments?.length === 0 ? (
-            <div className="glass-card p-8 text-center">
-              <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Nenhum segmento criado</p>
-            </div>
           ) : (
-            segments?.map((seg: any) => (
+            <>
+              {/* All Users - permanent, undeletable */}
               <button
-                key={seg.id}
-                onClick={() => setSelectedSegment(seg.id)}
+                onClick={() => setSelectedSegment(ALL_USERS_ID)}
                 className={`w-full glass-card p-4 text-left transition-all hover:border-primary/30 group ${
-                  selectedSegment === seg.id ? 'border-primary/50 bg-primary/5' : ''
+                  selectedSegment === ALL_USERS_ID ? 'border-primary/50 bg-primary/5' : ''
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <p className="font-semibold text-foreground truncate">{seg.name}</p>
-                    {seg.description && (
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">{seg.description}</p>
-                    )}
+                    <p className="font-semibold text-foreground truncate flex items-center gap-2">
+                      <Users className="w-4 h-4 text-primary" />
+                      All Users
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">Todos os jogadores da plataforma</p>
                     <div className="flex items-center gap-3 mt-2">
                       <Badge variant="secondary" className="text-xs">
                         <Hash className="w-3 h-3 mr-1" />
-                        {seg.item_count} CPFs
+                        {allUsersItems?.length || '—'} jogadores
                       </Badge>
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {fmtDate(seg.created_at)}
-                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
-                      onClick={(e) => { e.stopPropagation(); deleteMut.mutate(seg.id); }}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                    <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${
-                      selectedSegment === seg.id ? 'rotate-90' : ''
-                    }`} />
-                  </div>
+                  <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${
+                    selectedSegment === ALL_USERS_ID ? 'rotate-90' : ''
+                  }`} />
                 </div>
               </button>
-            ))
+
+              {segments?.length === 0 ? (
+                <div className="glass-card p-8 text-center">
+                  <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">Nenhum segmento criado</p>
+                </div>
+              ) : (
+                segments?.map((seg: any) => (
+                  <button
+                    key={seg.id}
+                    onClick={() => setSelectedSegment(seg.id)}
+                    className={`w-full glass-card p-4 text-left transition-all hover:border-primary/30 group ${
+                      selectedSegment === seg.id ? 'border-primary/50 bg-primary/5' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-foreground truncate">{seg.name}</p>
+                        {seg.description && (
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{seg.description}</p>
+                        )}
+                        <div className="flex items-center gap-3 mt-2">
+                          <Badge variant="secondary" className="text-xs">
+                            <Hash className="w-3 h-3 mr-1" />
+                            {seg.item_count} CPFs
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {fmtDate(seg.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); deleteMut.mutate(seg.id); }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                        <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${
+                          selectedSegment === seg.id ? 'rotate-90' : ''
+                        }`} />
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </>
           )}
         </div>
 
@@ -493,7 +558,7 @@ export default function Segments() {
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Dialog open={addCpfOpen} onOpenChange={setAddCpfOpen}>
+                  {!isAllUsers && <Dialog open={addCpfOpen} onOpenChange={setAddCpfOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm" className="border-border">
                         <Upload className="w-4 h-4 mr-2" /> Adicionar CPFs
@@ -528,12 +593,12 @@ export default function Segments() {
                         </Button>
                       </DialogFooter>
                     </DialogContent>
-                  </Dialog>
+                  </Dialog>}
 
                   {/* Mass Credit Button */}
                   <Dialog open={creditOpen} onOpenChange={setCreditOpen}>
                     <DialogTrigger asChild>
-                      <Button className="gradient-success border-0 text-success-foreground" size="sm" disabled={!items || items.length === 0}>
+                      <Button className="gradient-success border-0 text-success-foreground" size="sm" disabled={!effectiveItems || effectiveItems.length === 0}>
                         <CreditCard className="w-4 h-4 mr-2" /> Creditar Segmento
                       </Button>
                     </DialogTrigger>
@@ -541,7 +606,7 @@ export default function Segments() {
                       <DialogHeader>
                         <DialogTitle>Creditação em Massa</DialogTitle>
                         <DialogDescription>
-                          Creditar bônus para todos os {items?.length || 0} CPFs do segmento "{selectedSeg?.name}"
+                          Creditar bônus para todos os {effectiveItems?.length || 0} CPFs do segmento "{selectedSeg?.name}"
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
@@ -563,7 +628,7 @@ export default function Segments() {
                         <div className="p-3 rounded-lg bg-secondary/50 text-sm space-y-1">
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">CPFs no segmento</span>
-                            <span className="font-semibold text-foreground">{items?.length || 0}</span>
+                            <span className="font-semibold text-foreground">{effectiveItems?.length || 0}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Valor por jogador</span>
@@ -572,7 +637,7 @@ export default function Segments() {
                           <div className="flex justify-between border-t border-border pt-1 mt-1">
                             <span className="text-muted-foreground font-semibold">Total estimado</span>
                             <span className="font-mono font-bold text-foreground">
-                              R$ {((items?.length || 0) * (parseFloat(creditAmount) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              R$ {((effectiveItems?.length || 0) * (parseFloat(creditAmount) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </span>
                           </div>
                         </div>
@@ -612,7 +677,7 @@ export default function Segments() {
                         ) : (
                           <Button
                             onClick={handleMassCredit}
-                            disabled={!creds.username || !items?.length}
+                            disabled={!creds.username || !effectiveItems?.length}
                             className="gradient-success border-0 text-success-foreground"
                           >
                             <DollarSign className="w-4 h-4 mr-2" />
@@ -626,7 +691,7 @@ export default function Segments() {
                   {/* Verify Bonus Button */}
                   <Dialog open={verifyOpen} onOpenChange={(o) => { setVerifyOpen(o); if (!o) { setVerifyDone(false); } }}>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="border-border" disabled={!items || items.length === 0}>
+                      <Button variant="outline" size="sm" className="border-border" disabled={!effectiveItems || effectiveItems.length === 0}>
                         <SearchCheck className="w-4 h-4 mr-2" /> Verificar Bônus
                       </Button>
                     </DialogTrigger>
@@ -726,7 +791,7 @@ export default function Segments() {
                           ) : (
                             <Button
                               onClick={handleVerifyBonus}
-                              disabled={!creds.username || !items?.length}
+                              disabled={!creds.username || !effectiveItems?.length}
                               className="gradient-primary border-0"
                             >
                               <SearchCheck className="w-4 h-4 mr-2" />
@@ -740,30 +805,37 @@ export default function Segments() {
                 </div>
               </div>
 
-              {itemsLoading ? (
+              {effectiveItemsLoading ? (
                 <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-              ) : items && items.length > 0 ? (
+              ) : isAllUsers && !creds.username ? (
+                <div className="text-center py-10">
+                  <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">Conecte-se à API para carregar todos os jogadores</p>
+                </div>
+              ) : effectiveItems && effectiveItems.length > 0 ? (
                 <div className="overflow-x-auto rounded-lg border border-border">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-secondary/50">
                         <TableHead className="text-xs font-semibold uppercase tracking-wider">CPF</TableHead>
                         <TableHead className="text-xs font-semibold uppercase tracking-wider">CPF Mascarado</TableHead>
-                        <TableHead className="text-xs font-semibold uppercase tracking-wider">Adicionado em</TableHead>
+                        {isAllUsers && <TableHead className="text-xs font-semibold uppercase tracking-wider">Username</TableHead>}
+                        <TableHead className="text-xs font-semibold uppercase tracking-wider">{isAllUsers ? 'Cadastro' : 'Adicionado em'}</TableHead>
                         {Object.keys(verifyResults).length > 0 && (
                           <TableHead className="text-xs font-semibold uppercase tracking-wider">Status Bônus</TableHead>
                         )}
-                        <TableHead className="text-xs font-semibold uppercase tracking-wider w-12"></TableHead>
+                        {!isAllUsers && <TableHead className="text-xs font-semibold uppercase tracking-wider w-12"></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {items.map((item: any) => {
+                      {effectiveItems.map((item: any) => {
                         const vr = verifyResults[item.cpf];
                         return (
                           <TableRow key={item.id} className={`hover:bg-secondary/30 ${vr?.hasBonus ? 'bg-destructive/5' : ''}`}>
                             <TableCell className="font-mono text-sm">{fmtCPF(item.cpf)}</TableCell>
                             <TableCell className="font-mono text-sm text-muted-foreground">{item.cpf_masked}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground">{fmtDate(item.created_at)}</TableCell>
+                            {isAllUsers && <TableCell className="text-sm">{item.username || '—'}</TableCell>}
+                            <TableCell className="text-xs text-muted-foreground">{item.created_at ? fmtDate(item.created_at) : '—'}</TableCell>
                             {Object.keys(verifyResults).length > 0 && (
                               <TableCell>
                                 {vr ? (
@@ -790,16 +862,18 @@ export default function Segments() {
                                 )}
                               </TableCell>
                             )}
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive hover:text-destructive"
-                                onClick={() => removeCpfMut.mutate(item.id)}
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </Button>
-                            </TableCell>
+                            {!isAllUsers && (
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive"
+                                  onClick={() => removeCpfMut.mutate(item.id)}
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </Button>
+                              </TableCell>
+                            )}
                           </TableRow>
                         );
                       })}
@@ -809,8 +883,8 @@ export default function Segments() {
               ) : (
                 <div className="text-center py-10">
                   <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">Nenhum CPF neste segmento</p>
-                  <p className="text-xs text-muted-foreground mt-1">Clique em "Adicionar CPFs" para começar</p>
+                  <p className="text-sm text-muted-foreground">{isAllUsers ? 'Nenhum jogador encontrado' : 'Nenhum CPF neste segmento'}</p>
+                  {!isAllUsers && <p className="text-xs text-muted-foreground mt-1">Clique em "Adicionar CPFs" para começar</p>}
                 </div>
               )}
             </div>
