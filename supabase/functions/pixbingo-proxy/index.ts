@@ -447,43 +447,38 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Also try fetching aggregate saldo from usuarios/listar (sum saldo + bonus from all users)
+          // Try API endpoints for aggregate wallet balances
           let usersSaldoTotal = 0;
           let usersBonusTotal = 0;
           let usersWalletSuccess = false;
           if (!fgData) {
-            try {
-              console.log('[financeiro] fetching users for wallet aggregate...');
-              const uParams = new URLSearchParams();
-              uParams.set('draw', '1');
-              uParams.set('start', '0');
-              uParams.set('length', '10000');
-              const uCols = ['username','celular','cpf','created_at','ultimo_login','situacao','uuid','saldo','bonus'];
-              uCols.forEach((col, i) => {
-                uParams.set(`columns[${i}][data]`, col);
-                uParams.set(`columns[${i}][name]`, '');
-                uParams.set(`columns[${i}][searchable]`, 'true');
-                uParams.set(`columns[${i}][orderable]`, 'true');
-                uParams.set(`columns[${i}][search][value]`, '');
-                uParams.set(`columns[${i}][search][regex]`, 'false');
-              });
-              uParams.set('order[0][column]', '0');
-              uParams.set('order[0][dir]', 'asc');
-              uParams.set('search[value]', '');
-              uParams.set('search[regex]', 'false');
-              const usersData = await fetchJSON(`${baseUrl}/usuarios/listar?${uParams.toString()}`, headers, 'GET');
-              const users = usersData?.aaData || [];
-              console.log(`[financeiro] got ${users.length} users, sample:`, JSON.stringify(users[0] || null).slice(0, 500));
-              for (const u of users) {
-                const saldo = Number(String(u?.saldo || u?.credito || '0').replace(/\./g, '').replace(',', '.')) || 0;
-                const bonus = Number(String(u?.bonus || u?.saldo_bonus || '0').replace(/\./g, '').replace(',', '.')) || 0;
-                usersSaldoTotal += saldo;
-                usersBonusTotal += bonus;
+            const saldoEndpoints = [
+              `${baseUrl}/api/usuarios/saldo`,
+              `${baseUrl}/api/saldo`,
+              `${baseUrl}/usuarios/saldo`,
+              `${baseUrl}/saldo`,
+            ];
+            for (const ep of saldoEndpoints) {
+              try {
+                console.log(`[financeiro] trying saldo endpoint: ${ep}`);
+                const res = await fetchJSON(ep, headers, 'GET');
+                console.log(`[financeiro] saldo response:`, JSON.stringify(res).slice(0, 1000));
+                if (res && !res._status && !res.code && !res.Msg) {
+                  // Try to extract saldo/bonus from response
+                  const d = Array.isArray(res) ? res[0] : res;
+                  const saldo = Number(d?.saldo || d?.credito || d?.total_saldo || d?.total_credito || 0);
+                  const bonus = Number(d?.bonus || d?.total_bonus || d?.saldo_bonus || 0);
+                  if (saldo > 0 || bonus > 0) {
+                    usersSaldoTotal = saldo;
+                    usersBonusTotal = bonus;
+                    usersWalletSuccess = true;
+                    console.log(`[financeiro] wallet from ${ep}: saldo=${saldo}, bonus=${bonus}`);
+                    break;
+                  }
+                }
+              } catch (e) {
+                console.log(`[financeiro] ${ep} error:`, (e as Error).message);
               }
-              usersWalletSuccess = users.length > 0;
-              console.log(`[financeiro] users wallet aggregate: saldo=${usersSaldoTotal}, bonus=${usersBonusTotal}`);
-            } catch (e) {
-              console.log('[financeiro] users wallet fetch error:', (e as Error).message);
             }
           }
 
