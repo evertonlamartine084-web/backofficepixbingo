@@ -393,20 +393,103 @@ Deno.serve(async (req) => {
           if (body.busca_data_inicio) frParams.set('busca_periodo_ini', body.busca_data_inicio);
           if (body.busca_data_fim) frParams.set('busca_periodo_fim', body.busca_data_fim);
 
-          // Fetch financeiro-geral/listar for saldo (wallet balance)
-          const fgParams = new URLSearchParams();
-          if (body.busca_data_inicio) fgParams.set('busca_periodo_ini', body.busca_data_inicio);
-          if (body.busca_data_fim) fgParams.set('busca_periodo_fim', body.busca_data_fim);
+          // Fetch wallet balances: try multiple approaches for financeiro-geral
+          const fgParamsGet = new URLSearchParams();
+          if (body.busca_data_inicio) fgParamsGet.set('busca_periodo_ini', body.busca_data_inicio);
+          if (body.busca_data_fim) fgParamsGet.set('busca_periodo_fim', body.busca_data_fim);
 
-          const [txSummary, frData, fgData] = await Promise.all([
+          // DataTables params for financeiro-geral
+          const fgDtParams = new URLSearchParams();
+          fgDtParams.set('draw', '1');
+          fgDtParams.set('start', '0');
+          fgDtParams.set('length', '100');
+          const fgCols = ['data','depositos','saques','bonus','saldo','ggr','comissao','lucro'];
+          fgCols.forEach((col, i) => {
+            fgDtParams.set(`columns[${i}][data]`, col);
+            fgDtParams.set(`columns[${i}][name]`, '');
+            fgDtParams.set(`columns[${i}][searchable]`, 'true');
+            fgDtParams.set(`columns[${i}][orderable]`, 'true');
+            fgDtParams.set(`columns[${i}][search][value]`, '');
+            fgDtParams.set(`columns[${i}][search][regex]`, 'false');
+          });
+          fgDtParams.set('order[0][column]', '0');
+          fgDtParams.set('order[0][dir]', 'desc');
+          fgDtParams.set('search[value]', '');
+          fgDtParams.set('search[regex]', 'false');
+          if (body.busca_data_inicio) fgDtParams.set('busca_data_inicio', body.busca_data_inicio);
+          if (body.busca_data_fim) fgDtParams.set('busca_data_fim', body.busca_data_fim);
+
+          const [txSummary, frData] = await Promise.all([
             fetchJSON(`${baseUrl}/transferencias/listar?${txParams.toString()}`, headers, 'GET'),
             fetchJSON(`${baseUrl}/financeiro-resumo/listar?${frParams.toString()}`, headers, 'GET'),
-            fetchJSON(`${baseUrl}/financeiro-geral/listar?${fgParams.toString()}`, headers, 'GET'),
           ]);
 
+          // Try financeiro-geral with multiple strategies
+          let fgData: any = null;
+          const fgStrategies = [
+            { label: 'GET dt+data', fn: () => fetchJSON(`${baseUrl}/financeiro-geral/listar?${fgDtParams.toString()}`, headers, 'GET') },
+            { label: 'POST dt+data', fn: () => fetchJSON(`${baseUrl}/financeiro-geral/listar`, headers, 'POST', Object.fromEntries(fgDtParams)) },
+            { label: 'GET no-date', fn: () => fetchJSON(`${baseUrl}/financeiro-geral/listar`, headers, 'GET') },
+            { label: 'POST no-date', fn: () => fetchJSON(`${baseUrl}/financeiro-geral/listar`, headers, 'POST', {}) },
+          ];
+          for (const strat of fgStrategies) {
+            try {
+              console.log(`[financeiro-geral] trying: ${strat.label}`);
+              const res = await strat.fn();
+              if (res && !res._status && !res.code && !res.Msg) {
+                fgData = res;
+                console.log(`[financeiro-geral] SUCCESS with ${strat.label}:`, JSON.stringify(res).slice(0, 1000));
+                break;
+              }
+              console.log(`[financeiro-geral] ${strat.label} failed:`, JSON.stringify(res).slice(0, 300));
+            } catch (e) {
+              console.log(`[financeiro-geral] ${strat.label} error:`, (e as Error).message);
+            }
+          }
+
+          // Also try fetching aggregate saldo from usuarios/listar (sum saldo + bonus from all users)
+          let usersSaldoTotal = 0;
+          let usersBonusTotal = 0;
+          let usersWalletSuccess = false;
+          if (!fgData) {
+            try {
+              console.log('[financeiro] fetching users for wallet aggregate...');
+              const uParams = new URLSearchParams();
+              uParams.set('draw', '1');
+              uParams.set('start', '0');
+              uParams.set('length', '10000');
+              const uCols = ['username','celular','cpf','created_at','ultimo_login','situacao','uuid','saldo','bonus'];
+              uCols.forEach((col, i) => {
+                uParams.set(`columns[${i}][data]`, col);
+                uParams.set(`columns[${i}][name]`, '');
+                uParams.set(`columns[${i}][searchable]`, 'true');
+                uParams.set(`columns[${i}][orderable]`, 'true');
+                uParams.set(`columns[${i}][search][value]`, '');
+                uParams.set(`columns[${i}][search][regex]`, 'false');
+              });
+              uParams.set('order[0][column]', '0');
+              uParams.set('order[0][dir]', 'asc');
+              uParams.set('search[value]', '');
+              uParams.set('search[regex]', 'false');
+              const usersData = await fetchJSON(`${baseUrl}/usuarios/listar?${uParams.toString()}`, headers, 'GET');
+              const users = usersData?.aaData || [];
+              console.log(`[financeiro] got ${users.length} users, sample:`, JSON.stringify(users[0] || null).slice(0, 500));
+              for (const u of users) {
+                const saldo = Number(String(u?.saldo || u?.credito || '0').replace(/\./g, '').replace(',', '.')) || 0;
+                const bonus = Number(String(u?.bonus || u?.saldo_bonus || '0').replace(/\./g, '').replace(',', '.')) || 0;
+                usersSaldoTotal += saldo;
+                usersBonusTotal += bonus;
+              }
+              usersWalletSuccess = users.length > 0;
+              console.log(`[financeiro] users wallet aggregate: saldo=${usersSaldoTotal}, bonus=${usersBonusTotal}`);
+            } catch (e) {
+              console.log('[financeiro] users wallet fetch error:', (e as Error).message);
+            }
+          }
+
           console.log('[financeiro] transferencias:', JSON.stringify(txSummary).slice(0, 500));
-          console.log('[financeiro] financeiro-resumo:', JSON.stringify(frData).slice(0, 500));
-          console.log('[financeiro] financeiro-geral:', JSON.stringify(fgData).slice(0, 1000));
+          console.log('[financeiro] financeiro-resumo totais:', JSON.stringify(frData?.totais || null).slice(0, 1000));
+          console.log('[financeiro] financeiro-resumo full keys:', Object.keys(frData || {}));
 
           const valorDeposito = Number(txSummary?.valorDeposito || 0);
           const valorSaque = Number(txSummary?.valorSaque || 0);
@@ -486,21 +569,35 @@ Deno.serve(async (req) => {
             margem: Number(totais.margem || 0),
           } : null;
 
-          // Wallet balance = liquido (net balance = deposits - withdrawals)
-          // Wallet bonus = total_bonus
-          const walletBonus = totaisData ? {
-            valor: totaisData.totalBonus,
-            bonusXDeposito: totaisData.bonusXDeposito,
-          } : null;
-
-          // Wallet balance from financeiro-geral/listar -> totais[0].saldo
+          // Wallet balance & bonus: prefer financeiro-geral, then users aggregate, then totais fallback
           const fgTotais = fgData?.totais;
           const fgTotaisObj = Array.isArray(fgTotais) ? fgTotais[0] : fgTotais;
-          const saldoCreditos = fgTotaisObj ? Number(fgTotaisObj.saldo || 0) : null;
-          console.log('[financeiro] saldo from financeiro-geral:', saldoCreditos, 'fgTotais:', JSON.stringify(fgTotaisObj || null).slice(0, 500));
+          const fgSaldo = fgTotaisObj ? Number(fgTotaisObj.saldo || fgTotaisObj.credito || 0) : null;
+          const fgBonus = fgTotaisObj ? Number(fgTotaisObj.bonus || fgTotaisObj.saldo_bonus || 0) : null;
 
-          const walletBalance = saldoCreditos !== null ? {
-            liquido: saldoCreditos,
+          let walletCredito: number | null = null;
+          let walletBonusVal: number | null = null;
+
+          if (fgSaldo !== null || fgBonus !== null) {
+            walletCredito = fgSaldo;
+            walletBonusVal = fgBonus;
+            console.log('[financeiro] wallet from financeiro-geral: credito=', walletCredito, 'bonus=', walletBonusVal);
+          } else if (usersWalletSuccess) {
+            walletCredito = usersSaldoTotal;
+            walletBonusVal = usersBonusTotal;
+            console.log('[financeiro] wallet from users aggregate: credito=', walletCredito, 'bonus=', walletBonusVal);
+          }
+
+          const walletBonus = walletBonusVal !== null ? {
+            valor: walletBonusVal,
+            bonusXDeposito: totaisData?.bonusXDeposito || 0,
+          } : (totaisData ? {
+            valor: totaisData.totalBonus,
+            bonusXDeposito: totaisData.bonusXDeposito,
+          } : null);
+
+          const walletBalance = walletCredito !== null ? {
+            liquido: walletCredito,
             rtp: totaisData?.rtp || 0,
             margem: totaisData?.margem || 0,
           } : (totaisData ? {
@@ -522,7 +619,7 @@ Deno.serve(async (req) => {
             walletBonus,
             walletBalance,
             adjustments: null,
-            fonte: 'combined_fallback',
+            fonte: fgData ? 'financeiro_geral' : (usersWalletSuccess ? 'users_aggregate' : 'combined_fallback'),
           };
         }
         break;
