@@ -391,7 +391,7 @@ export default function Campaigns() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className={cn("grid gap-3", form.type === 'aposte_e_ganhe' ? 'grid-cols-2' : 'grid-cols-1')}>
                 <div className="space-y-1">
                   <Label className="text-xs">Segmento *</Label>
                   <Select value={form.segment_id} onValueChange={v => setForm(f => ({ ...f, segment_id: v }))}>
@@ -401,16 +401,18 @@ export default function Campaigns() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Carteira *</Label>
-                  <Select value={form.wallet_type} onValueChange={v => setForm(f => ({ ...f, wallet_type: v as 'REAL' | 'BONUS' }))}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="REAL">💰 Saldo Real</SelectItem>
-                      <SelectItem value="BONUS">🎁 Saldo Bônus</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {form.type === 'aposte_e_ganhe' && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Carteira *</Label>
+                    <Select value={form.wallet_type} onValueChange={v => setForm(f => ({ ...f, wallet_type: v as 'REAL' | 'BONUS' }))}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="REAL">💰 Saldo Real</SelectItem>
+                        <SelectItem value="BONUS">🎁 Saldo Bônus</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
