@@ -114,14 +114,22 @@ export default function Segments() {
         allUsers.push(...firstBatch);
         setAllUsersFetchProgress({ loaded: allUsers.length, total: totalRecords });
 
-        // Paginate remaining
-        start = PAGE_SIZE;
-        while (start < totalRecords) {
-          const res = await callProxy('list_users', creds, { start, length: PAGE_SIZE });
-          const batch = res?.data?.aaData || [];
-          if (batch.length === 0) break;
-          allUsers.push(...batch);
-          start += PAGE_SIZE;
+        // Fetch remaining pages in parallel (5 concurrent)
+        const CONCURRENCY = 5;
+        const remainingPages: number[] = [];
+        for (let s = PAGE_SIZE; s < totalRecords; s += PAGE_SIZE) {
+          remainingPages.push(s);
+        }
+
+        for (let i = 0; i < remainingPages.length; i += CONCURRENCY) {
+          const batch = remainingPages.slice(i, i + CONCURRENCY);
+          const results = await Promise.all(
+            batch.map(s => callProxy('list_users', creds, { start: s, length: PAGE_SIZE }))
+          );
+          for (const res of results) {
+            const items = res?.data?.aaData || [];
+            allUsers.push(...items);
+          }
           setAllUsersFetchProgress({ loaded: allUsers.length, total: totalRecords });
         }
 
