@@ -511,20 +511,14 @@ Deno.serve(async (req) => {
                 for (const r of results) {
                   if (r.status === 'fulfilled' && r.value) {
                     const carteiras = r.value?.carteiras;
-                    if (carteiras) {
-                      // carteiras can be object or array
-                      const carteiraList = Array.isArray(carteiras) ? carteiras : [carteiras];
-                      for (const c of carteiraList) {
-                        const tipo = String(c?.tipo || c?.nome || c?.carteira || '').toUpperCase();
-                        const valor = parseBRL(c?.valor || c?.saldo || 0);
-                        if (tipo.includes('CREDIT') || tipo.includes('CREDITO') || tipo === 'REAL') {
-                          usersSaldoTotal += valor;
-                        } else if (tipo.includes('BONUS') || tipo.includes('BÔNUS')) {
-                          usersBonusTotal += valor;
-                        } else if (!tipo) {
-                          // If no type, check field names
-                          usersSaldoTotal += parseBRL(c?.credito || c?.saldo || 0);
-                          usersBonusTotal += parseBRL(c?.bonus || 0);
+                    if (carteiras && typeof carteiras === 'object' && !Array.isArray(carteiras)) {
+                      // carteiras is {CREDITO: "0,05", BONUS: "60,00", PREMIO: "0,00"}
+                      for (const [key, val] of Object.entries(carteiras)) {
+                        const k = key.toUpperCase();
+                        if (k.includes('CREDIT') || k.includes('CREDITO')) {
+                          usersSaldoTotal += parseBRL(val);
+                        } else if (k.includes('BONUS') || k.includes('BÔNUS')) {
+                          usersBonusTotal += parseBRL(val);
                         }
                       }
                     }
