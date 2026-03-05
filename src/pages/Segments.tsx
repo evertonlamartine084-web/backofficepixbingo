@@ -2,7 +2,8 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Trash2, Users, ChevronRight, Loader2, Upload, X, Hash, Calendar, CreditCard, DollarSign, SearchCheck, ShieldCheck, ShieldX, Ban } from 'lucide-react';
+import { Plus, Trash2, Users, ChevronRight, ChevronLeft, Loader2, Upload, X, Hash, Calendar, CreditCard, DollarSign, SearchCheck, ShieldCheck, ShieldX, Ban } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -172,6 +173,20 @@ export default function Segments() {
   const effectiveItems = selectedSegment === ALL_USERS_ID ? allUsersItems : items;
   const effectiveItemsLoading = selectedSegment === ALL_USERS_ID ? (allUsersQueryLoading || allUsersLoading) : itemsLoading;
   const isAllUsers = selectedSegment === ALL_USERS_ID;
+
+  // Pagination for the items table
+  const [tablePage, setTablePage] = useState(0);
+  const [tablePageSize, setTablePageSize] = useState(25);
+  const tableTotalPages = Math.max(1, Math.ceil((effectiveItems?.length || 0) / tablePageSize));
+  const tableStart = tablePage * tablePageSize;
+  const pagedItems = effectiveItems?.slice(tableStart, tableStart + tablePageSize) || [];
+
+  // Reset page when segment changes
+  const prevSegRef = useRef(selectedSegment);
+  if (prevSegRef.current !== selectedSegment) {
+    prevSegRef.current = selectedSegment;
+    setTablePage(0);
+  }
 
   // Create segment
   const createMut = useMutation({
@@ -848,6 +863,7 @@ export default function Segments() {
                   <p className="text-sm text-muted-foreground">Conecte-se à API para carregar todos os jogadores</p>
                 </div>
               ) : effectiveItems && effectiveItems.length > 0 ? (
+                <>
                 <div className="overflow-x-auto rounded-lg border border-border">
                   <Table>
                     <TableHeader>
@@ -863,7 +879,7 @@ export default function Segments() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {effectiveItems.map((item: any) => {
+                      {pagedItems.map((item: any) => {
                         const vr = verifyResults[item.cpf];
                         return (
                           <TableRow key={item.id} className={`hover:bg-secondary/30 ${vr?.hasBonus ? 'bg-destructive/5' : ''}`}>
@@ -915,6 +931,59 @@ export default function Segments() {
                     </TableBody>
                   </Table>
                 </div>
+
+                {/* Pagination controls */}
+                {effectiveItems && effectiveItems.length > 0 && (
+                  <div className="flex items-center justify-between gap-4 pt-3 px-1 flex-wrap">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>Linhas por página:</span>
+                      <Select value={String(tablePageSize)} onValueChange={(v) => { setTablePageSize(Number(v)); setTablePage(0); }}>
+                        <SelectTrigger className="h-7 w-16 text-xs bg-secondary border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[25, 50, 100].map(s => (
+                            <SelectItem key={s} value={String(s)}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span className="ml-2">{(tableStart + 1).toLocaleString('pt-BR')}-{Math.min(tableStart + tablePageSize, effectiveItems.length).toLocaleString('pt-BR')} de {effectiveItems.length.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" disabled={tablePage === 0} onClick={() => setTablePage(p => p - 1)}>
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      {(() => {
+                        const maxBtns = 5;
+                        if (tableTotalPages <= maxBtns) return Array.from({ length: tableTotalPages }, (_, i) => i);
+                        const btns: (number | '...')[] = [0];
+                        let s = Math.max(1, tablePage - 1), e = Math.min(tableTotalPages - 2, tablePage + 1);
+                        if (tablePage <= 2) { s = 1; e = 3; }
+                        if (tablePage >= tableTotalPages - 3) { s = tableTotalPages - 4; e = tableTotalPages - 2; }
+                        s = Math.max(1, s); e = Math.min(tableTotalPages - 2, e);
+                        if (s > 1) btns.push('...');
+                        for (let i = s; i <= e; i++) btns.push(i);
+                        if (e < tableTotalPages - 2) btns.push('...');
+                        btns.push(tableTotalPages - 1);
+                        return btns;
+                      })().map((p, i) =>
+                        p === '...' ? (
+                          <span key={`dots-${i}`} className="text-xs text-muted-foreground px-1">…</span>
+                        ) : (
+                          <Button key={p} variant={tablePage === p ? 'default' : 'ghost'} size="icon"
+                            className={`h-7 w-7 text-xs ${tablePage === p ? 'gradient-primary border-0' : ''}`}
+                            onClick={() => setTablePage(p as number)}>
+                            {(p as number) + 1}
+                          </Button>
+                        )
+                      )}
+                      <Button variant="ghost" size="icon" className="h-7 w-7" disabled={tablePage >= tableTotalPages - 1} onClick={() => setTablePage(p => p + 1)}>
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                </>
               ) : (
                 <div className="text-center py-10">
                   <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
