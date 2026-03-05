@@ -115,7 +115,7 @@ export default function Transactions() {
   // Summaries
   const summary = items.reduce((acc, item) => {
     const valor = parseCurrency(item.valor);
-    const tipo = String(item.tipo || '').toUpperCase();
+    const tipo = String(item.tipo_transacao || item.tipo || '').toUpperCase();
     if (tipo.includes('DEPOSITO') || tipo.includes('CRÉDITO') || tipo.includes('CREDITO')) {
       acc.entradas += Math.abs(valor);
       acc.countEntradas++;
@@ -265,20 +265,20 @@ export default function Transactions() {
                   </thead>
                   <tbody>
                     {items.map((item: any, i: number) => {
-                      const tipo = String(item.tipo || '').toUpperCase();
+                      const tipo = String(item.tipo_transacao || item.tipo || '').toUpperCase();
                       const valor = parseCurrency(item.valor);
                       const isPositive = tipo.includes('DEPOSITO') || tipo.includes('CREDITO') || tipo.includes('CRÉDITO') || tipo.includes('BONUS');
 
                       return (
                         <tr key={item.id || i} className="border-b border-border/30 hover:bg-secondary/20 transition-colors group">
-                          <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">{formatDate(item.created_at)}</td>
+                          <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">{formatDate(item.updated_at || item.created_at)}</td>
                           <td className="p-3">
                             <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold', tipoStyles[tipo] || 'bg-secondary text-muted-foreground')}>
                               {isPositive ? <ArrowDownToLine className="w-3 h-3" /> : <ArrowUpFromLine className="w-3 h-3" />}
                               {tipoLabels[tipo] || tipo || '—'}
                             </span>
                           </td>
-                          <td className="p-3 text-xs text-foreground font-medium">{item.username || '—'}</td>
+                          <td className="p-3 text-xs text-foreground font-medium">{item.name || item.username || '—'}</td>
                           <td className="p-3 text-xs font-mono text-muted-foreground">{maskCPF(item.cpf)}</td>
                           <td className={cn('p-3 text-sm font-bold font-mono text-right whitespace-nowrap', isPositive ? 'text-success' : 'text-destructive')}>
                             {isPositive ? '+' : '-'}{formatBRL(Math.abs(valor))}
@@ -289,7 +289,7 @@ export default function Transactions() {
                           <td className="p-3 text-center">
                             <span className={cn(
                               'inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider',
-                              String(item.status || '').toLowerCase().includes('aprovad') || String(item.status || '').toLowerCase().includes('confirm')
+                              String(item.status || '').toLowerCase().includes('aprovad') || String(item.status || '').toLowerCase().includes('confirm') || String(item.status || '').toLowerCase() === 'paid'
                                 ? 'bg-success/15 text-success'
                                 : String(item.status || '').toLowerCase().includes('pend')
                                   ? 'bg-warning/15 text-warning'
