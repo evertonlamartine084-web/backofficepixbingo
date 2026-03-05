@@ -393,10 +393,35 @@ Deno.serve(async (req) => {
           if (body.busca_data_inicio) frParams.set('busca_periodo_ini', body.busca_data_inicio);
           if (body.busca_data_fim) frParams.set('busca_periodo_fim', body.busca_data_fim);
 
+          // Also try wallet/carteira endpoints
+          const walletEndpoints = [
+            `${baseUrl}/carteiras/listar`,
+            `${baseUrl}/carteiras/saldo`,
+            `${baseUrl}/saldo/listar`,
+            `${baseUrl}/dashboard/resumo`,
+            `${baseUrl}/dashboard/listar`,
+          ];
+
           const [txSummary, frData] = await Promise.all([
             fetchJSON(`${baseUrl}/transferencias/listar?${txParams.toString()}`, headers, 'GET'),
             fetchJSON(`${baseUrl}/financeiro-resumo/listar?${frParams.toString()}`, headers, 'GET'),
           ]);
+
+          // Try wallet endpoints in parallel
+          const walletResults = await Promise.all(
+            walletEndpoints.map(async (url) => {
+              try {
+                const r = await fetchJSON(url, headers, 'GET');
+                const isErr = r?._status >= 400 || r?.code >= 400 || String(r?._raw || '').includes('não encontrada');
+                return isErr ? null : { url, data: r };
+              } catch { return null; }
+            })
+          );
+          const validWallet = walletResults.filter(Boolean);
+          console.log('[financeiro] wallet endpoints found:', validWallet.length, validWallet.map(w => w!.url));
+          if (validWallet.length > 0) {
+            console.log('[financeiro] wallet data:', JSON.stringify(validWallet[0]!.data).slice(0, 1000));
+          }
 
           console.log('[financeiro] transferencias:', JSON.stringify(txSummary).slice(0, 500));
           console.log('[financeiro] financeiro-resumo:', JSON.stringify(frData).slice(0, 500));
@@ -448,12 +473,21 @@ Deno.serve(async (req) => {
           const totalBonusTurnover = kenoTotals.bonusTurnover + cassinoTotals.bonusTurnover;
           const totalBonusGgr = kenoTotals.bonusGgr + cassinoTotals.bonusGgr;
 
-          // FTD data - API returns valorPrimeiroDeposito / qtdePrimeiroDeposito
+          // FTD data
           const ftdValor = Number(txSummary?.valorPrimeiroDeposito || txSummary?.ftdValor || 0);
           const ftdQtd = Number(txSummary?.qtdePrimeiroDeposito || txSummary?.ftdQtd || 0);
 
-          // iTotalDisplayRecords = total transactions count
           const totalTransactions = Number(txSummary?.iTotalDisplayRecords || txSummary?.iTotalRecords || 0);
+
+          // Parse wallet data if found
+          let walletBalance: any = null;
+          if (validWallet.length > 0) {
+            const wd = validWallet[0]!.data;
+            // Try to extract balance info from whatever structure returned
+            if (typeof wd === 'object' && wd !== null) {
+              walletBalance = wd;
+            }
+          }
 
           result = {
             depositos: valorDeposito,
@@ -464,14 +498,15 @@ Deno.serve(async (req) => {
             cassino: cassinoTotals,
             total: { apostas: totalApostas, premios: totalPremios, turnover: totalApostas, ggr: totalGGR, bonusTurnover: totalBonusTurnover, bonusGgr: totalBonusGgr, margin: totalApostas > 0 ? ((totalGGR / totalApostas) * 100) : 0 },
             ftd: { valor: ftdValor, qtd: ftdQtd },
-            // These are NOT available from the external API
             users: null,
             walletBonus: null,
-            walletBalance: null,
+            walletBalance,
             adjustments: null,
             fonte: 'combined_fallback',
             _raw_tx_keys: Object.keys(txSummary || {}),
             _raw_fr_keys: Object.keys(frData || {}),
+            _wallet_endpoints_tried: walletEndpoints,
+            _wallet_endpoints_found: validWallet.map(w => w!.url),
           };
         }
         break;
