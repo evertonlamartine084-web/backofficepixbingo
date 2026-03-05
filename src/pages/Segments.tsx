@@ -108,7 +108,7 @@ export default function Segments() {
         // First request to get total count
         const firstRes = await callProxy('list_users', creds, { start: 0, length: PAGE_SIZE });
         const firstData = firstRes?.data;
-        totalRecords = firstData?.recordsTotal || firstData?.recordsFiltered || 0;
+        totalRecords = parseInt(firstData?.iTotalRecords || firstData?.iTotalDisplayRecords || firstData?.recordsTotal || firstData?.recordsFiltered || '0', 10);
         const firstBatch = firstData?.aaData || [];
         allUsers.push(...firstBatch);
         setAllUsersFetchProgress({ loaded: allUsers.length, total: totalRecords });
