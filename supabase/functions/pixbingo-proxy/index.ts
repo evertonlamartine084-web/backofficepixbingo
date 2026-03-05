@@ -393,40 +393,20 @@ Deno.serve(async (req) => {
           if (body.busca_data_inicio) frParams.set('busca_periodo_ini', body.busca_data_inicio);
           if (body.busca_data_fim) frParams.set('busca_periodo_fim', body.busca_data_fim);
 
-          // Also try wallet/carteira endpoints
-          const walletEndpoints = [
-            `${baseUrl}/carteiras/listar`,
-            `${baseUrl}/carteiras/saldo`,
-            `${baseUrl}/saldo/listar`,
-            `${baseUrl}/dashboard/resumo`,
-            `${baseUrl}/dashboard/listar`,
-          ];
+          // Fetch financeiro-geral/listar for saldo (wallet balance)
+          const fgParams = new URLSearchParams();
+          if (body.busca_data_inicio) fgParams.set('busca_periodo_ini', body.busca_data_inicio);
+          if (body.busca_data_fim) fgParams.set('busca_periodo_fim', body.busca_data_fim);
 
-          const [txSummary, frData] = await Promise.all([
+          const [txSummary, frData, fgData] = await Promise.all([
             fetchJSON(`${baseUrl}/transferencias/listar?${txParams.toString()}`, headers, 'GET'),
             fetchJSON(`${baseUrl}/financeiro-resumo/listar?${frParams.toString()}`, headers, 'GET'),
+            fetchJSON(`${baseUrl}/financeiro-geral/listar?${fgParams.toString()}`, headers, 'GET'),
           ]);
-
-          // Try wallet endpoints in parallel
-          const walletResults = await Promise.all(
-            walletEndpoints.map(async (url) => {
-              try {
-                const r = await fetchJSON(url, headers, 'GET');
-                const isErr = r?._status >= 400 || r?.code >= 400 || String(r?._raw || '').includes('não encontrada');
-                return isErr ? null : { url, data: r };
-              } catch { return null; }
-            })
-          );
-          const validWallet = walletResults.filter(Boolean);
-          console.log('[financeiro] wallet endpoints found:', validWallet.length, validWallet.map(w => w!.url));
-          if (validWallet.length > 0) {
-            console.log('[financeiro] wallet data:', JSON.stringify(validWallet[0]!.data).slice(0, 1000));
-          }
 
           console.log('[financeiro] transferencias:', JSON.stringify(txSummary).slice(0, 500));
           console.log('[financeiro] financeiro-resumo:', JSON.stringify(frData).slice(0, 500));
-          console.log('[financeiro] totais:', JSON.stringify(frData?.totais).slice(0, 1000));
-          console.log('[financeiro] totalNewUsers:', JSON.stringify(frData?.totalNewUsers).slice(0, 500));
+          console.log('[financeiro] financeiro-geral:', JSON.stringify(fgData).slice(0, 1000));
 
           const valorDeposito = Number(txSummary?.valorDeposito || 0);
           const valorSaque = Number(txSummary?.valorSaque || 0);
@@ -513,11 +493,21 @@ Deno.serve(async (req) => {
             bonusXDeposito: totaisData.bonusXDeposito,
           } : null;
 
-          const walletBalance = totaisData ? {
+          // Wallet balance from financeiro-geral/listar -> totais[0].saldo
+          const fgTotais = fgData?.totais;
+          const fgTotaisObj = Array.isArray(fgTotais) ? fgTotais[0] : fgTotais;
+          const saldoCreditos = fgTotaisObj ? Number(fgTotaisObj.saldo || 0) : null;
+          console.log('[financeiro] saldo from financeiro-geral:', saldoCreditos, 'fgTotais:', JSON.stringify(fgTotaisObj).slice(0, 500));
+
+          const walletBalance = saldoCreditos !== null ? {
+            liquido: saldoCreditos,
+            rtp: totaisData?.rtp || 0,
+            margem: totaisData?.margem || 0,
+          } : (totaisData ? {
             liquido: totaisData.liquido,
             rtp: totaisData.rtp,
             margem: totaisData.margem,
-          } : null;
+          } : null);
 
           result = {
             depositos: valorDeposito,
@@ -660,10 +650,11 @@ Deno.serve(async (req) => {
           signal: AbortSignal.timeout(12000),
         });
         const html = await pageRes.text();
-        // Extract script tags and AJAX URLs
         const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]).filter(s => s.trim().length > 10);
         const ajaxUrls = [...html.matchAll(/(?:url|href|src|action)\s*[:=]\s*['"`]([^'"`\s]+)['"`]/gi)].map(m => m[1]);
         const dataTableUrls = [...html.matchAll(/ajax\s*:\s*['"`]([^'"`]+)['"`]/gi)].map(m => m[1]);
+        // Extract wallet/saldo/carteira related content
+        const walletMatches = [...html.matchAll(/(wallet|saldo|carteira|balance|credito)[^<]{0,200}/gi)].map(m => m[0].slice(0, 200));
         result = {
           status: pageRes.status,
           html_length: html.length,
@@ -671,8 +662,9 @@ Deno.serve(async (req) => {
           title: html.match(/<title>(.*?)<\/title>/i)?.[1] || '',
           ajax_urls: [...new Set([...ajaxUrls, ...dataTableUrls])],
           scripts_count: scripts.length,
-          scripts_preview: scripts.map(s => s.slice(0, 1000)),
+          scripts_preview: scripts.map(s => s.slice(0, 2000)),
           menu_links: [...html.matchAll(/href=['"]([^'"]+)['"]/gi)].map(m => m[1]).filter(h => h.startsWith('/')),
+          wallet_matches: walletMatches,
         };
         break;
       }
