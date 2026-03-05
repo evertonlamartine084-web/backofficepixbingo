@@ -425,6 +425,8 @@ Deno.serve(async (req) => {
 
           console.log('[financeiro] transferencias:', JSON.stringify(txSummary).slice(0, 500));
           console.log('[financeiro] financeiro-resumo:', JSON.stringify(frData).slice(0, 500));
+          console.log('[financeiro] totais:', JSON.stringify(frData?.totais).slice(0, 1000));
+          console.log('[financeiro] totalNewUsers:', JSON.stringify(frData?.totalNewUsers).slice(0, 500));
 
           const valorDeposito = Number(txSummary?.valorDeposito || 0);
           const valorSaque = Number(txSummary?.valorSaque || 0);
@@ -483,9 +485,26 @@ Deno.serve(async (req) => {
           let walletBalance: any = null;
           if (validWallet.length > 0) {
             const wd = validWallet[0]!.data;
-            // Try to extract balance info from whatever structure returned
             if (typeof wd === 'object' && wd !== null) {
               walletBalance = wd;
+            }
+          }
+
+          // Extract totais (may contain wallet/balance info)
+          const totais = frData?.totais;
+          const totalNewUsers = frData?.totalNewUsers;
+
+          // Try to extract users from totalNewUsers
+          let usersData: any = null;
+          if (totalNewUsers) {
+            const nu = Array.isArray(totalNewUsers) ? totalNewUsers[0] : totalNewUsers;
+            if (nu && typeof nu === 'object') {
+              usersData = {
+                registered: Number(nu.total_novos_usuarios || nu.total || nu.novos || 0),
+                active: Number(nu.ativos || nu.active || 0),
+                logins: Number(nu.logins || 0),
+                kycApproved: Number(nu.kyc || nu.kyc_approved || 0),
+              };
             }
           }
 
@@ -498,15 +517,15 @@ Deno.serve(async (req) => {
             cassino: cassinoTotals,
             total: { apostas: totalApostas, premios: totalPremios, turnover: totalApostas, ggr: totalGGR, bonusTurnover: totalBonusTurnover, bonusGgr: totalBonusGgr, margin: totalApostas > 0 ? ((totalGGR / totalApostas) * 100) : 0 },
             ftd: { valor: ftdValor, qtd: ftdQtd },
-            users: null,
+            users: usersData,
             walletBonus: null,
             walletBalance,
             adjustments: null,
+            totais_raw: totais,
+            totalNewUsers_raw: totalNewUsers,
             fonte: 'combined_fallback',
             _raw_tx_keys: Object.keys(txSummary || {}),
             _raw_fr_keys: Object.keys(frData || {}),
-            _wallet_endpoints_tried: walletEndpoints,
-            _wallet_endpoints_found: validWallet.map(w => w!.url),
           };
         }
         break;
