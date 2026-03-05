@@ -153,45 +153,11 @@ async function getPlayerDepositTotal(cpf: string, headers: Record<string, string
   return totalValue;
 }
 
-async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, startDt: string, endDt: string, walletType: string, metric: string = 'valor'): Promise<number> {
+async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, startDt: string, endDt: string, walletType: string): Promise<number> {
   const result = await fetchJSON(`${DEFAULT_SITE}/usuarios/transacoes?id=${encodeURIComponent(uuid)}`, headers);
   const transactions = result?.historico || result?.data?.historico || [];
 
-  // Try to find cartela-count endpoint
-  const endpoints = [
-    `${DEFAULT_SITE}/rodadas/listar?busca_uuid=${encodeURIComponent(uuid)}&draw=1&start=0&length=5`,
-    `${DEFAULT_SITE}/cartelas/listar?busca_uuid=${encodeURIComponent(uuid)}&draw=1&start=0&length=5`,
-    `${DEFAULT_SITE}/jogos/listar?busca_uuid=${encodeURIComponent(uuid)}&draw=1&start=0&length=5`,
-    `${DEFAULT_SITE}/keno/historico?uuid=${encodeURIComponent(uuid)}`,
-  ];
-  
-  for (const ep of endpoints) {
-    try {
-      const epResult = await fetchJSON(ep, headers);
-      const keys = Object.keys(epResult || {});
-      const hasData = epResult?.aaData || epResult?.data || epResult?.historico;
-      console.log(`[DISCOVER2] ${ep.split('?')[0]} => keys=${JSON.stringify(keys).slice(0,200)}`);
-      if (hasData) {
-        const items = epResult.aaData || epResult.data || epResult.historico;
-        if (Array.isArray(items) && items.length > 0) {
-          console.log(`[DISCOVER2] Found ${items.length} items. Sample: ${JSON.stringify(items[0]).slice(0,500)}`);
-        }
-      }
-    } catch (e) {
-      console.log(`[DISCOVER2] ${ep.split('?')[0]} => ERROR: ${(e as Error).message}`);
-    }
-  }
-
   let totalValue = 0;
-  let totalCount = 0;
-
-  // Log ALL transaction types to see if there's a cartela-count type
-  const typeMap = new Map<string, number>();
-  for (const tx of transactions) {
-    const op = String(tx.operacao || tx.tipo || '').toUpperCase();
-    typeMap.set(op, (typeMap.get(op) || 0) + 1);
-  }
-  console.log(`[TX-TYPES] All operation types: ${JSON.stringify(Object.fromEntries(typeMap))}`);
 
   for (const tx of transactions) {
     const operation = String(tx.operacao || tx.tipo || '').toUpperCase();
@@ -204,17 +170,13 @@ async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, 
     const walletIsBonus = wallet === 'BONUS' || wallet === 'PREMIO';
     const walletIsReal = wallet === 'REAL' || wallet === 'CREDITO';
 
-    if (metric !== 'cartelas') {
-      if (walletType === 'BONUS' && !walletIsBonus) continue;
-      if (walletType === 'REAL' && !walletIsReal) continue;
-    }
+    if (walletType === 'BONUS' && !walletIsBonus) continue;
+    if (walletType === 'REAL' && !walletIsReal) continue;
 
-    totalCount++;
     totalValue += Math.abs(normalizeMoney(tx.valor));
   }
 
-  console.log(`[DEBUG-RESULT] totalCount=${totalCount}, totalValue=${totalValue}, metric=${metric}`);
-  return metric === 'cartelas' ? totalCount : totalValue;
+  return totalValue;
 }
 
 function formatDate(isoDate: string): string {
@@ -340,7 +302,6 @@ Deno.serve(async (req) => {
             startDt,
             endDt,
             campaign.wallet_type || 'REAL',
-            campaign.metric || 'valor',
           );
         } else {
           totalValue = await getPlayerDepositTotal(
