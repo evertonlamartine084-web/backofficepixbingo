@@ -194,6 +194,56 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_participants: {
+        Row: {
+          campaign_id: string
+          cpf: string
+          cpf_masked: string
+          created_at: string
+          credit_result: string | null
+          id: string
+          prize_credited: boolean
+          status: string
+          total_value: number
+          updated_at: string
+          uuid: string | null
+        }
+        Insert: {
+          campaign_id: string
+          cpf: string
+          cpf_masked: string
+          created_at?: string
+          credit_result?: string | null
+          id?: string
+          prize_credited?: boolean
+          status?: string
+          total_value?: number
+          updated_at?: string
+          uuid?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          cpf?: string
+          cpf_masked?: string
+          created_at?: string
+          credit_result?: string | null
+          id?: string
+          prize_credited?: boolean
+          status?: string
+          total_value?: number
+          updated_at?: string
+          uuid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_participants_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaigns: {
         Row: {
           created_at: string
