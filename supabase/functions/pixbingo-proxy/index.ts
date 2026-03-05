@@ -497,7 +497,7 @@ Deno.serve(async (req) => {
           const fgTotais = fgData?.totais;
           const fgTotaisObj = Array.isArray(fgTotais) ? fgTotais[0] : fgTotais;
           const saldoCreditos = fgTotaisObj ? Number(fgTotaisObj.saldo || 0) : null;
-          console.log('[financeiro] saldo from financeiro-geral:', saldoCreditos, 'fgTotais:', JSON.stringify(fgTotaisObj).slice(0, 500));
+          console.log('[financeiro] saldo from financeiro-geral:', saldoCreditos, 'fgTotais:', JSON.stringify(fgTotaisObj || null).slice(0, 500));
 
           const walletBalance = saldoCreditos !== null ? {
             liquido: saldoCreditos,
