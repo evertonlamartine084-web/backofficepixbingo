@@ -157,11 +157,41 @@ async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, 
   const result = await fetchJSON(`${DEFAULT_SITE}/usuarios/transacoes?id=${encodeURIComponent(uuid)}`, headers);
   const transactions = result?.historico || result?.data?.historico || [];
 
+  // Try to find cartela-count endpoint
+  const endpoints = [
+    `${DEFAULT_SITE}/rodadas/listar?busca_uuid=${encodeURIComponent(uuid)}&draw=1&start=0&length=5`,
+    `${DEFAULT_SITE}/cartelas/listar?busca_uuid=${encodeURIComponent(uuid)}&draw=1&start=0&length=5`,
+    `${DEFAULT_SITE}/jogos/listar?busca_uuid=${encodeURIComponent(uuid)}&draw=1&start=0&length=5`,
+    `${DEFAULT_SITE}/keno/historico?uuid=${encodeURIComponent(uuid)}`,
+  ];
+  
+  for (const ep of endpoints) {
+    try {
+      const epResult = await fetchJSON(ep, headers);
+      const keys = Object.keys(epResult || {});
+      const hasData = epResult?.aaData || epResult?.data || epResult?.historico;
+      console.log(`[DISCOVER2] ${ep.split('?')[0]} => keys=${JSON.stringify(keys).slice(0,200)}`);
+      if (hasData) {
+        const items = epResult.aaData || epResult.data || epResult.historico;
+        if (Array.isArray(items) && items.length > 0) {
+          console.log(`[DISCOVER2] Found ${items.length} items. Sample: ${JSON.stringify(items[0]).slice(0,500)}`);
+        }
+      }
+    } catch (e) {
+      console.log(`[DISCOVER2] ${ep.split('?')[0]} => ERROR: ${(e as Error).message}`);
+    }
+  }
+
   let totalValue = 0;
   let totalCount = 0;
 
-  // Log first 5 matching transactions for debugging
-  let logged = 0;
+  // Log ALL transaction types to see if there's a cartela-count type
+  const typeMap = new Map<string, number>();
+  for (const tx of transactions) {
+    const op = String(tx.operacao || tx.tipo || '').toUpperCase();
+    typeMap.set(op, (typeMap.get(op) || 0) + 1);
+  }
+  console.log(`[TX-TYPES] All operation types: ${JSON.stringify(Object.fromEntries(typeMap))}`);
 
   for (const tx of transactions) {
     const operation = String(tx.operacao || tx.tipo || '').toUpperCase();
@@ -174,23 +204,12 @@ async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, 
     const walletIsBonus = wallet === 'BONUS' || wallet === 'PREMIO';
     const walletIsReal = wallet === 'REAL' || wallet === 'CREDITO';
 
-    // Para contagem de cartelas, considera qualquer COMPRA no período
     if (metric !== 'cartelas') {
       if (walletType === 'BONUS' && !walletIsBonus) continue;
       if (walletType === 'REAL' && !walletIsReal) continue;
     }
 
-    if (logged < 5) {
-      console.log(`[DEBUG-TX] Full tx keys: ${JSON.stringify(Object.keys(tx))}`);
-      console.log(`[DEBUG-TX] Full tx: ${JSON.stringify(tx).slice(0, 800)}`);
-      logged++;
-    }
-
-    // Try to extract quantity from transaction fields
-    const qty = Number(tx.quantidade || tx.qtd || tx.qty || tx.cartelas || 1);
-    const txQty = qty > 0 ? qty : 1;
-
-    totalCount += txQty;
+    totalCount++;
     totalValue += Math.abs(normalizeMoney(tx.valor));
   }
 
