@@ -449,18 +449,34 @@ Deno.serve(async (req) => {
 
           // Wallet data will come from financeiro-geral or totais (no slow user aggregation)
 
-          console.log('[financeiro] transferencias:', JSON.stringify(txSummary).slice(0, 500));
+          console.log('[financeiro] transferencias full keys:', Object.keys(txSummary || {}));
+          console.log('[financeiro] transferencias:', JSON.stringify(txSummary).slice(0, 1000));
           console.log('[financeiro] financeiro-resumo totais:', JSON.stringify(frData?.totais || null).slice(0, 1000));
           console.log('[financeiro] financeiro-resumo full keys:', Object.keys(frData || {}));
+          console.log('[financeiro] financeiro-geral totais:', JSON.stringify(fgData?.totais || null).slice(0, 1000));
 
           const valorDeposito = Number(txSummary?.valorDeposito || 0);
           const valorSaque = Number(txSummary?.valorSaque || 0);
           // API returns qtdeDeposito/qtdeSaque (with 'e')
           const qtdDeposito = Number(txSummary?.qtdeDeposito || txSummary?.qtdDeposito || 0);
           const qtdSaque = Number(txSummary?.qtdeSaque || txSummary?.qtdSaque || 0);
-          // These are not available in the API
-          const qtdDepositantes = Number(txSummary?.qtdDepositantes || txSummary?.depositantes || 0);
-          const qtdSacantes = Number(txSummary?.qtdSacantes || txSummary?.sacantes || 0);
+
+          // Try multiple sources for unique depositors/sacantes
+          const totaisForUsers = Array.isArray(frData?.totais) ? frData.totais[0] : frData?.totais;
+          const fgTotaisForUsers = Array.isArray(fgData?.totais) ? fgData.totais[0] : fgData?.totais;
+          
+          const qtdDepositantes = Number(
+            txSummary?.qtdDepositantes || txSummary?.depositantes || txSummary?.qtdeDepositantes ||
+            totaisForUsers?.qtdDepositantes || totaisForUsers?.depositantes || totaisForUsers?.qtd_depositantes || totaisForUsers?.depositors ||
+            fgTotaisForUsers?.qtdDepositantes || fgTotaisForUsers?.depositantes || fgTotaisForUsers?.qtd_depositantes ||
+            0
+          );
+          const qtdSacantes = Number(
+            txSummary?.qtdSacantes || txSummary?.sacantes || txSummary?.qtdeSacantes ||
+            totaisForUsers?.qtdSacantes || totaisForUsers?.sacantes || totaisForUsers?.qtd_sacantes ||
+            fgTotaisForUsers?.qtdSacantes || fgTotaisForUsers?.sacantes || fgTotaisForUsers?.qtd_sacantes ||
+            0
+          );
 
           // Sum total_compra (bets) and total_premio (prizes) per product
           const kenoRows = frData?.keno || [];
