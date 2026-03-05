@@ -140,9 +140,9 @@ export default function Transactions() {
           <Filter className="w-4 h-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">Filtros</span>
         </div>
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-end gap-3">
           {/* CPF Search */}
-          <div className="space-y-1.5 flex-1 min-w-[180px]">
+          <div className="space-y-1.5">
             <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">CPF</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -156,13 +156,12 @@ export default function Transactions() {
             </div>
           </div>
 
-
           {/* Date Start */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Data início</label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn('h-9 gap-1.5 border-border bg-secondary text-sm min-w-[130px] justify-start', !dateStart && 'text-muted-foreground')}>
+                <Button variant="outline" size="sm" className={cn('h-9 gap-1.5 border-border bg-secondary text-sm min-w-[150px] justify-start', !dateStart && 'text-muted-foreground')}>
                   <CalendarIcon className="w-3.5 h-3.5" />
                   {dateStart ? format(dateStart, 'dd/MM/yyyy') : 'Selecionar'}
                 </Button>
@@ -178,7 +177,7 @@ export default function Transactions() {
             <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Data fim</label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn('h-9 gap-1.5 border-border bg-secondary text-sm min-w-[130px] justify-start', !dateEnd && 'text-muted-foreground')}>
+                <Button variant="outline" size="sm" className={cn('h-9 gap-1.5 border-border bg-secondary text-sm min-w-[150px] justify-start', !dateEnd && 'text-muted-foreground')}>
                   <CalendarIcon className="w-3.5 h-3.5" />
                   {dateEnd ? format(dateEnd, 'dd/MM/yyyy') : 'Selecionar'}
                 </Button>
@@ -199,7 +198,7 @@ export default function Transactions() {
               variant="outline"
               size="icon"
               className="h-9 w-9 border-border"
-              onClick={() => { setSearchCpf(''); setDateStart(undefined); setDateEnd(undefined); }}
+              onClick={() => { setSearchCpf(''); setDateStart(new Date()); setDateEnd(new Date()); }}
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </Button>
