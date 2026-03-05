@@ -270,7 +270,7 @@ export default function Campaigns() {
           </div>
           <div className="flex items-center gap-3">
             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-xs">
-              ⚡ Auto a cada 1 min
+              ⚡ Processamento em tempo real
             </Badge>
             <Button
               onClick={() => processCampaign(selectedCampaign)}
