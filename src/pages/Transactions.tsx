@@ -260,9 +260,6 @@ export default function Transactions() {
                       <th className="text-left p-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Usuário</th>
                       <th className="text-left p-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">CPF</th>
                       <th className="text-right p-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Valor</th>
-                      <th className="text-right p-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Saldo Ant.</th>
-                      <th className="text-right p-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Saldo Post.</th>
-                      <th className="text-left p-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Descrição</th>
                       <th className="text-center p-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
                     </tr>
                   </thead>
@@ -286,9 +283,6 @@ export default function Transactions() {
                           <td className={cn('p-3 text-sm font-bold font-mono text-right whitespace-nowrap', isPositive ? 'text-success' : 'text-destructive')}>
                             {isPositive ? '+' : '-'}{formatBRL(Math.abs(valor))}
                           </td>
-                          <td className="p-3 text-xs font-mono text-muted-foreground text-right">{item.saldo_anterior != null ? formatBRL(parseCurrency(item.saldo_anterior)) : '—'}</td>
-                          <td className="p-3 text-xs font-mono text-muted-foreground text-right">{item.saldo_posterior != null ? formatBRL(parseCurrency(item.saldo_posterior)) : '—'}</td>
-                          <td className="p-3 text-xs text-muted-foreground max-w-[200px] truncate">{item.descricao || '—'}</td>
                           <td className="p-3 text-center">
                             <span className={cn(
                               'inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider',
