@@ -160,6 +160,9 @@ async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, 
   let totalValue = 0;
   let totalCount = 0;
 
+  // Log first 5 matching transactions for debugging
+  let logged = 0;
+
   for (const tx of transactions) {
     const operation = String(tx.operacao || tx.tipo || '').toUpperCase();
     if (!operation.includes('COMPRA') && !operation.includes('APOSTA') && !operation.includes('BET')) continue;
@@ -177,10 +180,21 @@ async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, 
       if (walletType === 'REAL' && !walletIsReal) continue;
     }
 
-    totalCount++;
+    if (logged < 5) {
+      console.log(`[DEBUG-TX] Full tx keys: ${JSON.stringify(Object.keys(tx))}`);
+      console.log(`[DEBUG-TX] Full tx: ${JSON.stringify(tx).slice(0, 800)}`);
+      logged++;
+    }
+
+    // Try to extract quantity from transaction fields
+    const qty = Number(tx.quantidade || tx.qtd || tx.qty || tx.cartelas || 1);
+    const txQty = qty > 0 ? qty : 1;
+
+    totalCount += txQty;
     totalValue += Math.abs(normalizeMoney(tx.valor));
   }
 
+  console.log(`[DEBUG-RESULT] totalCount=${totalCount}, totalValue=${totalValue}, metric=${metric}`);
   return metric === 'cartelas' ? totalCount : totalValue;
 }
 
