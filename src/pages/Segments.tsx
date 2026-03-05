@@ -91,15 +91,40 @@ export default function Segments() {
   });
 
   // Fetch all users from API (for "All Users" virtual segment)
+  const [allUsersFetchProgress, setAllUsersFetchProgress] = useState({ loaded: 0, total: 0 });
+
   const { data: allUsersItems, isLoading: allUsersQueryLoading, refetch: refetchAllUsers } = useQuery({
     queryKey: ['all_users_segment', creds.username],
     enabled: selectedSegment === ALL_USERS_ID && !!creds.username,
     queryFn: async () => {
       setAllUsersLoading(true);
+      setAllUsersFetchProgress({ loaded: 0, total: 0 });
       try {
-        const res = await callProxy('list_users', creds, { length: 10000 });
-        const users = res?.data?.aaData || [];
-        return users.map((u: any, i: number) => ({
+        const PAGE_SIZE = 1000;
+        let start = 0;
+        let totalRecords = 0;
+        const allUsers: any[] = [];
+
+        // First request to get total count
+        const firstRes = await callProxy('list_users', creds, { start: 0, length: PAGE_SIZE });
+        const firstData = firstRes?.data;
+        totalRecords = firstData?.recordsTotal || firstData?.recordsFiltered || 0;
+        const firstBatch = firstData?.aaData || [];
+        allUsers.push(...firstBatch);
+        setAllUsersFetchProgress({ loaded: allUsers.length, total: totalRecords });
+
+        // Paginate remaining
+        start = PAGE_SIZE;
+        while (start < totalRecords) {
+          const res = await callProxy('list_users', creds, { start, length: PAGE_SIZE });
+          const batch = res?.data?.aaData || [];
+          if (batch.length === 0) break;
+          allUsers.push(...batch);
+          start += PAGE_SIZE;
+          setAllUsersFetchProgress({ loaded: allUsers.length, total: totalRecords });
+        }
+
+        return allUsers.map((u: any, i: number) => ({
           id: `all-user-${i}`,
           cpf: u.cpf || '',
           cpf_masked: maskCPF(u.cpf || ''),
@@ -111,7 +136,7 @@ export default function Segments() {
         setAllUsersLoading(false);
       }
     },
-    staleTime: 5 * 60 * 1000, // cache 5 min
+    staleTime: 10 * 60 * 1000, // cache 10 min
   });
 
   // Fetch ALL items for selected segment (paginated to bypass 1000-row limit)
@@ -806,7 +831,17 @@ export default function Segments() {
               </div>
 
               {effectiveItemsLoading ? (
-                <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                <div className="flex flex-col items-center justify-center p-8 gap-3">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  {isAllUsers && allUsersFetchProgress.total > 0 && (
+                    <div className="w-64 space-y-1">
+                      <Progress value={(allUsersFetchProgress.loaded / allUsersFetchProgress.total) * 100} className="h-2" />
+                      <p className="text-xs text-muted-foreground text-center">
+                        {allUsersFetchProgress.loaded.toLocaleString('pt-BR')} / {allUsersFetchProgress.total.toLocaleString('pt-BR')} jogadores
+                      </p>
+                    </div>
+                  )}
+                </div>
               ) : isAllUsers && !creds.username ? (
                 <div className="text-center py-10">
                   <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
