@@ -447,38 +447,95 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Try API endpoints for aggregate wallet balances
+          // Fetch wallet balances by aggregating individual player carteiras
           let usersSaldoTotal = 0;
           let usersBonusTotal = 0;
           let usersWalletSuccess = false;
           if (!fgData) {
-            const saldoEndpoints = [
-              `${baseUrl}/api/usuarios/saldo`,
-              `${baseUrl}/api/saldo`,
-              `${baseUrl}/usuarios/saldo`,
-              `${baseUrl}/saldo`,
-            ];
-            for (const ep of saldoEndpoints) {
-              try {
-                console.log(`[financeiro] trying saldo endpoint: ${ep}`);
-                const res = await fetchJSON(ep, headers, 'GET');
-                console.log(`[financeiro] saldo response:`, JSON.stringify(res).slice(0, 1000));
-                if (res && !res._status && !res.code && !res.Msg) {
-                  // Try to extract saldo/bonus from response
-                  const d = Array.isArray(res) ? res[0] : res;
-                  const saldo = Number(d?.saldo || d?.credito || d?.total_saldo || d?.total_credito || 0);
-                  const bonus = Number(d?.bonus || d?.total_bonus || d?.saldo_bonus || 0);
-                  if (saldo > 0 || bonus > 0) {
-                    usersSaldoTotal = saldo;
-                    usersBonusTotal = bonus;
-                    usersWalletSuccess = true;
-                    console.log(`[financeiro] wallet from ${ep}: saldo=${saldo}, bonus=${bonus}`);
-                    break;
-                  }
+            try {
+              console.log('[financeiro] fetching all user UUIDs for wallet aggregate...');
+              // Get all users (just need UUIDs)
+              const uParams = new URLSearchParams();
+              uParams.set('draw', '1');
+              uParams.set('start', '0');
+              uParams.set('length', '10000');
+              const uCols = ['username','celular','cpf','created_at','ultimo_login','situacao','uuid'];
+              uCols.forEach((col, i) => {
+                uParams.set(`columns[${i}][data]`, col);
+                uParams.set(`columns[${i}][name]`, '');
+                uParams.set(`columns[${i}][searchable]`, 'true');
+                uParams.set(`columns[${i}][orderable]`, 'true');
+                uParams.set(`columns[${i}][search][value]`, '');
+                uParams.set(`columns[${i}][search][regex]`, 'false');
+              });
+              uParams.set('order[0][column]', '0');
+              uParams.set('order[0][dir]', 'asc');
+              uParams.set('search[value]', '');
+              uParams.set('search[regex]', 'false');
+              const usersData = await fetchJSON(`${baseUrl}/usuarios/listar?${uParams.toString()}`, headers, 'GET');
+              const users = usersData?.aaData || [];
+              const uuids = users.map((u: any) => u?.uuid).filter(Boolean);
+              console.log(`[financeiro] got ${uuids.length} user UUIDs, fetching wallets...`);
+
+              // Parse BRL currency strings: "3.380,71" → 3380.71
+              const parseBRL = (v: any): number => {
+                if (typeof v === 'number') return v;
+                if (typeof v !== 'string') return 0;
+                const cleaned = v.replace(/[R$\s]/g, '').trim();
+                if (cleaned.includes('.') && cleaned.includes(',')) {
+                  return parseFloat(cleaned.replace(/\./g, '').replace(',', '.')) || 0;
                 }
-              } catch (e) {
-                console.log(`[financeiro] ${ep} error:`, (e as Error).message);
+                if (cleaned.includes(',')) {
+                  return parseFloat(cleaned.replace(',', '.')) || 0;
+                }
+                return parseFloat(cleaned) || 0;
+              };
+
+              // Fetch wallets in parallel batches of 50
+              const BATCH_SIZE = 50;
+              const startTime = Date.now();
+              const TIME_LIMIT = 45000; // 45 seconds max
+              let processed = 0;
+
+              for (let i = 0; i < uuids.length; i += BATCH_SIZE) {
+                if (Date.now() - startTime > TIME_LIMIT) {
+                  console.log(`[financeiro] wallet fetch time limit reached after ${processed} users`);
+                  break;
+                }
+                const batch = uuids.slice(i, i + BATCH_SIZE);
+                const results = await Promise.allSettled(
+                  batch.map((uuid: string) =>
+                    fetchJSON(`${baseUrl}/usuarios/transacoes?id=${uuid}`, headers, 'GET')
+                  )
+                );
+                for (const r of results) {
+                  if (r.status === 'fulfilled' && r.value) {
+                    const carteiras = r.value?.carteiras;
+                    if (carteiras) {
+                      // carteiras can be object or array
+                      const carteiraList = Array.isArray(carteiras) ? carteiras : [carteiras];
+                      for (const c of carteiraList) {
+                        const tipo = String(c?.tipo || c?.nome || c?.carteira || '').toUpperCase();
+                        const valor = parseBRL(c?.valor || c?.saldo || 0);
+                        if (tipo.includes('CREDIT') || tipo.includes('CREDITO') || tipo === 'REAL') {
+                          usersSaldoTotal += valor;
+                        } else if (tipo.includes('BONUS') || tipo.includes('BÔNUS')) {
+                          usersBonusTotal += valor;
+                        } else if (!tipo) {
+                          // If no type, check field names
+                          usersSaldoTotal += parseBRL(c?.credito || c?.saldo || 0);
+                          usersBonusTotal += parseBRL(c?.bonus || 0);
+                        }
+                      }
+                    }
+                  }
+                  processed++;
+                }
               }
+              usersWalletSuccess = processed > 0;
+              console.log(`[financeiro] wallet aggregate from ${processed}/${uuids.length} users: saldo=${usersSaldoTotal.toFixed(2)}, bonus=${usersBonusTotal.toFixed(2)}, elapsed=${Date.now()-startTime}ms`);
+            } catch (e) {
+              console.log('[financeiro] wallet aggregate error:', (e as Error).message);
             }
           }
 
