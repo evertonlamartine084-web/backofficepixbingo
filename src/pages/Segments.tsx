@@ -61,6 +61,7 @@ export default function Segments() {
   // Verification state
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [verifyDays, setVerifyDays] = useState('7');
+  const [verifyConcurrency, setVerifyConcurrency] = useState('5');
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyProgress, setVerifyProgress] = useState({ current: 0, total: 0 });
   const [verifyResults, setVerifyResults] = useState<Record<string, { hasBonus: boolean; lastBonusDate?: string; bonusCount: number }>>({});
@@ -86,18 +87,32 @@ export default function Segments() {
     },
   });
 
-  // Fetch items for selected segment
+  // Fetch ALL items for selected segment (paginated to bypass 1000-row limit)
   const { data: items, isLoading: itemsLoading } = useQuery({
     queryKey: ['segment_items', selectedSegment],
     enabled: !!selectedSegment,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('segment_items')
-        .select('*')
-        .eq('segment_id', selectedSegment!)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data || [];
+      const allItems: any[] = [];
+      const batchSize = 1000;
+      let offset = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('segment_items')
+          .select('*')
+          .eq('segment_id', selectedSegment!)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + batchSize - 1);
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allItems.push(...data);
+          offset += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+      return allItems;
     },
   });
 
@@ -270,62 +285,68 @@ export default function Segments() {
     setVerifyProgress({ current: 0, total: items.length });
     verifyCancelRef.current = false;
 
+    const concurrency = Math.max(1, Math.min(20, parseInt(verifyConcurrency) || 5));
     const results: Record<string, { hasBonus: boolean; lastBonusDate?: string; bonusCount: number }> = {};
+    let processed = 0;
 
-    for (let i = 0; i < items.length; i++) {
-      if (verifyCancelRef.current) {
-        toast.info('Verificação cancelada');
-        break;
-      }
-      const item = items[i];
-      setVerifyProgress({ current: i + 1, total: items.length });
-
+    const verifySingleCPF = async (item: any) => {
+      if (verifyCancelRef.current) return;
       try {
-        // Search player to get UUID
         const searchRes = await callProxy('search_player', creds, { cpf: item.cpf });
         const foundPlayer = searchRes?.data?.aaData?.[0];
         const uuid = foundPlayer?.uuid;
 
         if (!uuid) {
           results[item.cpf] = { hasBonus: false, bonusCount: 0 };
-          setVerifyResults({ ...results });
-          continue;
-        }
+        } else {
+          const txRes = await callProxy('player_transactions', creds, { uuid, player_id: uuid, cpf: item.cpf });
+          const movimentacoes = txRes?.data?.movimentacoes || txRes?.data?.historico || [];
+          const txList = Array.isArray(movimentacoes) ? movimentacoes : [];
 
-        // Get transactions
-        const txRes = await callProxy('player_transactions', creds, { uuid, player_id: uuid, cpf: item.cpf });
-        const movimentacoes = txRes?.data?.movimentacoes || txRes?.data?.historico || [];
-        const txList = Array.isArray(movimentacoes) ? movimentacoes : [];
+          let bonusCount = 0;
+          let lastBonusDate: string | undefined;
 
-        // Filter bonus transactions within the date range
-        let bonusCount = 0;
-        let lastBonusDate: string | undefined;
+          for (const tx of txList) {
+            const tipo = (tx.tipo || tx.type || tx.descricao || '').toString().toLowerCase();
+            const isBonus = tipo.includes('bonus') || tipo.includes('bônus') || tipo.includes('credito') || tipo.includes('crédito');
+            if (!isBonus) continue;
 
-        for (const tx of txList) {
-          const tipo = (tx.tipo || tx.type || tx.descricao || '').toString().toLowerCase();
-          const isBonus = tipo.includes('bonus') || tipo.includes('bônus') || tipo.includes('credito') || tipo.includes('crédito');
-          if (!isBonus) continue;
+            const dateStr = tx.created_at || tx.data || tx.date || '';
+            if (!dateStr) { bonusCount++; continue; }
 
-          const dateStr = tx.created_at || tx.data || tx.date || '';
-          if (!dateStr) { bonusCount++; continue; }
-
-          const txDate = new Date(dateStr);
-          if (txDate >= cutoffDate) {
-            bonusCount++;
-            if (!lastBonusDate || txDate > new Date(lastBonusDate)) {
-              lastBonusDate = dateStr;
+            const txDate = new Date(dateStr);
+            if (txDate >= cutoffDate) {
+              bonusCount++;
+              if (!lastBonusDate || txDate > new Date(lastBonusDate)) {
+                lastBonusDate = dateStr;
+              }
             }
           }
-        }
 
-        results[item.cpf] = { hasBonus: bonusCount > 0, lastBonusDate, bonusCount };
+          results[item.cpf] = { hasBonus: bonusCount > 0, lastBonusDate, bonusCount };
+        }
       } catch {
         results[item.cpf] = { hasBonus: false, bonusCount: 0 };
       }
+      processed++;
+      setVerifyProgress({ current: processed, total: items.length });
+      // Update results periodically (every batch) to avoid too many re-renders
+      if (processed % concurrency === 0 || processed === items.length) {
+        setVerifyResults({ ...results });
+      }
+    };
 
-      setVerifyResults({ ...results });
+    // Process in concurrent batches
+    for (let i = 0; i < items.length; i += concurrency) {
+      if (verifyCancelRef.current) {
+        toast.info('Verificação cancelada');
+        break;
+      }
+      const batch = items.slice(i, i + concurrency);
+      await Promise.all(batch.map(verifySingleCPF));
     }
 
+    setVerifyResults({ ...results });
     setVerifyLoading(false);
     setVerifyDone(true);
 
@@ -634,6 +655,21 @@ export default function Segments() {
                           />
                           <p className="text-xs text-muted-foreground mt-1">
                             Jogadores que receberam bônus nos últimos {verifyDays || '0'} dias serão marcados
+                          </p>
+                        </div>
+                        <div>
+                          <Label>Concorrência</Label>
+                          <Input
+                            type="number"
+                            value={verifyConcurrency}
+                            onChange={e => setVerifyConcurrency(e.target.value)}
+                            className="bg-secondary border-border font-mono mt-1"
+                            placeholder="5"
+                            min="1"
+                            max="20"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Quantidade de verificações simultâneas (1-20). Maior = mais rápido, mas pode sobrecarregar.
                           </p>
                         </div>
 
