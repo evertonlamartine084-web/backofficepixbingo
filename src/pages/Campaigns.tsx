@@ -372,68 +372,72 @@ export default function Campaigns() {
           <DialogTrigger asChild>
             <Button className="gap-2"><Plus className="w-4 h-4" /> Nova Campanha</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Criar Campanha</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-1.5">
-                <Label>Nome *</Label>
-                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Promo Março" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Tipo *</Label>
-                <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v as CampaignType }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="aposte_e_ganhe">🎲 Aposte e Ganhe</SelectItem>
-                    <SelectItem value="deposite_e_ganhe">🏦 Deposite e Ganhe</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Segmento *</Label>
-                <Select value={form.segment_id} onValueChange={v => setForm(f => ({ ...f, segment_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione um segmento" /></SelectTrigger>
-                  <SelectContent>
-                    {segments.map(s => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Descrição</Label>
-                <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Detalhes da campanha..." rows={2} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Carteira da aposta/depósito *</Label>
-                <Select value={form.wallet_type} onValueChange={v => setForm(f => ({ ...f, wallet_type: v as 'REAL' | 'BONUS' }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="REAL">💰 Saldo Real</SelectItem>
-                    <SelectItem value="BONUS">🎁 Saldo Bônus</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-3 py-2">
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>{form.type === 'aposte_e_ganhe' ? 'Aposta mínima (R$)' : 'Depósito mínimo (R$)'}</Label>
-                  <Input type="number" value={form.min_value} onChange={e => setForm(f => ({ ...f, min_value: e.target.value }))} placeholder="0.00" />
+                <div className="space-y-1">
+                  <Label className="text-xs">Nome *</Label>
+                  <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Promo Março" className="h-9" />
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Prêmio (R$)</Label>
-                  <Input type="number" value={form.prize_value} onChange={e => setForm(f => ({ ...f, prize_value: e.target.value }))} placeholder="0.00" />
+                <div className="space-y-1">
+                  <Label className="text-xs">Tipo *</Label>
+                  <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v as CampaignType }))}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="aposte_e_ganhe">🎲 Aposte e Ganhe</SelectItem>
+                      <SelectItem value="deposite_e_ganhe">🏦 Deposite e Ganhe</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Descrição do prêmio</Label>
-                <Input value={form.prize_description} onChange={e => setForm(f => ({ ...f, prize_description: e.target.value }))} placeholder="Ex: Bônus de 50% até R$100" />
-              </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Data início *</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs">Segmento *</Label>
+                  <Select value={form.segment_id} onValueChange={v => setForm(f => ({ ...f, segment_id: v }))}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {segments.map(s => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Carteira *</Label>
+                  <Select value={form.wallet_type} onValueChange={v => setForm(f => ({ ...f, wallet_type: v as 'REAL' | 'BONUS' }))}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="REAL">💰 Saldo Real</SelectItem>
+                      <SelectItem value="BONUS">🎁 Saldo Bônus</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">{form.type === 'aposte_e_ganhe' ? 'Aposta mín. (R$)' : 'Depósito mín. (R$)'}</Label>
+                  <Input type="number" value={form.min_value} onChange={e => setForm(f => ({ ...f, min_value: e.target.value }))} placeholder="0.00" className="h-9" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Prêmio (R$)</Label>
+                  <Input type="number" value={form.prize_value} onChange={e => setForm(f => ({ ...f, prize_value: e.target.value }))} placeholder="0.00" className="h-9" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Desc. prêmio</Label>
+                  <Input value={form.prize_description} onChange={e => setForm(f => ({ ...f, prize_description: e.target.value }))} placeholder="Opcional" className="h-9" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Descrição</Label>
+                <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Detalhes da campanha..." rows={2} className="resize-none" />
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Data início *</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn('w-full justify-start gap-2', !form.start_date && 'text-muted-foreground')}>
-                        <CalendarIcon className="w-4 h-4" />
-                        {form.start_date ? format(form.start_date, 'dd/MM/yyyy') : 'Selecionar'}
+                      <Button variant="outline" size="sm" className={cn('w-full justify-start gap-1 h-9 text-xs', !form.start_date && 'text-muted-foreground')}>
+                        <CalendarIcon className="w-3.5 h-3.5" />
+                        {form.start_date ? format(form.start_date, 'dd/MM/yy') : 'Selecionar'}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -441,19 +445,17 @@ export default function Campaigns() {
                     </PopoverContent>
                   </Popover>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Hora início *</Label>
-                  <Input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} />
+                <div className="space-y-1">
+                  <Label className="text-xs">Hora início *</Label>
+                  <Input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} className="h-9" />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Data fim *</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs">Data fim *</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn('w-full justify-start gap-2', !form.end_date && 'text-muted-foreground')}>
-                        <CalendarIcon className="w-4 h-4" />
-                        {form.end_date ? format(form.end_date, 'dd/MM/yyyy') : 'Selecionar'}
+                      <Button variant="outline" size="sm" className={cn('w-full justify-start gap-1 h-9 text-xs', !form.end_date && 'text-muted-foreground')}>
+                        <CalendarIcon className="w-3.5 h-3.5" />
+                        {form.end_date ? format(form.end_date, 'dd/MM/yy') : 'Selecionar'}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -461,9 +463,9 @@ export default function Campaigns() {
                     </PopoverContent>
                   </Popover>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Hora fim *</Label>
-                  <Input type="time" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} />
+                <div className="space-y-1">
+                  <Label className="text-xs">Hora fim *</Label>
+                  <Input type="time" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} className="h-9" />
                 </div>
               </div>
             </div>
