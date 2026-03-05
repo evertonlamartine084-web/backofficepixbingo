@@ -100,9 +100,32 @@ export default function PlayerLookup() {
     try {
       const searchRes = await callProxy('search_player', creds, { cpf: searchQuery, uuid: searchQuery });
       const playerData = searchRes?.data;
-      if (playerData) setPlayer(playerData);
 
-      const foundPlayer = playerData?.aaData?.[0];
+      // Check if no results or CPF doesn't match the searched value
+      const aaData = playerData?.aaData || playerData?.data || [];
+      const foundPlayer = Array.isArray(aaData) && aaData.length > 0 ? aaData[0] : null;
+
+      if (!foundPlayer || (Array.isArray(aaData) && aaData.length === 0)) {
+        toast.warning('CPF/UUID não encontrado na base');
+        setLoading(false);
+        return;
+      }
+
+      // Verify the returned player actually matches the query (prevent random results)
+      const queryCleaned = searchQuery.replace(/\D/g, '');
+      const foundCpf = String(foundPlayer.cpf || '').replace(/\D/g, '');
+      const foundUuid = String(foundPlayer.uuid || '');
+      const isMatch = (queryCleaned && foundCpf && foundCpf.includes(queryCleaned)) ||
+                      (queryCleaned && foundCpf && queryCleaned.includes(foundCpf)) ||
+                      searchQuery.includes('-') && foundUuid === searchQuery;
+
+      if (!isMatch && queryCleaned.length >= 5) {
+        toast.warning('CPF/UUID não encontrado na base. O resultado retornado não corresponde à busca.');
+        setLoading(false);
+        return;
+      }
+
+      if (playerData) setPlayer(playerData);
       const realUuid = foundPlayer?.uuid || searchQuery;
 
       const detailParams = { uuid: realUuid, player_id: realUuid, cpf: searchQuery };
