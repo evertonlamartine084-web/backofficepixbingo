@@ -79,8 +79,8 @@ interface FinancialData {
   total: ProductTotals;
   ftd?: { valor: number; qtd: number } | null;
   newUsers?: number;
-  walletBonus?: { valor: number; redemption: number; redemptionQtd: number; bonusXDeposito?: number } | null;
-  walletBalance?: { balance: number; totalCompra: number; totalPremio: number; rtp: number; margem: number } | null;
+  walletBonus?: { valor: number; bonusXDeposito: number } | null;
+  walletBalance?: { liquido: number; rtp: number; margem: number } | null;
   adjustments?: { cashIn: number; cashInQtd: number; cashOut: number; cashOutQtd: number } | null;
   isFallback?: boolean;
 }
@@ -374,35 +374,23 @@ export default function Dashboard() {
               mainLabel="Total Bônus"
               icon={Gift}
               iconColor="text-primary"
-              secondaryValue={f!.walletBonus ? formatBRL(f!.walletBonus.redemption) : undefined}
-              secondaryLabel={f!.walletBonus ? 'Compras c/ Bônus' : undefined}
               stats={f!.walletBonus ? [
-                { label: 'Bônus x Depósito', value: `${f!.walletBonus.bonusXDeposito?.toFixed(2) || '0'}%` },
+                { label: 'Bônus x Depósito', value: `${f!.walletBonus.bonusXDeposito.toFixed(2)}%` },
               ] : [{ label: '', value: 'Dados indisponíveis' }]}
             />
           </div>
 
-          {/* Row 4: Wallet Balance (Líquido) | Totais Compra/Prêmio | RTP/Margem */}
+          {/* Row 4: Wallet Balance | Transações */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <DashboardInfoCard
-              title="Líquido"
-              mainValue={f!.walletBalance ? formatBRL(f!.walletBalance.balance) : nd}
+              title="Wallet Balance"
+              mainValue={f!.walletBalance ? formatBRL(f!.walletBalance.liquido) : nd}
               mainLabel="Saldo Líquido (Dep - Saq)"
               icon={Landmark}
               iconColor="text-primary"
               stats={f!.walletBalance ? [
                 { label: 'RTP', value: `${f!.walletBalance.rtp.toFixed(2)}%` },
                 { label: 'Margem', value: `${f!.walletBalance.margem.toFixed(2)}%` },
-              ] : [{ label: '', value: 'Dados indisponíveis' }]}
-            />
-            <DashboardInfoCard
-              title="Total Apostas"
-              mainValue={f!.walletBalance ? formatBRL(f!.walletBalance.totalCompra) : nd}
-              mainLabel="Total Compras"
-              icon={BarChart3}
-              iconColor="text-primary"
-              stats={f!.walletBalance ? [
-                { label: 'Total Prêmios', value: formatBRL(f!.walletBalance.totalPremio) },
               ] : [{ label: '', value: 'Dados indisponíveis' }]}
             />
             <DashboardInfoCard

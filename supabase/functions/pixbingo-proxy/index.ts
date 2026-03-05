@@ -510,15 +510,11 @@ Deno.serve(async (req) => {
           // Wallet bonus = total_bonus
           const walletBonus = totaisData ? {
             valor: totaisData.totalBonus,
-            redemption: totaisData.totalCompraBonusVal,
-            redemptionQtd: 0,
             bonusXDeposito: totaisData.bonusXDeposito,
           } : null;
 
           const walletBalance = totaisData ? {
-            balance: totaisData.liquido,
-            totalCompra: totaisData.totalCompra,
-            totalPremio: totaisData.totalPremio,
+            liquido: totaisData.liquido,
             rtp: totaisData.rtp,
             margem: totaisData.margem,
           } : null;
