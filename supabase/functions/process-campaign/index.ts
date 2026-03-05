@@ -157,40 +157,30 @@ async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, 
   const result = await fetchJSON(`${DEFAULT_SITE}/usuarios/transacoes?id=${encodeURIComponent(uuid)}`, headers);
   const transactions = result?.historico || result?.data?.historico || [];
 
-  console.log(`[getPlayerBetTotal] uuid=${uuid}, metric=${metric}, walletType=${walletType}, startDt=${startDt}, endDt=${endDt}`);
-  console.log(`[getPlayerBetTotal] Total transactions from API: ${transactions.length}`);
-  if (transactions.length > 0) {
-    console.log(`[getPlayerBetTotal] Sample tx[0]:`, JSON.stringify(transactions[0]).slice(0, 500));
-    if (transactions.length > 1) console.log(`[getPlayerBetTotal] Sample tx[1]:`, JSON.stringify(transactions[1]).slice(0, 500));
-  } else {
-    console.log(`[getPlayerBetTotal] Raw result keys:`, JSON.stringify(Object.keys(result || {})));
-    console.log(`[getPlayerBetTotal] Raw result preview:`, JSON.stringify(result).slice(0, 1000));
-  }
-
   let totalValue = 0;
   let totalCount = 0;
+
   for (const tx of transactions) {
     const operation = String(tx.operacao || tx.tipo || '').toUpperCase();
-    const wallet = String(tx.carteira || '').toUpperCase();
-    const txDt = extractDateTime(tx.data_registro || tx.created_at || tx.data);
-
-    // Log first few matching operations for debugging
-    if (totalCount < 3 || (!operation.includes('COMPRA') && !operation.includes('APOSTA') && !operation.includes('BET') && totalCount === 0)) {
-      console.log(`[getPlayerBetTotal] tx: op=${operation}, wallet=${wallet}, dt=${txDt}, valor=${tx.valor}`);
-    }
-
     if (!operation.includes('COMPRA') && !operation.includes('APOSTA') && !operation.includes('BET')) continue;
 
-    if (walletType === 'BONUS' && wallet !== 'BONUS') continue;
-    if (walletType === 'REAL' && wallet === 'BONUS') continue;
-
+    const txDt = extractDateTime(tx.data_registro || tx.created_at || tx.data);
     if (!isDateTimeInRange(txDt, startDt, endDt)) continue;
+
+    const wallet = String(tx.carteira || '').toUpperCase();
+    const walletIsBonus = wallet === 'BONUS' || wallet === 'PREMIO';
+    const walletIsReal = wallet === 'REAL' || wallet === 'CREDITO';
+
+    // Para contagem de cartelas, considera qualquer COMPRA no período
+    if (metric !== 'cartelas') {
+      if (walletType === 'BONUS' && !walletIsBonus) continue;
+      if (walletType === 'REAL' && !walletIsReal) continue;
+    }
 
     totalCount++;
     totalValue += Math.abs(normalizeMoney(tx.valor));
   }
 
-  console.log(`[getPlayerBetTotal] Result: totalCount=${totalCount}, totalValue=${totalValue}, returning=${metric === 'cartelas' ? totalCount : totalValue}`);
   return metric === 'cartelas' ? totalCount : totalValue;
 }
 
