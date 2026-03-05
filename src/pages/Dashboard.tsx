@@ -273,7 +273,6 @@ export default function Dashboard() {
               icon={ArrowDownToLine}
               iconColor="text-success"
               stats={[
-                { label: 'Depositantes', value: f!.qtdDepositantes || 0 },
                 { label: 'Transações', value: f!.qtdDeposito || 0 },
                 { label: 'AVG Deposit', value: formatBRL(avgDeposit) },
               ]}
@@ -285,7 +284,6 @@ export default function Dashboard() {
               icon={ArrowUpFromLine}
               iconColor="text-destructive"
               stats={[
-                { label: 'Sacantes', value: f!.qtdSacantes || 0 },
                 { label: 'Transações', value: f!.qtdSaque || 0 },
                 { label: 'AVG Withdrawals', value: formatBRL(avgSaque) },
               ]}
