@@ -52,7 +52,8 @@ function getDateRange(period: PeriodFilter, customStart?: Date, customEnd?: Date
   }
 }
 
-function formatBRL(val: number): string {
+function formatBRL(val: number | null | undefined): string {
+  if (val === null || val === undefined || typeof val !== 'number' || isNaN(val)) return 'R$ 0,00';
   return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
