@@ -381,31 +381,6 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* Row 4: Wallet Balance | Transações */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <DashboardInfoCard
-              title="Saldo Crédito"
-              mainValue={f!.walletBalance ? formatBRL(f!.walletBalance.liquido) : nd}
-              mainLabel="Total em créditos na carteira"
-              icon={Landmark}
-              iconColor="text-primary"
-              stats={f!.walletBalance ? [
-                { label: 'RTP', value: `${f!.walletBalance.rtp.toFixed(2)}%` },
-                { label: 'Margem', value: `${f!.walletBalance.margem.toFixed(2)}%` },
-              ] : [{ label: '', value: 'Dados indisponíveis' }]}
-            />
-            <DashboardInfoCard
-              title="Transações"
-              mainValue={String(f!.totalTransactions || 0)}
-              mainLabel="Total de Transações"
-              icon={ArrowUpDown}
-              iconColor="text-primary"
-              stats={[
-                { label: 'Depósitos', value: f!.qtdDeposito || 0 },
-                { label: 'Saques', value: f!.qtdSaque || 0 },
-              ]}
-            />
-          </div>
         </div>
       ) : null}
 
