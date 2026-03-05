@@ -5,12 +5,16 @@ const corsHeaders = {
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+const MAX_RUNTIME_MS = 50_000; // 50s max to stay within edge function limits
+const LOOP_INTERVAL_MS = 10_000; // Check every 10 seconds
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const username = Deno.env.get('PLATFORM_USERNAME');
@@ -21,54 +25,99 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Fetch all active campaigns
-    const { data: campaigns, error: campErr } = await supabase
-      .from('campaigns')
-      .select('*')
-      .eq('status', 'ATIVA');
+    const body = await req.json().catch(() => ({}));
+    const startTime = Date.now();
+    const allResults: any[] = [];
+    let iterations = 0;
 
-    if (campErr) {
-      return new Response(JSON.stringify({ success: false, error: campErr.message }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+    // Loop processing active campaigns until time runs out
+    while (Date.now() - startTime < MAX_RUNTIME_MS) {
+      iterations++;
 
-    if (!campaigns?.length) {
-      return new Response(JSON.stringify({ success: true, message: 'Nenhuma campanha ativa', results: [] }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+      // Fetch active campaigns
+      const { data: campaigns, error: campErr } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('status', 'ATIVA');
 
-    const results = [];
+      if (campErr || !campaigns?.length) break;
 
-    for (const campaign of campaigns) {
-      try {
-        // Call the existing process-campaign function
-        const { data, error } = await supabase.functions.invoke('process-campaign', {
-          body: {
+      // Check if any campaign still has unprocessed participants
+      let hasWork = false;
+
+      for (const campaign of campaigns) {
+        if (Date.now() - startTime > MAX_RUNTIME_MS - 5000) break; // Leave 5s buffer
+
+        try {
+          const { data, error } = await supabase.functions.invoke('process-campaign', {
+            body: { campaign_id: campaign.id, username, password },
+          });
+
+          const result = {
             campaign_id: campaign.id,
-            username,
-            password,
-          },
-        });
+            campaign_name: campaign.name,
+            iteration: iterations,
+            success: !error && data?.success,
+            data: data?.data || null,
+            error: error?.message || data?.error || null,
+          };
+          allResults.push(result);
 
-        results.push({
-          campaign_id: campaign.id,
-          campaign_name: campaign.name,
-          success: !error && data?.success,
-          data: data?.data || null,
-          error: error?.message || data?.error || null,
-        });
-      } catch (e) {
-        results.push({
-          campaign_id: campaign.id,
-          campaign_name: campaign.name,
-          success: false,
-          error: (e as Error).message,
-        });
+          // If there are still pending participants, we have more work
+          if (data?.data?.processed > 0 && data?.data?.processed > data?.data?.credited + data?.data?.errors) {
+            hasWork = true;
+          }
+        } catch (e) {
+          allResults.push({
+            campaign_id: campaign.id,
+            campaign_name: campaign.name,
+            iteration: iterations,
+            success: false,
+            error: (e as Error).message,
+          });
+        }
+      }
+
+      // If no more work to do, break early
+      if (!hasWork && iterations > 1) break;
+
+      // Wait before next iteration
+      if (Date.now() - startTime < MAX_RUNTIME_MS - LOOP_INTERVAL_MS) {
+        await new Promise(r => setTimeout(r, LOOP_INTERVAL_MS));
+      } else {
+        break;
       }
     }
 
-    return new Response(JSON.stringify({ success: true, results }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // Self-reinvoke if there are still active campaigns
+    const { data: remaining } = await supabase
+      .from('campaigns')
+      .select('id')
+      .eq('status', 'ATIVA')
+      .limit(1);
+
+    if (remaining?.length) {
+      // Fire-and-forget: reinvoke ourselves after a short delay
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/auto-process-campaigns`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${anonKey}`,
+          },
+          body: JSON.stringify({ trigger: 'self-reinvoke' }),
+          signal: AbortSignal.timeout(5000),
+        }).catch(() => {}); // Fire and forget
+      } catch {}
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      iterations,
+      runtime_ms: Date.now() - startTime,
+      results: allResults,
+      will_continue: !!remaining?.length,
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
     return new Response(JSON.stringify({ success: false, error: (error as Error).message }),
