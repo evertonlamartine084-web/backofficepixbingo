@@ -35,6 +35,9 @@ const tipoStyles: Record<string, string> = {
 function parseCurrency(val: any): number {
   if (typeof val === 'number') return val;
   if (typeof val === 'string') {
+    // If it looks like standard decimal (e.g. "10.00", "130.00"), parse directly
+    if (/^\d+\.\d{1,2}$/.test(val.trim())) return parseFloat(val);
+    // Otherwise treat as BRL format (e.g. "1.000,50")
     return parseFloat(val.replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
   }
   return 0;
