@@ -140,7 +140,7 @@ export default function Transactions() {
           <Filter className="w-4 h-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">Filtros</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-end gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-end gap-4">
           {/* CPF Search */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">CPF</label>
@@ -157,8 +157,8 @@ export default function Transactions() {
           </div>
 
           {/* Date Start */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Data início</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground block">Data início</label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className={cn('h-9 gap-1.5 border-border bg-secondary text-sm min-w-[150px] justify-start', !dateStart && 'text-muted-foreground')}>
@@ -173,8 +173,8 @@ export default function Transactions() {
           </div>
 
           {/* Date End */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Data fim</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground block">Data fim</label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className={cn('h-9 gap-1.5 border-border bg-secondary text-sm min-w-[150px] justify-start', !dateEnd && 'text-muted-foreground')}>
