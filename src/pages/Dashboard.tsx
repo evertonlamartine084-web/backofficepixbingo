@@ -149,7 +149,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (creds.username) fetchFinancials();
-  }, [period, customStart, customEnd]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [creds.username, period, customStart, customEnd]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loadingStats || loadingBatches) {
     return (
