@@ -348,8 +348,8 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* Row 3: FTD | New Users | Wallet Bonus */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Row 3: FTD | New Users */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <DashboardInfoCard
               title="FTD"
               mainValue={f!.ftd ? formatBRL(f!.ftd.valor) : nd}
@@ -368,16 +368,6 @@ export default function Dashboard() {
               icon={Users}
               iconColor="text-primary"
               stats={[]}
-            />
-            <DashboardInfoCard
-              title="Saldo Bônus"
-              mainValue={f!.walletBonus ? formatBRL(f!.walletBonus.valor) : nd}
-              mainLabel="Total em bônus na carteira"
-              icon={Gift}
-              iconColor="text-primary"
-              stats={f!.walletBonus ? [
-                { label: 'Bônus x Depósito', value: `${f!.walletBonus.bonusXDeposito.toFixed(2)}%` },
-              ] : [{ label: '', value: 'Dados indisponíveis' }]}
             />
           </div>
 
