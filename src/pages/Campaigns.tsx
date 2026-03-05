@@ -92,6 +92,7 @@ export default function Campaigns() {
     prize_value: '',
     prize_description: '',
     wallet_type: 'REAL' as 'REAL' | 'BONUS',
+    metric: 'valor' as 'valor' | 'cartelas',
     start_date: undefined as Date | undefined,
     end_date: undefined as Date | undefined,
     start_time: '00:00',
@@ -171,6 +172,7 @@ export default function Campaigns() {
         min_value: Number(form.min_value) || 0, prize_value: Number(form.prize_value) || 0,
         prize_description: form.prize_description,
         wallet_type: form.wallet_type,
+        metric: form.metric,
         start_date: startDate.toISOString(), end_date: endDate.toISOString(),
       } as any);
       if (error) throw error;
@@ -337,7 +339,7 @@ export default function Campaigns() {
   const resetForm = () => setForm({
     name: '', type: 'aposte_e_ganhe', description: '', segment_id: '',
     min_value: '', prize_value: '', prize_description: '', wallet_type: 'REAL',
-    start_date: undefined, end_date: undefined, start_time: '00:00', end_time: '23:59',
+    metric: 'valor', start_date: undefined, end_date: undefined, start_time: '00:00', end_time: '23:59',
   });
 
   // Campaign detail view
@@ -432,7 +434,7 @@ export default function Campaigns() {
         {/* Regras */}
         <Card className="border-border">
           <CardContent className="p-4 grid grid-cols-5 gap-4 text-sm">
-            <div><span className="text-muted-foreground text-xs block">Valor Mínimo</span> R$ {Number(selectedCampaign.min_value).toFixed(2)}</div>
+            <div><span className="text-muted-foreground text-xs block">{(selectedCampaign as any).metric === 'cartelas' ? 'Mín. Cartelas' : 'Valor Mínimo'}</span> {(selectedCampaign as any).metric === 'cartelas' ? `${Number(selectedCampaign.min_value)} cartelas` : `R$ ${Number(selectedCampaign.min_value).toFixed(2)}`}</div>
             <div><span className="text-muted-foreground text-xs block">Prêmio</span> R$ {Number(selectedCampaign.prize_value).toFixed(2)}</div>
             <div><span className="text-muted-foreground text-xs block">Carteira</span> <Badge variant="outline" className="text-xs">{selectedCampaign.wallet_type}</Badge></div>
             <div><span className="text-muted-foreground text-xs block">Início</span> {format(new Date(selectedCampaign.start_date), 'dd/MM/yyyy HH:mm')}</div>
@@ -453,7 +455,7 @@ export default function Campaigns() {
                   <TableRow>
                     <TableHead>CPF</TableHead>
                     <TableHead>UUID</TableHead>
-                    <TableHead>Total Transacionado</TableHead>
+                    <TableHead>{(selectedCampaign as any).metric === 'cartelas' ? 'Total Cartelas' : 'Total Transacionado'}</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Resultado</TableHead>
                   </TableRow>
@@ -463,7 +465,11 @@ export default function Campaigns() {
                     <TableRow key={p.id}>
                       <TableCell className="font-mono text-sm">{p.cpf_masked}</TableCell>
                       <TableCell className="text-xs text-muted-foreground font-mono">{p.uuid ? p.uuid.slice(0, 12) + '...' : '—'}</TableCell>
-                      <TableCell className="text-sm">R$ {Number(p.total_value).toFixed(2)}</TableCell>
+                      <TableCell className="text-sm">
+                        {(selectedCampaign as any).metric === 'cartelas'
+                          ? `${Number(p.total_value)} cartelas`
+                          : `R$ ${Number(p.total_value).toFixed(2)}`}
+                      </TableCell>
                       <TableCell>
                         <Badge className={cn('text-[10px]', PARTICIPANT_STATUS_COLORS[p.status] || 'bg-muted')}>
                           {p.status}
@@ -514,7 +520,7 @@ export default function Campaigns() {
                   </Select>
                 </div>
               </div>
-              <div className={cn("grid gap-3", form.type === 'aposte_e_ganhe' ? 'grid-cols-2' : 'grid-cols-1')}>
+              <div className={cn("grid gap-3", form.type === 'aposte_e_ganhe' ? 'grid-cols-3' : 'grid-cols-1')}>
                 <div className="space-y-1">
                   <Label className="text-xs">Segmento *</Label>
                   <Select value={form.segment_id} onValueChange={v => setForm(f => ({ ...f, segment_id: v }))}>
@@ -525,22 +531,38 @@ export default function Campaigns() {
                   </Select>
                 </div>
                 {form.type === 'aposte_e_ganhe' && (
-                  <div className="space-y-1">
-                    <Label className="text-xs">Carteira *</Label>
-                    <Select value={form.wallet_type} onValueChange={v => setForm(f => ({ ...f, wallet_type: v as 'REAL' | 'BONUS' }))}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="REAL">💰 Saldo Real</SelectItem>
-                        <SelectItem value="BONUS">🎁 Saldo Bônus</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Carteira *</Label>
+                      <Select value={form.wallet_type} onValueChange={v => setForm(f => ({ ...f, wallet_type: v as 'REAL' | 'BONUS' }))}>
+                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="REAL">💰 Saldo Real</SelectItem>
+                          <SelectItem value="BONUS">🎁 Saldo Bônus</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Métrica *</Label>
+                      <Select value={form.metric} onValueChange={v => setForm(f => ({ ...f, metric: v as 'valor' | 'cartelas' }))}>
+                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="valor">💲 Valor apostado</SelectItem>
+                          <SelectItem value="cartelas">🎟️ Qtd. cartelas</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
                 )}
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">{form.type === 'aposte_e_ganhe' ? 'Aposta mín. (R$)' : 'Depósito mín. (R$)'}</Label>
-                  <Input type="number" value={form.min_value} onChange={e => setForm(f => ({ ...f, min_value: e.target.value }))} placeholder="0.00" className="h-9" />
+                  <Label className="text-xs">
+                    {form.type === 'aposte_e_ganhe'
+                      ? (form.metric === 'cartelas' ? 'Mín. cartelas' : 'Aposta mín. (R$)')
+                      : 'Depósito mín. (R$)'}
+                  </Label>
+                  <Input type="number" value={form.min_value} onChange={e => setForm(f => ({ ...f, min_value: e.target.value }))} placeholder={form.metric === 'cartelas' ? '10' : '0.00'} className="h-9" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Prêmio (R$)</Label>

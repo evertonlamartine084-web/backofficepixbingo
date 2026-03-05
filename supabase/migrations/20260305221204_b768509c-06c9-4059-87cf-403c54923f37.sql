@@ -1,0 +1,1 @@
+ALTER TABLE public.campaigns ADD COLUMN metric text NOT NULL DEFAULT 'valor';
