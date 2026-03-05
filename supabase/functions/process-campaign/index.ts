@@ -153,11 +153,12 @@ async function getPlayerDepositTotal(cpf: string, headers: Record<string, string
   return totalValue;
 }
 
-async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, startDt: string, endDt: string, walletType: string): Promise<number> {
+async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, startDt: string, endDt: string, walletType: string, metric: string = 'valor'): Promise<number> {
   const result = await fetchJSON(`${DEFAULT_SITE}/usuarios/transacoes?id=${encodeURIComponent(uuid)}`, headers);
   const transactions = result?.historico || result?.data?.historico || [];
 
   let totalValue = 0;
+  let totalCount = 0;
   for (const tx of transactions) {
     const operation = String(tx.operacao || tx.tipo || '').toUpperCase();
     if (!operation.includes('COMPRA') && !operation.includes('APOSTA') && !operation.includes('BET')) continue;
@@ -169,10 +170,11 @@ async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, 
     const txDt = extractDateTime(tx.data_registro || tx.created_at || tx.data);
     if (!isDateTimeInRange(txDt, startDt, endDt)) continue;
 
+    totalCount++;
     totalValue += Math.abs(normalizeMoney(tx.valor));
   }
 
-  return totalValue;
+  return metric === 'cartelas' ? totalCount : totalValue;
 }
 
 function formatDate(isoDate: string): string {
@@ -298,6 +300,7 @@ Deno.serve(async (req) => {
             startDt,
             endDt,
             campaign.wallet_type || 'REAL',
+            campaign.metric || 'valor',
           );
         } else {
           totalValue = await getPlayerDepositTotal(

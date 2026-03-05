@@ -250,6 +250,7 @@ export type Database = {
           description: string | null
           end_date: string
           id: string
+          metric: string
           min_value: number
           name: string
           prize_description: string | null
@@ -266,6 +267,7 @@ export type Database = {
           description?: string | null
           end_date: string
           id?: string
+          metric?: string
           min_value?: number
           name: string
           prize_description?: string | null
@@ -282,6 +284,7 @@ export type Database = {
           description?: string | null
           end_date?: string
           id?: string
+          metric?: string
           min_value?: number
           name?: string
           prize_description?: string | null
