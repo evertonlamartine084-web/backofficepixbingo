@@ -259,6 +259,7 @@ export type Database = {
           status: string
           type: string
           updated_at: string
+          wallet_type: string
         }
         Insert: {
           created_at?: string
@@ -274,6 +275,7 @@ export type Database = {
           status?: string
           type?: string
           updated_at?: string
+          wallet_type?: string
         }
         Update: {
           created_at?: string
@@ -289,6 +291,7 @@ export type Database = {
           status?: string
           type?: string
           updated_at?: string
+          wallet_type?: string
         }
         Relationships: [
           {

@@ -1,0 +1,1 @@
+ALTER TABLE public.campaigns ADD COLUMN wallet_type TEXT NOT NULL DEFAULT 'REAL';
