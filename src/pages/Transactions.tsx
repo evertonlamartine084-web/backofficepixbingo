@@ -76,8 +76,8 @@ const fmtApiDate = (d: Date) => {
 export default function Transactions() {
   const [creds, setCreds] = useState({ username: '', password: '' });
   const [searchCpf, setSearchCpf] = useState('');
-  const [dateStart, setDateStart] = useState<Date | undefined>(undefined);
-  const [dateEnd, setDateEnd] = useState<Date | undefined>(undefined);
+  const [dateStart, setDateStart] = useState<Date | undefined>(new Date());
+  const [dateEnd, setDateEnd] = useState<Date | undefined>(new Date());
   const [txData, setTxData] = useState<any>(null);
   const [page, setPage] = useState(0);
   const [totalRecords, setTotalRecords] = useState(0);
