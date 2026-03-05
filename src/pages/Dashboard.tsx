@@ -1,19 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import {
-  Package, Users, CheckCircle, XCircle, AlertTriangle, Clock, Zap, Shield,
   Loader2, RefreshCw, Activity, ArrowDownToLine, ArrowUpFromLine,
-  Dices, Trophy, TrendingUp, BarChart3, Wallet, DollarSign, CalendarIcon
+  Dices, Trophy, TrendingUp, BarChart3, Wallet, DollarSign, CalendarIcon,
+  Users, UserCheck, LogIn, ShieldCheck, Gift, CreditCard, Landmark,
+  ArrowUpDown, CircleDollarSign, Percent, Zap, Clock, XCircle, CheckCircle,
+  AlertTriangle, Shield, Package
 } from 'lucide-react';
+import { DashboardInfoCard } from '@/components/DashboardInfoCard';
 import { StatsCard } from '@/components/StatsCard';
-import { FinancialKPICard } from '@/components/FinancialKPICard';
 import { BatchStatusBadge } from '@/components/StatusBadge';
 import { Link } from 'react-router-dom';
 import { useDashboardStats, useBatches } from '@/hooks/use-supabase-data';
 import { ApiCredentialsBar } from '@/components/ApiCredentialsBar';
 import { useProxy } from '@/hooks/use-proxy';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
@@ -35,31 +36,20 @@ function getDateRange(period: PeriodFilter, customStart?: Date, customEnd?: Date
     case 'today':
       return { start: fmtDate(now), end: fmtDate(now) };
     case 'yesterday': {
-      const y = new Date(now);
-      y.setDate(y.getDate() - 1);
+      const y = new Date(now); y.setDate(y.getDate() - 1);
       return { start: fmtDate(y), end: fmtDate(y) };
     }
     case '7d': {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 7);
+      const d = new Date(now); d.setDate(d.getDate() - 7);
       return { start: fmtDate(d), end: fmtDate(now) };
     }
     case '30d': {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 30);
+      const d = new Date(now); d.setDate(d.getDate() - 30);
       return { start: fmtDate(d), end: fmtDate(now) };
     }
     case 'custom':
       return { start: fmtDate(customStart || now), end: fmtDate(customEnd || now) };
   }
-}
-
-function parseCurrency(val: any): number {
-  if (typeof val === 'number') return val;
-  if (typeof val === 'string') {
-    return parseFloat(val.replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
-  }
-  return 0;
 }
 
 function formatBRL(val: number): string {
@@ -71,14 +61,26 @@ interface ProductTotals {
   premios: number;
   turnover: number;
   ggr: number;
+  bonusTurnover?: number;
+  bonusGgr?: number;
+  margin?: number;
 }
 
 interface FinancialData {
   depositos: number;
   saques: number;
+  qtdDeposito?: number;
+  qtdSaque?: number;
+  qtdDepositantes?: number;
+  qtdSacantes?: number;
   keno: ProductTotals;
   cassino: ProductTotals;
   total: ProductTotals;
+  ftd?: { valor: number; qtd: number };
+  users?: { active: number; registered: number; logins: number; kycApproved: number };
+  walletBonus?: { valor: number; redemption: number; redemptionQtd: number };
+  walletBalance?: { balance: number; balanceKyc: number; openBetBalance: number; openBets: number };
+  adjustments?: { cashIn: number; cashInQtd: number; cashOut: number; cashOutQtd: number };
   isFallback?: boolean;
 }
 
@@ -104,52 +106,35 @@ export default function Dashboard() {
         length: 100,
       });
 
-      // Handle API error responses
       const apiErrorCode = Number(res?.data?.code ?? res?.data?._status ?? 0);
       const apiErrorMessage = res?.data?.Msg || res?.data?._raw;
       if (apiErrorCode >= 400 || apiErrorMessage) {
-        const message = String(apiErrorMessage || `Erro HTTP ${apiErrorCode || 'desconhecido'}`);
-        console.error('API financeiro error:', message);
-        toast.error('Erro na API financeira: ' + message);
+        toast.error('Erro na API financeira: ' + String(apiErrorMessage || `Erro HTTP ${apiErrorCode || 'desconhecido'}`));
         setFinancials(null);
         return;
       }
 
       const d = res?.data;
       const fonte = d?.fonte || '';
+      const zeroProduct: ProductTotals = { apostas: 0, premios: 0, turnover: 0, ggr: 0, bonusTurnover: 0, bonusGgr: 0, margin: 0 };
 
-      // New separated format from proxy
-      if (d?.keno || d?.cassino || d?.total) {
-        const zeroProduct: ProductTotals = { apostas: 0, premios: 0, turnover: 0, ggr: 0 };
-        setFinancials({
-          depositos: Number(d.depositos || 0),
-          saques: Number(d.saques || 0),
-          keno: d.keno || zeroProduct,
-          cassino: d.cassino || zeroProduct,
-          total: d.total || zeroProduct,
-          isFallback: fonte.includes('fallback'),
-        });
-      } else {
-        // Legacy aaData format
-        const rows = d?.aaData || d?.data || [];
-        let depositos = 0, saques = 0, apostas = 0, premios = 0;
-        if (Array.isArray(rows)) {
-          for (const row of rows) {
-            depositos += parseCurrency(row.depositos);
-            saques += parseCurrency(row.saques);
-            apostas += parseCurrency(row.apostas || row.bets || 0);
-            premios += parseCurrency(row.premios || row.prizes || 0);
-          }
-        }
-        const totalP: ProductTotals = { apostas, premios, turnover: apostas, ggr: apostas - premios };
-        setFinancials({
-          depositos, saques,
-          keno: { apostas: 0, premios: 0, turnover: 0, ggr: 0 },
-          cassino: { apostas: 0, premios: 0, turnover: 0, ggr: 0 },
-          total: totalP,
-          isFallback: fonte.includes('fallback'),
-        });
-      }
+      setFinancials({
+        depositos: Number(d.depositos || 0),
+        saques: Number(d.saques || 0),
+        qtdDeposito: Number(d.qtdDeposito || 0),
+        qtdSaque: Number(d.qtdSaque || 0),
+        qtdDepositantes: Number(d.qtdDepositantes || 0),
+        qtdSacantes: Number(d.qtdSacantes || 0),
+        keno: d.keno || zeroProduct,
+        cassino: d.cassino || zeroProduct,
+        total: d.total || zeroProduct,
+        ftd: d.ftd || { valor: 0, qtd: 0 },
+        users: d.users || { active: 0, registered: 0, logins: 0, kycApproved: 0 },
+        walletBonus: d.walletBonus || { valor: 0, redemption: 0, redemptionQtd: 0 },
+        walletBalance: d.walletBalance || { balance: 0, balanceKyc: 0, openBetBalance: 0, openBets: 0 },
+        adjustments: d.adjustments || { cashIn: 0, cashInQtd: 0, cashOut: 0, cashOutQtd: 0 },
+        isFallback: fonte.includes('fallback'),
+      });
 
       toast.success('Financeiro atualizado!');
     } catch (err: any) {
@@ -157,9 +142,8 @@ export default function Dashboard() {
     } finally {
       setLoadingFinancials(false);
     }
-  }, [creds, period, callProxy]);
+  }, [creds, period, customStart, customEnd, callProxy]);
 
-  // Auto-fetch when creds or period change
   useEffect(() => {
     if (creds.username) fetchFinancials();
   }, [period, customStart, customEnd]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -182,6 +166,14 @@ export default function Dashboard() {
     { key: '30d', label: '30 dias' },
   ];
 
+  const f = financials;
+  const netDeposits = f ? f.depositos - f.saques : 0;
+  const netPct = f && f.depositos > 0 ? ((netDeposits / f.depositos) * 100).toFixed(2) : '0.00';
+  const avgDeposit = f && f.qtdDeposito ? f.depositos / f.qtdDeposito : 0;
+  const avgSaque = f && f.qtdSaque ? f.saques / f.qtdSaque : 0;
+  const avgFtd = f?.ftd && f.ftd.qtd > 0 ? f.ftd.valor / f.ftd.qtd : 0;
+  const avgRedemption = f?.walletBonus && f.walletBonus.redemptionQtd > 0 ? f.walletBonus.redemption / f.walletBonus.redemptionQtd : 0;
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -198,125 +190,241 @@ export default function Dashboard() {
           <Activity className="w-4 h-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">Conexão API</span>
         </div>
-        <ApiCredentialsBar onCredentials={(c) => { setCreds(c); }} />
+        <ApiCredentialsBar onCredentials={(c) => setCreds(c)} />
       </div>
 
-      {/* Period Filter + Financial KPIs */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">Financeiro</h2>
+      {/* Period Filter */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <DollarSign className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-semibold text-foreground">Financeiro</h2>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex rounded-lg border border-border overflow-hidden">
+            {quickFilters.map((qf) => (
+              <button
+                key={qf.key}
+                onClick={() => setPeriod(qf.key)}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  period === qf.key
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
+                }`}
+              >
+                {qf.label}
+              </button>
+            ))}
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex rounded-lg border border-border overflow-hidden">
-              {quickFilters.map((f) => (
-                <button
-                  key={f.key}
-                  onClick={() => setPeriod(f.key)}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    period === f.key
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Custom date pickers */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={period === 'custom' ? 'default' : 'outline'}
-                  size="sm"
-                  className={cn('gap-1.5 text-xs', period !== 'custom' && 'border-border')}
-                  onClick={() => setPeriod('custom')}
-                >
-                  <CalendarIcon className="w-3.5 h-3.5" />
-                  {period === 'custom'
-                    ? `${format(customStart, 'dd/MM')} - ${format(customEnd, 'dd/MM')}`
-                    : 'Personalizado'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <div className="flex flex-col sm:flex-row">
-                  <div className="p-3 border-b sm:border-b-0 sm:border-r border-border">
-                    <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Data início</p>
-                    <Calendar
-                      mode="single"
-                      selected={customStart}
-                      onSelect={(d) => { if (d) { setCustomStart(d); setPeriod('custom'); } }}
-                      disabled={(d) => d > new Date()}
-                      className={cn("p-0 pointer-events-auto")}
-                    />
-                  </div>
-                  <div className="p-3">
-                    <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Data fim</p>
-                    <Calendar
-                      mode="single"
-                      selected={customEnd}
-                      onSelect={(d) => { if (d) { setCustomEnd(d); setPeriod('custom'); } }}
-                      disabled={(d) => d > new Date() || d < customStart}
-                      className={cn("p-0 pointer-events-auto")}
-                    />
-                  </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={period === 'custom' ? 'default' : 'outline'}
+                size="sm"
+                className={cn('gap-1.5 text-xs', period !== 'custom' && 'border-border')}
+                onClick={() => setPeriod('custom')}
+              >
+                <CalendarIcon className="w-3.5 h-3.5" />
+                {period === 'custom'
+                  ? `${format(customStart, 'dd/MM')} - ${format(customEnd, 'dd/MM')}`
+                  : 'Personalizado'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <div className="flex flex-col sm:flex-row">
+                <div className="p-3 border-b sm:border-b-0 sm:border-r border-border">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Data início</p>
+                  <Calendar mode="single" selected={customStart} onSelect={(d) => { if (d) { setCustomStart(d); setPeriod('custom'); } }} disabled={(d) => d > new Date()} className="p-0 pointer-events-auto" />
                 </div>
-              </PopoverContent>
-            </Popover>
+                <div className="p-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Data fim</p>
+                  <Calendar mode="single" selected={customEnd} onSelect={(d) => { if (d) { setCustomEnd(d); setPeriod('custom'); } }} disabled={(d) => d > new Date() || d < customStart} className="p-0 pointer-events-auto" />
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Button onClick={fetchFinancials} disabled={loadingFinancials || !creds.username} variant="outline" size="sm" className="border-border">
+            {loadingFinancials ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          </Button>
+        </div>
+      </div>
 
-            <Button
-              onClick={fetchFinancials}
-              disabled={loadingFinancials || !creds.username}
-              variant="outline"
-              size="sm"
-              className="border-border"
-            >
-              {loadingFinancials ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            </Button>
+      {/* Financial Dashboard */}
+      {!creds.username ? (
+        <div className="glass-card p-8 text-center">
+          <Wallet className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-50" />
+          <p className="text-sm text-muted-foreground">Conecte-se à API acima para visualizar os dados financeiros</p>
+        </div>
+      ) : loadingFinancials && !financials ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        </div>
+      ) : financials ? (
+        <div className="space-y-4">
+          {/* Row 1: Deposits | Withdrawals | NET Deposits */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <DashboardInfoCard
+              title="Deposits"
+              mainValue={formatBRL(f!.depositos)}
+              mainLabel="Deposits"
+              icon={ArrowDownToLine}
+              iconColor="text-success"
+              stats={[
+                { label: 'Depositantes', value: f!.qtdDepositantes || 0 },
+                { label: 'Transações', value: f!.qtdDeposito || 0 },
+                { label: 'AVG Deposit', value: formatBRL(avgDeposit) },
+              ]}
+            />
+            <DashboardInfoCard
+              title="Withdrawals"
+              mainValue={formatBRL(f!.saques)}
+              mainLabel="Withdrawals"
+              icon={ArrowUpFromLine}
+              iconColor="text-destructive"
+              stats={[
+                { label: 'Sacantes', value: f!.qtdSacantes || 0 },
+                { label: 'Transações', value: f!.qtdSaque || 0 },
+                { label: 'AVG Withdrawals', value: formatBRL(avgSaque) },
+              ]}
+            />
+            <DashboardInfoCard
+              title="NET Deposits"
+              mainValue={formatBRL(netDeposits)}
+              mainLabel="NET Deposits"
+              icon={CircleDollarSign}
+              iconColor="text-primary"
+              stats={[
+                { label: 'Percentage', value: `${netPct}%` },
+              ]}
+            />
+          </div>
+
+          {/* Row 2: Keno | Casino | Total */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <DashboardInfoCard
+              title="Keno"
+              mainValue={formatBRL(f!.keno.ggr)}
+              mainLabel="GGR"
+              icon={Dices}
+              iconColor="text-primary"
+              secondaryValue={formatBRL(f!.keno.bonusGgr || 0)}
+              secondaryLabel="Bonus GGR"
+              stats={[
+                { label: 'Turnover', value: formatBRL(f!.keno.turnover) },
+                { label: 'Bonus Turnover', value: formatBRL(f!.keno.bonusTurnover || 0) },
+                { label: 'Margin', value: `${(f!.keno.margin || 0).toFixed(2)}%` },
+              ]}
+            />
+            <DashboardInfoCard
+              title="Casino"
+              mainValue={formatBRL(f!.cassino.ggr)}
+              mainLabel="GGR"
+              icon={Trophy}
+              iconColor="text-warning"
+              secondaryValue={formatBRL(f!.cassino.bonusGgr || 0)}
+              secondaryLabel="Bonus GGR"
+              stats={[
+                { label: 'Turnover', value: formatBRL(f!.cassino.turnover) },
+                { label: 'Bonus Turnover', value: formatBRL(f!.cassino.bonusTurnover || 0) },
+                { label: 'Margin', value: `${(f!.cassino.margin || 0).toFixed(2)}%` },
+              ]}
+            />
+            <DashboardInfoCard
+              title="Total"
+              mainValue={formatBRL(f!.total.ggr)}
+              mainLabel="Total GGR"
+              icon={BarChart3}
+              iconColor="text-primary"
+              secondaryValue={formatBRL(f!.total.bonusGgr || 0)}
+              secondaryLabel="Bonus GGR"
+              stats={[
+                { label: 'Total Turnover', value: formatBRL(f!.total.turnover) },
+                { label: 'Bonus Turnover', value: formatBRL(f!.total.bonusTurnover || 0) },
+                { label: 'Total Margin', value: `${(f!.total.margin || 0).toFixed(2)}%` },
+              ]}
+            />
+          </div>
+
+          {/* Row 3: FTD | Active Users | Wallet Bonus */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <DashboardInfoCard
+              title="FTD"
+              mainValue={formatBRL(f!.ftd?.valor || 0)}
+              mainLabel="FTD Value"
+              icon={TrendingUp}
+              iconColor="text-primary"
+              stats={[
+                { label: 'Transactions', value: f!.ftd?.qtd || 0 },
+                { label: 'AVG Value', value: formatBRL(avgFtd) },
+              ]}
+            />
+            <DashboardInfoCard
+              title="Usuários"
+              mainValue={String(f!.users?.active || 0)}
+              mainLabel="Active Users"
+              icon={Users}
+              iconColor="text-primary"
+              secondaryValue={String(f!.users?.logins || 0)}
+              secondaryLabel="Number of Logins"
+              stats={[
+                { label: 'Registered Users', value: f!.users?.registered || 0 },
+                { label: 'KYC Approved', value: f!.users?.kycApproved || 0 },
+              ]}
+            />
+            <DashboardInfoCard
+              title="Wallet Bonus"
+              mainValue={formatBRL(f!.walletBonus?.valor || 0)}
+              mainLabel="Wallet Bonus"
+              icon={Gift}
+              iconColor="text-primary"
+              secondaryValue={formatBRL(f!.walletBonus?.redemption || 0)}
+              secondaryLabel="Bonus Redemption"
+              stats={[
+                { label: 'Transactions', value: f!.walletBonus?.redemptionQtd || 0 },
+                { label: 'AVG Redemption', value: formatBRL(avgRedemption) },
+              ]}
+            />
+          </div>
+
+          {/* Row 4: Wallet Balance | Adjustments Cash In | Adjustments Cash Out */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <DashboardInfoCard
+              title="Wallet Balance"
+              mainValue={formatBRL(f!.walletBalance?.balance || 0)}
+              mainLabel="Wallet Balance"
+              icon={Landmark}
+              iconColor="text-primary"
+              secondaryValue={formatBRL(f!.walletBalance?.balanceKyc || 0)}
+              secondaryLabel="Wallet Balance (KYC)"
+              stats={[
+                { label: 'Open Bet Balance', value: formatBRL(f!.walletBalance?.openBetBalance || 0) },
+                { label: 'Open Bets', value: f!.walletBalance?.openBets || 0 },
+              ]}
+            />
+            <DashboardInfoCard
+              title="Adjustments"
+              mainValue={formatBRL(f!.adjustments?.cashIn || 0)}
+              mainLabel="Cash in"
+              icon={ArrowDownToLine}
+              iconColor="text-success"
+              stats={[
+                { label: 'Transactions', value: f!.adjustments?.cashInQtd || 0 },
+                { label: 'AVG Deposit', value: f!.adjustments?.cashInQtd ? formatBRL(f!.adjustments.cashIn / f!.adjustments.cashInQtd) : formatBRL(0) },
+              ]}
+            />
+            <DashboardInfoCard
+              title="Adjustments"
+              mainValue={formatBRL(f!.adjustments?.cashOut || 0)}
+              mainLabel="Cash out"
+              icon={ArrowUpFromLine}
+              iconColor="text-destructive"
+              stats={[
+                { label: 'Transactions', value: f!.adjustments?.cashOutQtd || 0 },
+                { label: 'AVG Withdrawals', value: f!.adjustments?.cashOutQtd ? formatBRL(f!.adjustments.cashOut / f!.adjustments.cashOutQtd) : formatBRL(0) },
+              ]}
+            />
           </div>
         </div>
-
-        {!creds.username ? (
-          <div className="glass-card p-8 text-center">
-            <Wallet className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-50" />
-            <p className="text-sm text-muted-foreground">Conecte-se à API acima para visualizar os dados financeiros</p>
-          </div>
-        ) : loadingFinancials && !financials ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
-          </div>
-        ) : financials ? (
-          <div className="space-y-3">
-           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-              <FinancialKPICard title="Depósitos" value={formatBRL(financials.depositos)} icon={ArrowDownToLine} variant="green" />
-              <FinancialKPICard title="Saques" value={formatBRL(financials.saques)} icon={ArrowUpFromLine} variant="red" />
-            </div>
-
-            <Tabs defaultValue="total" className="w-full">
-              <TabsList>
-                <TabsTrigger value="total">Total</TabsTrigger>
-                <TabsTrigger value="keno">Keno</TabsTrigger>
-                <TabsTrigger value="cassino">Cassino</TabsTrigger>
-              </TabsList>
-              {(['total', 'keno', 'cassino'] as const).map((tab) => {
-                const data = financials[tab];
-                return (
-                  <TabsContent key={tab} value={tab}>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <FinancialKPICard title="Apostas" value={formatBRL(data.apostas)} icon={Dices} variant="blue" />
-                      <FinancialKPICard title="Prêmios" value={formatBRL(data.premios)} icon={Trophy} variant="amber" />
-                      <FinancialKPICard title="Turnover" value={formatBRL(data.turnover)} icon={TrendingUp} variant="purple" />
-                      <FinancialKPICard title="GGR" value={formatBRL(data.ggr)} icon={BarChart3} variant={data.ggr >= 0 ? 'green' : 'red'} trend={data.ggr >= 0 ? 'up' : 'down'} trendValue={data.turnover > 0 ? `${((data.ggr / data.turnover) * 100).toFixed(1)}% margem` : undefined} />
-                    </div>
-                  </TabsContent>
-                );
-              })}
-            </Tabs>
-          </div>
-        ) : null}
-      </div>
+      ) : null}
 
       {/* Bonus processing stats */}
       <div className="space-y-3">
@@ -325,7 +433,7 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold text-foreground">Processamento de Bônus</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatsCard title="Total Itens" value={stats.total_items} subtitle={`${stats.total_batches} lotes`} icon={Users} variant="primary" />
+          <StatsCard title="Total Itens" value={stats.total_items} subtitle={`${stats.total_batches} lotes`} icon={Package} variant="primary" />
           <StatsCard title="Sem Bônus" value={stats.sem_bonus} icon={XCircle} variant="default" />
           <StatsCard title="Bônus 1x" value={stats.bonus_1x} icon={CheckCircle} variant="success" />
           <StatsCard title="Bônus 2x+" value={stats.bonus_2x_plus} subtitle="Duplicados!" icon={AlertTriangle} variant="danger" />
