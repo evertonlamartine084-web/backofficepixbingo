@@ -220,10 +220,28 @@ Deno.serve(async (req) => {
     }
     const headers = buildHeaders(auth.cookies);
 
-    const dateStart = formatDate(campaign.start_date);
-    const dateEnd = formatDate(campaign.end_date);
-    const startDt = new Date(campaign.start_date).toISOString().slice(0, 19);
-    const endDt = new Date(campaign.end_date).toISOString().slice(0, 19);
+    // Convert UTC dates to America/Fortaleza (UTC-3) for comparison with platform data
+    function toFortaleza(isoStr: string): string {
+      const d = new Date(isoStr);
+      const parts = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'America/Fortaleza',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false,
+      }).formatToParts(d);
+      const get = (t: string) => parts.find(p => p.type === t)?.value || '00';
+      return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`;
+    }
+    function toFortalezaDate(isoStr: string): string {
+      const local = toFortaleza(isoStr);
+      const [y, m, d] = local.split('T')[0].split('-');
+      return `${d}/${m}/${y}`;
+    }
+
+    const dateStart = toFortalezaDate(campaign.start_date);
+    const dateEnd = toFortalezaDate(campaign.end_date);
+    const startDt = toFortaleza(campaign.start_date);
+    const endDt = toFortaleza(campaign.end_date);
 
     // Upsert participants
     const participantsToUpsert = segmentItems.map(si => ({
