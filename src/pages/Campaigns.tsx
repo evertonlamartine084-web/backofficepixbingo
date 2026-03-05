@@ -92,6 +92,8 @@ export default function Campaigns() {
     wallet_type: 'REAL' as 'REAL' | 'BONUS',
     start_date: undefined as Date | undefined,
     end_date: undefined as Date | undefined,
+    start_time: '00:00',
+    end_time: '23:59',
   });
 
   const { data: campaigns = [], isLoading } = useQuery({
@@ -155,13 +157,19 @@ export default function Campaigns() {
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!form.name || !form.start_date || !form.end_date) throw new Error('Preencha os campos obrigatórios');
+      const [sh, sm] = form.start_time.split(':').map(Number);
+      const [eh, em] = form.end_time.split(':').map(Number);
+      const startDate = new Date(form.start_date);
+      startDate.setHours(sh, sm, 0, 0);
+      const endDate = new Date(form.end_date);
+      endDate.setHours(eh, em, 59, 999);
       const { error } = await supabase.from('campaigns').insert({
         name: form.name, type: form.type, description: form.description,
         segment_id: form.segment_id || null,
         min_value: Number(form.min_value) || 0, prize_value: Number(form.prize_value) || 0,
         prize_description: form.prize_description,
         wallet_type: form.wallet_type,
-        start_date: form.start_date.toISOString(), end_date: form.end_date.toISOString(),
+        start_date: startDate.toISOString(), end_date: endDate.toISOString(),
       } as any);
       if (error) throw error;
     },
@@ -235,7 +243,7 @@ export default function Campaigns() {
   const resetForm = () => setForm({
     name: '', type: 'aposte_e_ganhe', description: '', segment_id: '',
     min_value: '', prize_value: '', prize_description: '', wallet_type: 'REAL',
-    start_date: undefined, end_date: undefined,
+    start_date: undefined, end_date: undefined, start_time: '00:00', end_time: '23:59',
   });
 
   // Campaign detail view
@@ -304,8 +312,8 @@ export default function Campaigns() {
             <div><span className="text-muted-foreground text-xs block">Valor Mínimo</span> R$ {Number(selectedCampaign.min_value).toFixed(2)}</div>
             <div><span className="text-muted-foreground text-xs block">Prêmio</span> R$ {Number(selectedCampaign.prize_value).toFixed(2)}</div>
             <div><span className="text-muted-foreground text-xs block">Carteira</span> <Badge variant="outline" className="text-xs">{selectedCampaign.wallet_type}</Badge></div>
-            <div><span className="text-muted-foreground text-xs block">Início</span> {format(new Date(selectedCampaign.start_date), 'dd/MM/yyyy')}</div>
-            <div><span className="text-muted-foreground text-xs block">Fim</span> {format(new Date(selectedCampaign.end_date), 'dd/MM/yyyy')}</div>
+            <div><span className="text-muted-foreground text-xs block">Início</span> {format(new Date(selectedCampaign.start_date), 'dd/MM/yyyy HH:mm')}</div>
+            <div><span className="text-muted-foreground text-xs block">Fim</span> {format(new Date(selectedCampaign.end_date), 'dd/MM/yyyy HH:mm')}</div>
           </CardContent>
         </Card>
 
@@ -434,6 +442,12 @@ export default function Campaigns() {
                   </Popover>
                 </div>
                 <div className="space-y-1.5">
+                  <Label>Hora início *</Label>
+                  <Input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
                   <Label>Data fim *</Label>
                   <Popover>
                     <PopoverTrigger asChild>
@@ -446,6 +460,10 @@ export default function Campaigns() {
                       <Calendar mode="single" selected={form.end_date} onSelect={d => setForm(f => ({ ...f, end_date: d }))} disabled={d => form.start_date ? d < form.start_date : false} className={cn("p-3 pointer-events-auto")} />
                     </PopoverContent>
                   </Popover>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Hora fim *</Label>
+                  <Input type="time" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} />
                 </div>
               </div>
             </div>
@@ -521,7 +539,7 @@ export default function Campaigns() {
                       <TableCell className="text-sm">R$ {Number(c.min_value).toFixed(2)}</TableCell>
                       <TableCell className="text-sm">R$ {Number(c.prize_value).toFixed(2)}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {format(new Date(c.start_date), 'dd/MM/yy')} → {format(new Date(c.end_date), 'dd/MM/yy')}
+                        {format(new Date(c.start_date), 'dd/MM/yy HH:mm')} → {format(new Date(c.end_date), 'dd/MM/yy HH:mm')}
                       </TableCell>
                       <TableCell>
                         <Select value={c.status} onValueChange={v => updateStatusMutation.mutate({ id: c.id, status: v as CampaignStatus })}>
