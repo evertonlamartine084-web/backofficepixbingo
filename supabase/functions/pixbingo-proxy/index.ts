@@ -447,91 +447,7 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Fetch wallet balances by aggregating individual player carteiras
-          let usersSaldoTotal = 0;
-          let usersBonusTotal = 0;
-          let usersWalletSuccess = false;
-          if (!fgData) {
-            try {
-              console.log('[financeiro] fetching all user UUIDs for wallet aggregate...');
-              // Get all users (just need UUIDs)
-              const uParams = new URLSearchParams();
-              uParams.set('draw', '1');
-              uParams.set('start', '0');
-              uParams.set('length', '10000');
-              const uCols = ['username','celular','cpf','created_at','ultimo_login','situacao','uuid'];
-              uCols.forEach((col, i) => {
-                uParams.set(`columns[${i}][data]`, col);
-                uParams.set(`columns[${i}][name]`, '');
-                uParams.set(`columns[${i}][searchable]`, 'true');
-                uParams.set(`columns[${i}][orderable]`, 'true');
-                uParams.set(`columns[${i}][search][value]`, '');
-                uParams.set(`columns[${i}][search][regex]`, 'false');
-              });
-              uParams.set('order[0][column]', '0');
-              uParams.set('order[0][dir]', 'asc');
-              uParams.set('search[value]', '');
-              uParams.set('search[regex]', 'false');
-              const usersData = await fetchJSON(`${baseUrl}/usuarios/listar?${uParams.toString()}`, headers, 'GET');
-              const users = usersData?.aaData || [];
-              const uuids = users.map((u: any) => u?.uuid).filter(Boolean);
-              console.log(`[financeiro] got ${uuids.length} user UUIDs, fetching wallets...`);
-
-              // Parse BRL currency strings: "3.380,71" → 3380.71
-              const parseBRL = (v: any): number => {
-                if (typeof v === 'number') return v;
-                if (typeof v !== 'string') return 0;
-                const cleaned = v.replace(/[R$\s]/g, '').trim();
-                if (cleaned.includes('.') && cleaned.includes(',')) {
-                  return parseFloat(cleaned.replace(/\./g, '').replace(',', '.')) || 0;
-                }
-                if (cleaned.includes(',')) {
-                  return parseFloat(cleaned.replace(',', '.')) || 0;
-                }
-                return parseFloat(cleaned) || 0;
-              };
-
-              // Fetch wallets in parallel batches of 50
-              const BATCH_SIZE = 50;
-              const startTime = Date.now();
-              const TIME_LIMIT = 45000; // 45 seconds max
-              let processed = 0;
-
-              for (let i = 0; i < uuids.length; i += BATCH_SIZE) {
-                if (Date.now() - startTime > TIME_LIMIT) {
-                  console.log(`[financeiro] wallet fetch time limit reached after ${processed} users`);
-                  break;
-                }
-                const batch = uuids.slice(i, i + BATCH_SIZE);
-                const results = await Promise.allSettled(
-                  batch.map((uuid: string) =>
-                    fetchJSON(`${baseUrl}/usuarios/transacoes?id=${uuid}`, headers, 'GET')
-                  )
-                );
-                for (const r of results) {
-                  if (r.status === 'fulfilled' && r.value) {
-                    const carteiras = r.value?.carteiras;
-                    if (carteiras && typeof carteiras === 'object' && !Array.isArray(carteiras)) {
-                      // carteiras is {CREDITO: "0,05", BONUS: "60,00", PREMIO: "0,00"}
-                      for (const [key, val] of Object.entries(carteiras)) {
-                        const k = key.toUpperCase();
-                        if (k.includes('CREDIT') || k.includes('CREDITO')) {
-                          usersSaldoTotal += parseBRL(val);
-                        } else if (k.includes('BONUS') || k.includes('BÔNUS')) {
-                          usersBonusTotal += parseBRL(val);
-                        }
-                      }
-                    }
-                  }
-                  processed++;
-                }
-              }
-              usersWalletSuccess = processed > 0;
-              console.log(`[financeiro] wallet aggregate from ${processed}/${uuids.length} users: saldo=${usersSaldoTotal.toFixed(2)}, bonus=${usersBonusTotal.toFixed(2)}, elapsed=${Date.now()-startTime}ms`);
-            } catch (e) {
-              console.log('[financeiro] wallet aggregate error:', (e as Error).message);
-            }
-          }
+          // Wallet data will come from financeiro-geral or totais (no slow user aggregation)
 
           console.log('[financeiro] transferencias:', JSON.stringify(txSummary).slice(0, 500));
           console.log('[financeiro] financeiro-resumo totais:', JSON.stringify(frData?.totais || null).slice(0, 1000));
@@ -615,35 +531,23 @@ Deno.serve(async (req) => {
             margem: Number(totais.margem || 0),
           } : null;
 
-          // Wallet balance & bonus: prefer financeiro-geral, then users aggregate, then totais fallback
+          // Wallet balance & bonus: prefer financeiro-geral, then totais from financeiro-resumo
           const fgTotais = fgData?.totais;
           const fgTotaisObj = Array.isArray(fgTotais) ? fgTotais[0] : fgTotais;
           const fgSaldo = fgTotaisObj ? Number(fgTotaisObj.saldo || fgTotaisObj.credito || 0) : null;
           const fgBonus = fgTotaisObj ? Number(fgTotaisObj.bonus || fgTotaisObj.saldo_bonus || 0) : null;
 
-          let walletCredito: number | null = null;
-          let walletBonusVal: number | null = null;
-
-          if (fgSaldo !== null || fgBonus !== null) {
-            walletCredito = fgSaldo;
-            walletBonusVal = fgBonus;
-            console.log('[financeiro] wallet from financeiro-geral: credito=', walletCredito, 'bonus=', walletBonusVal);
-          } else if (usersWalletSuccess) {
-            walletCredito = usersSaldoTotal;
-            walletBonusVal = usersBonusTotal;
-            console.log('[financeiro] wallet from users aggregate: credito=', walletCredito, 'bonus=', walletBonusVal);
-          }
-
-          const walletBonus = walletBonusVal !== null ? {
-            valor: walletBonusVal,
+          // Use totaisData from financeiro-resumo as primary wallet source
+          const walletBonus = fgBonus !== null ? {
+            valor: fgBonus,
             bonusXDeposito: totaisData?.bonusXDeposito || 0,
           } : (totaisData ? {
             valor: totaisData.totalBonus,
             bonusXDeposito: totaisData.bonusXDeposito,
           } : null);
 
-          const walletBalance = walletCredito !== null ? {
-            liquido: walletCredito,
+          const walletBalance = fgSaldo !== null ? {
+            liquido: fgSaldo,
             rtp: totaisData?.rtp || 0,
             margem: totaisData?.margem || 0,
           } : (totaisData ? {
@@ -665,7 +569,7 @@ Deno.serve(async (req) => {
             walletBonus,
             walletBalance,
             adjustments: null,
-            fonte: fgData ? 'financeiro_geral' : (usersWalletSuccess ? 'users_aggregate' : 'combined_fallback'),
+            fonte: fgData ? 'financeiro_geral' : 'totais_resumo',
           };
         }
         break;
