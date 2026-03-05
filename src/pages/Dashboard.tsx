@@ -370,9 +370,9 @@ export default function Dashboard() {
               stats={[]}
             />
             <DashboardInfoCard
-              title="Wallet Bonus"
+              title="Saldo Bônus"
               mainValue={f!.walletBonus ? formatBRL(f!.walletBonus.valor) : nd}
-              mainLabel="Total Bônus"
+              mainLabel="Total em bônus na carteira"
               icon={Gift}
               iconColor="text-primary"
               stats={f!.walletBonus ? [
@@ -384,9 +384,9 @@ export default function Dashboard() {
           {/* Row 4: Wallet Balance | Transações */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <DashboardInfoCard
-              title="Wallet Balance"
+              title="Saldo Crédito"
               mainValue={f!.walletBalance ? formatBRL(f!.walletBalance.liquido) : nd}
-              mainLabel="Saldo Líquido (Dep - Saq)"
+              mainLabel="Total em créditos na carteira"
               icon={Landmark}
               iconColor="text-primary"
               stats={f!.walletBalance ? [
