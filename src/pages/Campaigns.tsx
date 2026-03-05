@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
@@ -81,6 +81,8 @@ export default function Campaigns() {
   const [open, setOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [autoProcessing, setAutoProcessing] = useState<Set<string>>(new Set());
+  const autoProcessRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const [form, setForm] = useState({
     name: '',
     type: 'aposte_e_ganhe' as CampaignType,
@@ -193,14 +195,106 @@ export default function Campaigns() {
     },
   });
 
+  // Auto-polling: process campaign repeatedly until done
+  const startAutoProcess = useCallback((campaign: Campaign) => {
+    const creds = getSavedCredentials();
+    if (!creds.username || !creds.password) {
+      toast.error('Configure as credenciais da plataforma primeiro (barra superior)');
+      return;
+    }
+    if (!campaign.segment_id) {
+      toast.error('Campanha sem segmento vinculado');
+      return;
+    }
+
+    // Already auto-processing this campaign
+    if (autoProcessRef.current.has(campaign.id)) return;
+
+    toast.info(`🔄 Processamento automático iniciado para "${campaign.name}"`);
+    setAutoProcessing(prev => new Set(prev).add(campaign.id));
+
+    const runIteration = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('process-campaign', {
+          body: {
+            campaign_id: campaign.id,
+            username: creds.username,
+            password: creds.password,
+          },
+        });
+
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || 'Erro');
+
+        const result = data.data;
+        const hasPending = result.processed > 0 && (result.processed > result.credited + result.errors);
+
+        // Check if campaign is still ATIVA
+        const { data: campData } = await supabase
+          .from('campaigns').select('status').eq('id', campaign.id).single();
+
+        if (campData?.status !== 'ATIVA' || !hasPending) {
+          stopAutoProcess(campaign.id);
+          if (result.credited > 0) {
+            toast.success(`✅ Processamento concluído: ${result.credited} creditados, ${result.errors} erros`);
+          }
+          return;
+        }
+
+        // Schedule next iteration
+        const timer = setTimeout(runIteration, 15000);
+        autoProcessRef.current.set(campaign.id, timer);
+      } catch (e: any) {
+        toast.error(`Erro no processamento automático: ${e.message}`);
+        stopAutoProcess(campaign.id);
+      }
+    };
+
+    // Start first iteration immediately
+    runIteration();
+  }, []);
+
+  const stopAutoProcess = useCallback((campaignId: string) => {
+    const timer = autoProcessRef.current.get(campaignId);
+    if (timer) clearTimeout(timer);
+    autoProcessRef.current.delete(campaignId);
+    setAutoProcessing(prev => {
+      const next = new Set(prev);
+      next.delete(campaignId);
+      return next;
+    });
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      autoProcessRef.current.forEach(timer => clearTimeout(timer));
+      autoProcessRef.current.clear();
+    };
+  }, []);
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: CampaignStatus }) => {
       const { error } = await supabase.from('campaigns').update({ status } as any).eq('id', id);
       if (error) throw error;
+      return { id, status };
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       toast.success('Status atualizado');
+
+      // Auto-start processing when campaign is activated
+      if (variables.status === 'ATIVA') {
+        const campaign = campaigns.find(c => c.id === variables.id);
+        if (campaign) {
+          startAutoProcess({ ...campaign, status: 'ATIVA' });
+        }
+      }
+
+      // Stop auto-processing when campaign is paused/ended
+      if (variables.status !== 'ATIVA') {
+        stopAutoProcess(variables.id);
+      }
     },
   });
 
@@ -269,9 +363,31 @@ export default function Campaigns() {
             <p className="text-sm text-muted-foreground">{TYPE_LABELS[selectedCampaign.type]} • {selectedCampaign.segment_name || 'Sem segmento'}</p>
           </div>
           <div className="flex items-center gap-3">
-            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-xs">
-              ⚡ Processamento em tempo real
-            </Badge>
+            {autoProcessing.has(selectedCampaign.id) && (
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-xs gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" /> Verificando automaticamente...
+              </Badge>
+            )}
+            {autoProcessing.has(selectedCampaign.id) ? (
+              <Button
+                onClick={() => { stopAutoProcess(selectedCampaign.id); toast.info('Processamento automático parado'); }}
+                variant="outline"
+                size="sm"
+                className="gap-2 text-red-400 border-red-500/30"
+              >
+                Parar Auto
+              </Button>
+            ) : (
+              <Button
+                onClick={() => startAutoProcess(selectedCampaign)}
+                disabled={processing || !selectedCampaign.segment_id}
+                className="gap-2"
+                variant="outline"
+                size="sm"
+              >
+                <Loader2 className="w-4 h-4" /> Iniciar Auto
+              </Button>
+            )}
             <Button
               onClick={() => processCampaign(selectedCampaign)}
               disabled={processing || !selectedCampaign.segment_id}
@@ -280,7 +396,7 @@ export default function Campaigns() {
               size="sm"
             >
               {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              {processing ? 'Processando...' : 'Processar Agora'}
+              {processing ? 'Processando...' : 'Processar 1x'}
             </Button>
           </div>
         </div>
