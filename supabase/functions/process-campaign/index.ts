@@ -78,7 +78,37 @@ async function resolveUuid(cpf: string, headers: Record<string, string>): Promis
   return result?.aaData?.[0]?.uuid || null;
 }
 
-async function getPlayerTransactions(cpf: string, headers: Record<string, string>, dateStart: string, dateEnd: string, type: string, walletType: string): Promise<number> {
+function normalizeMoney(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const str = String(value ?? '').trim();
+  if (!str) return 0;
+
+  const normalized = str.includes(',')
+    ? str.replace(/\./g, '').replace(',', '.')
+    : str;
+
+  const num = Number.parseFloat(normalized);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function extractDateKey(value: unknown): string | null {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+
+  const directMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (directMatch) return directMatch[1];
+
+  const parsed = new Date(raw.includes(' ') ? raw.replace(' ', 'T') : raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString().slice(0, 10);
+}
+
+function isDateInRange(dateKey: string | null, startDateKey: string, endDateKey: string): boolean {
+  if (!dateKey) return false;
+  return dateKey >= startDateKey && dateKey <= endDateKey;
+}
+
+async function getPlayerDepositTotal(cpf: string, headers: Record<string, string>, dateStart: string, dateEnd: string, type: string, walletType: string): Promise<number> {
   const params = new URLSearchParams();
   params.set('draw', '1'); params.set('start', '0'); params.set('length', '5000'); params.set('exportar', '0');
   const txCols = ['id', 'tipo', 'valor', 'saldo_anterior', 'saldo_posterior', 'cpf', 'username', 'created_at', 'descricao', 'status'];
@@ -98,31 +128,45 @@ async function getPlayerTransactions(cpf: string, headers: Record<string, string
 
   const result = await fetchJSON(`${DEFAULT_SITE}/transferencias/listar?${params}`, headers);
   const transactions = result?.aaData || [];
-  
+
   let totalValue = 0;
   for (const tx of transactions) {
-    const valor = Math.abs(parseFloat(tx.valor) || 0);
+    const valor = Math.abs(normalizeMoney(tx.valor));
     const tipoStr = String(tx.tipo_transacao || tx.tipo || tx.descricao || '').toUpperCase();
     const descStr = String(tx.descricao || '').toUpperCase();
-    
-    // Check wallet type: filter by REAL or BONUS based on campaign config
+
     const isBonusTransaction = descStr.includes('BONUS') || descStr.includes('BÔNUS') || tipoStr.includes('BONUS');
-    
+
     if (walletType === 'BONUS' && !isBonusTransaction) continue;
     if (walletType === 'REAL' && isBonusTransaction) continue;
 
-    if (type === 'deposite_e_ganhe') {
-      if (tipoStr.includes('DEPOSITO')) {
-        totalValue += valor;
-      }
-    } else {
-      // aposte_e_ganhe - count bets
-      if (tipoStr.includes('APOSTA') || tipoStr.includes('BET') || tipoStr.includes('KENO') || tipoStr.includes('CASSINO') || tipoStr.includes('JOGO')) {
-        totalValue += valor;
-      }
+    if (tipoStr.includes('DEPOSITO')) {
+      totalValue += valor;
     }
   }
-  
+
+  return totalValue;
+}
+
+async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, startDateKey: string, endDateKey: string, walletType: string): Promise<number> {
+  const result = await fetchJSON(`${DEFAULT_SITE}/usuarios/transacoes?id=${encodeURIComponent(uuid)}`, headers);
+  const transactions = result?.historico || result?.data?.historico || [];
+
+  let totalValue = 0;
+  for (const tx of transactions) {
+    const operation = String(tx.operacao || tx.tipo || '').toUpperCase();
+    if (!operation.includes('COMPRA') && !operation.includes('APOSTA') && !operation.includes('BET')) continue;
+
+    const wallet = String(tx.carteira || '').toUpperCase();
+    if (walletType === 'BONUS' && wallet !== 'BONUS') continue;
+    if (walletType === 'REAL' && wallet === 'BONUS') continue;
+
+    const txDateKey = extractDateKey(tx.data_registro || tx.created_at || tx.data);
+    if (!isDateInRange(txDateKey, startDateKey, endDateKey)) continue;
+
+    totalValue += Math.abs(normalizeMoney(tx.valor));
+  }
+
   return totalValue;
 }
 
@@ -173,6 +217,8 @@ Deno.serve(async (req) => {
 
     const dateStart = formatDate(campaign.start_date);
     const dateEnd = formatDate(campaign.end_date);
+    const startDateKey = String(campaign.start_date).slice(0, 10);
+    const endDateKey = String(campaign.end_date).slice(0, 10);
 
     // Upsert participants
     const participantsToUpsert = segmentItems.map(si => ({
@@ -205,9 +251,42 @@ Deno.serve(async (req) => {
       processed++;
 
       try {
-        // 1. Check transactions
-        const totalValue = await getPlayerTransactions(participant.cpf, headers, dateStart, dateEnd, campaign.type, campaign.wallet_type || 'REAL');
-        
+        // 1. Resolve UUID first (required for bets and for credit)
+        let uuid = participant.uuid;
+        if (!uuid) {
+          uuid = await resolveUuid(participant.cpf, headers);
+          if (uuid) {
+            await supabase.from('campaign_participants').update({ uuid }).eq('id', participant.id);
+          }
+        }
+
+        // 2. Calculate total according to campaign type
+        let totalValue = 0;
+        if (campaign.type === 'aposte_e_ganhe') {
+          if (!uuid) {
+            await supabase.from('campaign_participants').update({ status: 'ERRO', credit_result: 'UUID não encontrado para leitura de apostas' }).eq('id', participant.id);
+            errors++;
+            continue;
+          }
+
+          totalValue = await getPlayerBetTotal(
+            uuid,
+            headers,
+            startDateKey,
+            endDateKey,
+            campaign.wallet_type || 'REAL',
+          );
+        } else {
+          totalValue = await getPlayerDepositTotal(
+            participant.cpf,
+            headers,
+            dateStart,
+            dateEnd,
+            campaign.type,
+            campaign.wallet_type || 'REAL',
+          );
+        }
+
         await supabase.from('campaign_participants').update({ total_value: totalValue }).eq('id', participant.id);
 
         if (totalValue < Number(campaign.min_value)) {
@@ -216,15 +295,6 @@ Deno.serve(async (req) => {
         }
 
         eligible++;
-
-        // 2. Resolve UUID
-        let uuid = participant.uuid;
-        if (!uuid) {
-          uuid = await resolveUuid(participant.cpf, headers);
-          if (uuid) {
-            await supabase.from('campaign_participants').update({ uuid }).eq('id', participant.id);
-          }
-        }
 
         if (!uuid) {
           await supabase.from('campaign_participants').update({ status: 'ERRO', credit_result: 'UUID não encontrado' }).eq('id', participant.id);
