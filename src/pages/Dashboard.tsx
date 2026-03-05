@@ -78,9 +78,9 @@ interface FinancialData {
   cassino: ProductTotals;
   total: ProductTotals;
   ftd?: { valor: number; qtd: number } | null;
-  users?: { active: number; registered: number; logins: number; kycApproved: number } | null;
-  walletBonus?: { valor: number; redemption: number; redemptionQtd: number } | null;
-  walletBalance?: { balance: number; balanceKyc: number; openBetBalance: number; openBets: number } | null;
+  newUsers?: number;
+  walletBonus?: { valor: number; redemption: number; redemptionQtd: number; bonusXDeposito?: number } | null;
+  walletBalance?: { balance: number; totalCompra: number; totalPremio: number; rtp: number; margem: number } | null;
   adjustments?: { cashIn: number; cashInQtd: number; cashOut: number; cashOutQtd: number } | null;
   isFallback?: boolean;
 }
@@ -130,7 +130,7 @@ export default function Dashboard() {
         cassino: d.cassino || zeroProduct,
         total: d.total || zeroProduct,
         ftd: d.ftd || null,
-        users: d.users || null,
+        newUsers: Number(d.newUsers || 0),
         walletBonus: d.walletBonus || null,
         walletBalance: d.walletBalance || null,
         adjustments: d.adjustments || null,
@@ -174,7 +174,7 @@ export default function Dashboard() {
   const avgDeposit = f && f.qtdDeposito ? f.depositos / f.qtdDeposito : 0;
   const avgSaque = f && f.qtdSaque ? f.saques / f.qtdSaque : 0;
   const avgFtd = f?.ftd && f.ftd.qtd > 0 ? f.ftd.valor / f.ftd.qtd : 0;
-  const avgRedemption = f?.walletBonus && f.walletBonus.redemptionQtd > 0 ? f.walletBonus.redemption / f.walletBonus.redemptionQtd : 0;
+  
   const nd = 'N/D';
 
   return (
@@ -347,7 +347,7 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* Row 3: FTD | Active Users | Wallet Bonus */}
+          {/* Row 3: FTD | New Users | Wallet Bonus */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <DashboardInfoCard
               title="FTD"
@@ -361,69 +361,60 @@ export default function Dashboard() {
               ] : [{ label: '', value: 'Dados indisponíveis' }]}
             />
             <DashboardInfoCard
-              title="Usuários"
-              mainValue={f!.users ? String(f!.users.active) : nd}
-              mainLabel="Active Users"
+              title="Novos Usuários"
+              mainValue={f!.newUsers ? String(f!.newUsers) : '0'}
+              mainLabel="Registros no período"
               icon={Users}
               iconColor="text-primary"
-              secondaryValue={f!.users ? String(f!.users.logins) : undefined}
-              secondaryLabel={f!.users ? 'Number of Logins' : undefined}
-              stats={f!.users ? [
-                { label: 'Registered Users', value: f!.users.registered },
-                { label: 'KYC Approved', value: f!.users.kycApproved },
-              ] : [{ label: '', value: 'Dados indisponíveis' }]}
+              stats={[]}
             />
             <DashboardInfoCard
               title="Wallet Bonus"
               mainValue={f!.walletBonus ? formatBRL(f!.walletBonus.valor) : nd}
-              mainLabel="Wallet Bonus"
+              mainLabel="Total Bônus"
               icon={Gift}
               iconColor="text-primary"
               secondaryValue={f!.walletBonus ? formatBRL(f!.walletBonus.redemption) : undefined}
-              secondaryLabel={f!.walletBonus ? 'Bonus Redemption' : undefined}
+              secondaryLabel={f!.walletBonus ? 'Compras c/ Bônus' : undefined}
               stats={f!.walletBonus ? [
-                { label: 'Transactions', value: f!.walletBonus.redemptionQtd },
-                { label: 'AVG Redemption', value: formatBRL(avgRedemption) },
+                { label: 'Bônus x Depósito', value: `${f!.walletBonus.bonusXDeposito?.toFixed(2) || '0'}%` },
               ] : [{ label: '', value: 'Dados indisponíveis' }]}
             />
           </div>
 
-          {/* Row 4: Wallet Balance | Adjustments Cash In | Adjustments Cash Out */}
+          {/* Row 4: Wallet Balance (Líquido) | Totais Compra/Prêmio | RTP/Margem */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <DashboardInfoCard
-              title="Wallet Balance"
+              title="Líquido"
               mainValue={f!.walletBalance ? formatBRL(f!.walletBalance.balance) : nd}
-              mainLabel="Wallet Balance"
+              mainLabel="Saldo Líquido (Dep - Saq)"
               icon={Landmark}
               iconColor="text-primary"
-              secondaryValue={f!.walletBalance ? formatBRL(f!.walletBalance.balanceKyc) : undefined}
-              secondaryLabel={f!.walletBalance ? 'Wallet Balance (KYC)' : undefined}
               stats={f!.walletBalance ? [
-                { label: 'Open Bet Balance', value: formatBRL(f!.walletBalance.openBetBalance) },
-                { label: 'Open Bets', value: f!.walletBalance.openBets },
+                { label: 'RTP', value: `${f!.walletBalance.rtp.toFixed(2)}%` },
+                { label: 'Margem', value: `${f!.walletBalance.margem.toFixed(2)}%` },
               ] : [{ label: '', value: 'Dados indisponíveis' }]}
             />
             <DashboardInfoCard
-              title="Adjustments"
-              mainValue={f!.adjustments ? formatBRL(f!.adjustments.cashIn) : nd}
-              mainLabel="Cash in"
-              icon={ArrowDownToLine}
-              iconColor="text-success"
-              stats={f!.adjustments ? [
-                { label: 'Transactions', value: f!.adjustments.cashInQtd },
-                { label: 'AVG Deposit', value: f!.adjustments.cashInQtd ? formatBRL(f!.adjustments.cashIn / f!.adjustments.cashInQtd) : formatBRL(0) },
+              title="Total Apostas"
+              mainValue={f!.walletBalance ? formatBRL(f!.walletBalance.totalCompra) : nd}
+              mainLabel="Total Compras"
+              icon={BarChart3}
+              iconColor="text-primary"
+              stats={f!.walletBalance ? [
+                { label: 'Total Prêmios', value: formatBRL(f!.walletBalance.totalPremio) },
               ] : [{ label: '', value: 'Dados indisponíveis' }]}
             />
             <DashboardInfoCard
-              title="Adjustments"
-              mainValue={f!.adjustments ? formatBRL(f!.adjustments.cashOut) : nd}
-              mainLabel="Cash out"
-              icon={ArrowUpFromLine}
-              iconColor="text-destructive"
-              stats={f!.adjustments ? [
-                { label: 'Transactions', value: f!.adjustments.cashOutQtd },
-                { label: 'AVG Withdrawals', value: f!.adjustments.cashOutQtd ? formatBRL(f!.adjustments.cashOut / f!.adjustments.cashOutQtd) : formatBRL(0) },
-              ] : [{ label: '', value: 'Dados indisponíveis' }]}
+              title="Transações"
+              mainValue={String(f!.totalTransactions || 0)}
+              mainLabel="Total de Transações"
+              icon={ArrowUpDown}
+              iconColor="text-primary"
+              stats={[
+                { label: 'Depósitos', value: f!.qtdDeposito || 0 },
+                { label: 'Saques', value: f!.qtdSaque || 0 },
+              ]}
             />
           </div>
         </div>

@@ -481,32 +481,47 @@ Deno.serve(async (req) => {
 
           const totalTransactions = Number(txSummary?.iTotalDisplayRecords || txSummary?.iTotalRecords || 0);
 
-          // Parse wallet data if found
-          let walletBalance: any = null;
-          if (validWallet.length > 0) {
-            const wd = validWallet[0]!.data;
-            if (typeof wd === 'object' && wd !== null) {
-              walletBalance = wd;
-            }
-          }
+          // Extract totais - contains aggregated financial summary
+          const totaisArr = frData?.totais || [];
+          const totais = Array.isArray(totaisArr) ? totaisArr[0] : totaisArr;
+          const totalNewUsersArr = frData?.totalNewUsers || [];
+          const totalNewUsersObj = Array.isArray(totalNewUsersArr) ? totalNewUsersArr[0] : totalNewUsersArr;
 
-          // Extract totais (may contain wallet/balance info)
-          const totais = frData?.totais;
-          const totalNewUsers = frData?.totalNewUsers;
+          // Users data from totalNewUsers
+          const newUsers = Number(totalNewUsersObj?.new_users || totalNewUsersObj?.novos || 0);
 
-          // Try to extract users from totalNewUsers
-          let usersData: any = null;
-          if (totalNewUsers) {
-            const nu = Array.isArray(totalNewUsers) ? totalNewUsers[0] : totalNewUsers;
-            if (nu && typeof nu === 'object') {
-              usersData = {
-                registered: Number(nu.total_novos_usuarios || nu.total || nu.novos || 0),
-                active: Number(nu.ativos || nu.active || 0),
-                logins: Number(nu.logins || 0),
-                kycApproved: Number(nu.kyc || nu.kyc_approved || 0),
-              };
-            }
-          }
+          // Totais fields: total_deposito, total_bonus, total_saque, total_compra, total_compra_bonus,
+          // total_premio, total_compra_premio, bonus_x_deposito, rtp, liquido, margem
+          const totaisData = totais ? {
+            totalDeposito: Number(totais.total_deposito || 0),
+            totalBonus: Number(totais.total_bonus || 0),
+            totalSaque: Number(totais.total_saque || 0),
+            totalCompra: Number(totais.total_compra || 0),
+            totalCompraBonusVal: Number(totais.total_compra_bonus || 0),
+            totalPremio: Number(totais.total_premio || 0),
+            totalCompraPremio: Number(totais.total_compra_premio || 0),
+            bonusXDeposito: Number(totais.bonus_x_deposito || 0),
+            rtp: Number(totais.rtp || 0),
+            liquido: Number(totais.liquido || 0),
+            margem: Number(totais.margem || 0),
+          } : null;
+
+          // Wallet balance = liquido (net balance = deposits - withdrawals)
+          // Wallet bonus = total_bonus
+          const walletBonus = totaisData ? {
+            valor: totaisData.totalBonus,
+            redemption: totaisData.totalCompraBonusVal,
+            redemptionQtd: 0,
+            bonusXDeposito: totaisData.bonusXDeposito,
+          } : null;
+
+          const walletBalance = totaisData ? {
+            balance: totaisData.liquido,
+            totalCompra: totaisData.totalCompra,
+            totalPremio: totaisData.totalPremio,
+            rtp: totaisData.rtp,
+            margem: totaisData.margem,
+          } : null;
 
           result = {
             depositos: valorDeposito,
@@ -517,15 +532,11 @@ Deno.serve(async (req) => {
             cassino: cassinoTotals,
             total: { apostas: totalApostas, premios: totalPremios, turnover: totalApostas, ggr: totalGGR, bonusTurnover: totalBonusTurnover, bonusGgr: totalBonusGgr, margin: totalApostas > 0 ? ((totalGGR / totalApostas) * 100) : 0 },
             ftd: { valor: ftdValor, qtd: ftdQtd },
-            users: usersData,
-            walletBonus: null,
+            newUsers,
+            walletBonus,
             walletBalance,
             adjustments: null,
-            totais_raw: totais,
-            totalNewUsers_raw: totalNewUsers,
             fonte: 'combined_fallback',
-            _raw_tx_keys: Object.keys(txSummary || {}),
-            _raw_fr_keys: Object.keys(frData || {}),
           };
         }
         break;
