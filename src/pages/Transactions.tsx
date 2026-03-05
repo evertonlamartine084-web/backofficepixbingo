@@ -1,12 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { format } from 'date-fns';
 import {
   Search, Loader2, RefreshCw, ArrowDownToLine, ArrowUpFromLine,
-  ChevronLeft, ChevronRight, CalendarIcon, Filter, Download
+  ChevronLeft, ChevronRight, CalendarIcon, Filter
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ApiCredentialsBar } from '@/components/ApiCredentialsBar';
@@ -16,7 +15,6 @@ import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 50;
 
-type TipoFilter = '' | 'DEPOSITO' | 'SAQUE' | 'BONUS' | 'CREDITO' | 'DEBITO';
 
 const tipoLabels: Record<string, string> = {
   DEPOSITO: 'Depósito',
@@ -75,7 +73,6 @@ const fmtApiDate = (d: Date) => {
 export default function Transactions() {
   const [creds, setCreds] = useState({ username: '', password: '' });
   const [searchCpf, setSearchCpf] = useState('');
-  const [tipoFilter, setTipoFilter] = useState<TipoFilter>('');
   const [dateStart, setDateStart] = useState<Date | undefined>(undefined);
   const [dateEnd, setDateEnd] = useState<Date | undefined>(undefined);
   const [txData, setTxData] = useState<any>(null);
@@ -92,7 +89,6 @@ export default function Transactions() {
         length: PAGE_SIZE,
       };
       if (searchCpf) extra.busca_cpf = searchCpf;
-      if (tipoFilter) extra.busca_tipo_transacao = tipoFilter;
       if (dateStart) extra.busca_data_inicio = fmtApiDate(dateStart);
       if (dateEnd) extra.busca_data_fim = fmtApiDate(dateEnd);
 
@@ -106,7 +102,12 @@ export default function Transactions() {
     } catch (err: any) {
       toast.error(err.message);
     }
-  }, [creds, searchCpf, tipoFilter, dateStart, dateEnd, callWithLoading]);
+  }, [creds, searchCpf, dateStart, dateEnd, callWithLoading]);
+
+  // Auto-fetch when credentials are set
+  useEffect(() => {
+    if (creds.username) handleFetch(0);
+  }, [creds.username]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
   const items: any[] = txData || [];
@@ -156,21 +157,6 @@ export default function Transactions() {
             </div>
           </div>
 
-          {/* Tipo */}
-          <div className="space-y-1.5 min-w-[140px]">
-            <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Tipo</label>
-            <Select value={tipoFilter || 'all'} onValueChange={(v) => setTipoFilter((v === 'all' ? '' : v) as TipoFilter)}>
-              <SelectTrigger className="bg-secondary border-border h-9 text-sm">
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="DEPOSITO">Depósito</SelectItem>
-                <SelectItem value="SAQUE">Saque</SelectItem>
-                <SelectItem value="BONUS">Bônus</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
 
           {/* Date Start */}
           <div className="space-y-1.5">
@@ -214,7 +200,7 @@ export default function Transactions() {
               variant="outline"
               size="icon"
               className="h-9 w-9 border-border"
-              onClick={() => { setSearchCpf(''); setTipoFilter(''); setDateStart(undefined); setDateEnd(undefined); }}
+              onClick={() => { setSearchCpf(''); setDateStart(undefined); setDateEnd(undefined); }}
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </Button>
