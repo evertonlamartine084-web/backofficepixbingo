@@ -79,6 +79,7 @@ export default function Transactions() {
   const [dateStart, setDateStart] = useState<Date | undefined>(new Date());
   const [dateEnd, setDateEnd] = useState<Date | undefined>(new Date());
   const [txData, setTxData] = useState<any>(null);
+  const [apiSummary, setApiSummary] = useState<any>(null);
   const [page, setPage] = useState(0);
   const [totalRecords, setTotalRecords] = useState(0);
   const { callWithLoading, loading } = useProxy();
@@ -99,7 +100,8 @@ export default function Transactions() {
       const data = res?.data;
       const rows = data?.aaData || data?.data || [];
       setTxData(Array.isArray(rows) ? rows : []);
-      setTotalRecords(Number(data?.recordsTotal || data?.recordsFiltered || rows.length || 0));
+      setApiSummary(data);
+      setTotalRecords(Number(data?.iTotalRecords || data?.recordsTotal || data?.recordsFiltered || rows.length || 0));
       setPage(pageNum);
       toast.success(`${rows.length} transações carregadas`);
     } catch (err: any) {
@@ -115,19 +117,13 @@ export default function Transactions() {
   const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
   const items: any[] = txData || [];
 
-  // Summaries
-  const summary = items.reduce((acc, item) => {
-    const valor = parseCurrency(item.valor);
-    const tipo = String(item.tipo_transacao || item.tipo || '').toUpperCase();
-    if (tipo.includes('DEPOSITO') || tipo.includes('CRÉDITO') || tipo.includes('CREDITO')) {
-      acc.entradas += Math.abs(valor);
-      acc.countEntradas++;
-    } else if (tipo.includes('SAQUE') || tipo.includes('DÉBITO') || tipo.includes('DEBITO')) {
-      acc.saidas += Math.abs(valor);
-      acc.countSaidas++;
-    }
-    return acc;
-  }, { entradas: 0, saidas: 0, countEntradas: 0, countSaidas: 0 });
+  // Use API-provided totals instead of summing page items
+  const summary = {
+    entradas: Number(apiSummary?.valorDeposito || 0),
+    saidas: Number(apiSummary?.valorSaque || 0),
+    countEntradas: Number(apiSummary?.qtdeDeposito || 0),
+    countSaidas: Number(apiSummary?.qtdeSaque || 0),
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
