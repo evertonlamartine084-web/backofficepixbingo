@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Plus, Megaphone, Trash2, CalendarIcon, Dices, Landmark, Play, Loader2, Eye, ChevronLeft } from 'lucide-react';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
