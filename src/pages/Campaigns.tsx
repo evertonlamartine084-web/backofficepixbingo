@@ -19,17 +19,19 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { getSavedCredentials } from '@/hooks/use-proxy';
 
-type CampaignType = 'aposte_e_ganhe' | 'deposite_e_ganhe';
+type CampaignType = 'aposte_e_ganhe' | 'deposite_e_ganhe' | 'ganhou_no_keno';
 type CampaignStatus = 'RASCUNHO' | 'ATIVA' | 'PAUSADA' | 'ENCERRADA';
 
 const TYPE_LABELS: Record<CampaignType, string> = {
   aposte_e_ganhe: 'Aposte e Ganhe',
   deposite_e_ganhe: 'Deposite e Ganhe',
+  ganhou_no_keno: 'Ganhou no Keno',
 };
 
 const TYPE_ICONS: Record<CampaignType, typeof Dices> = {
   aposte_e_ganhe: Dices,
   deposite_e_ganhe: Landmark,
+  ganhou_no_keno: Dices,
 };
 
 const STATUS_COLORS: Record<CampaignStatus, string> = {
@@ -91,8 +93,9 @@ export default function Campaigns() {
     min_value: '',
     prize_value: '',
     prize_description: '',
-    wallet_type: 'REAL' as 'REAL' | 'BONUS',
+  wallet_type: 'REAL' as 'REAL' | 'BONUS',
     metric: 'valor',
+    game_filter: '',
     start_date: undefined as Date | undefined,
     end_date: undefined as Date | undefined,
     start_time: '00:00',
@@ -173,6 +176,7 @@ export default function Campaigns() {
         prize_description: form.prize_description,
         wallet_type: form.wallet_type,
         metric: form.metric,
+        game_filter: form.game_filter || null,
         start_date: startDate.toISOString(), end_date: endDate.toISOString(),
       } as any);
       if (error) throw error;
@@ -339,7 +343,7 @@ export default function Campaigns() {
   const resetForm = () => setForm({
     name: '', type: 'aposte_e_ganhe', description: '', segment_id: '',
     min_value: '', prize_value: '', prize_description: '', wallet_type: 'REAL',
-    metric: 'valor', start_date: undefined, end_date: undefined, start_time: '00:00', end_time: '23:59',
+    metric: 'valor', game_filter: '', start_date: undefined, end_date: undefined, start_time: '00:00', end_time: '23:59',
   });
 
   // Campaign detail view
@@ -514,11 +518,12 @@ export default function Campaigns() {
                     <SelectContent>
                       <SelectItem value="aposte_e_ganhe">🎲 Aposte e Ganhe</SelectItem>
                       <SelectItem value="deposite_e_ganhe">🏦 Deposite e Ganhe</SelectItem>
+                      <SelectItem value="ganhou_no_keno">🎯 Ganhou no Keno</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className={cn("grid gap-3", form.type === 'aposte_e_ganhe' ? 'grid-cols-3' : 'grid-cols-1')}>
+              <div className={cn("grid gap-3", form.type === 'aposte_e_ganhe' ? 'grid-cols-3' : form.type === 'ganhou_no_keno' ? 'grid-cols-2' : 'grid-cols-1')}>
                 <div className="space-y-1">
                   <Label className="text-xs">Segmento *</Label>
                   <Select value={form.segment_id} onValueChange={v => setForm(f => ({ ...f, segment_id: v }))}>
@@ -529,24 +534,28 @@ export default function Campaigns() {
                   </Select>
                 </div>
                 {form.type === 'aposte_e_ganhe' && (
-                  <>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Carteira *</Label>
-                      <Select value={form.wallet_type} onValueChange={v => setForm(f => ({ ...f, wallet_type: v as 'REAL' | 'BONUS' }))}>
-                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="REAL">💰 Saldo Real</SelectItem>
-                          <SelectItem value="BONUS">🎁 Saldo Bônus</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Carteira *</Label>
+                    <Select value={form.wallet_type} onValueChange={v => setForm(f => ({ ...f, wallet_type: v as 'REAL' | 'BONUS' }))}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="REAL">💰 Saldo Real</SelectItem>
+                        <SelectItem value="BONUS">🎁 Saldo Bônus</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {form.type === 'ganhou_no_keno' && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Filtro de jogo *</Label>
+                    <Input value={form.game_filter} onChange={e => setForm(f => ({ ...f, game_filter: e.target.value }))} placeholder="Ex: Keno, Bingo Express" className="h-9" />
+                  </div>
                 )}
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">
-                    {form.type === 'aposte_e_ganhe' ? 'Aposta mín. (R$)' : 'Depósito mín. (R$)'}
+                    {form.type === 'ganhou_no_keno' ? 'Prêmio mín. (R$)' : form.type === 'aposte_e_ganhe' ? 'Aposta mín. (R$)' : 'Depósito mín. (R$)'}
                   </Label>
                   <Input type="number" value={form.min_value} onChange={e => setForm(f => ({ ...f, min_value: e.target.value }))} placeholder="0.00" className="h-9" />
                 </div>

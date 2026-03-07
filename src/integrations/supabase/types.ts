@@ -249,6 +249,7 @@ export type Database = {
           created_at: string
           description: string | null
           end_date: string
+          game_filter: string | null
           id: string
           metric: string
           min_value: number
@@ -266,6 +267,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           end_date: string
+          game_filter?: string | null
           id?: string
           metric?: string
           min_value?: number
@@ -283,6 +285,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           end_date?: string
+          game_filter?: string | null
           id?: string
           metric?: string
           min_value?: number
