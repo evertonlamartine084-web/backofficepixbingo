@@ -19,17 +19,19 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { getSavedCredentials } from '@/hooks/use-proxy';
 
-type CampaignType = 'aposte_e_ganhe' | 'deposite_e_ganhe';
+type CampaignType = 'aposte_e_ganhe' | 'deposite_e_ganhe' | 'ganhou_no_keno';
 type CampaignStatus = 'RASCUNHO' | 'ATIVA' | 'PAUSADA' | 'ENCERRADA';
 
 const TYPE_LABELS: Record<CampaignType, string> = {
   aposte_e_ganhe: 'Aposte e Ganhe',
   deposite_e_ganhe: 'Deposite e Ganhe',
+  ganhou_no_keno: 'Ganhou no Keno',
 };
 
 const TYPE_ICONS: Record<CampaignType, typeof Dices> = {
   aposte_e_ganhe: Dices,
   deposite_e_ganhe: Landmark,
+  ganhou_no_keno: Dices,
 };
 
 const STATUS_COLORS: Record<CampaignStatus, string> = {
