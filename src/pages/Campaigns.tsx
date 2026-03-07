@@ -478,7 +478,13 @@ export default function Campaigns() {
           <CardContent className="p-4 grid grid-cols-5 gap-4 text-sm">
             <div><span className="text-muted-foreground text-xs block">Valor Mínimo</span> R$ {Number(selectedCampaign.min_value).toFixed(2)}</div>
             <div><span className="text-muted-foreground text-xs block">Prêmio</span> R$ {Number(selectedCampaign.prize_value).toFixed(2)}</div>
-            <div><span className="text-muted-foreground text-xs block">Carteira</span> <Badge variant="outline" className="text-xs">{selectedCampaign.wallet_type}</Badge></div>
+            <div><span className="text-muted-foreground text-xs block">{selectedCampaign.type === 'ganhou_no_keno' ? 'Cartela' : 'Carteira'}</span>
+              <Badge variant="outline" className="text-xs">
+                {selectedCampaign.type === 'ganhou_no_keno'
+                  ? ((selectedCampaign as any).game_filter ? `R$ ${Number((selectedCampaign as any).game_filter).toFixed(2)}` : 'Todas')
+                  : selectedCampaign.wallet_type}
+              </Badge>
+            </div>
             <div><span className="text-muted-foreground text-xs block">Início</span> {format(new Date(selectedCampaign.start_date), 'dd/MM/yyyy HH:mm')}</div>
             <div><span className="text-muted-foreground text-xs block">Fim</span> {format(new Date(selectedCampaign.end_date), 'dd/MM/yyyy HH:mm')}</div>
           </CardContent>
