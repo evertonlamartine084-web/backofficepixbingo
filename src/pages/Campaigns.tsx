@@ -202,12 +202,8 @@ export default function Campaigns() {
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!form.name || !form.start_date || !form.end_date) throw new Error('Preencha os campos obrigatórios');
-      const [sh, sm] = form.start_time.split(':').map(Number);
-      const [eh, em] = form.end_time.split(':').map(Number);
       const startDate = new Date(form.start_date);
-      startDate.setHours(sh, sm, 0, 0);
       const endDate = new Date(form.end_date);
-      endDate.setHours(eh, em, 59, 999);
       const { error } = await supabase.from('campaigns').insert({
         name: form.name, type: form.type, description: form.description,
         segment_id: form.segment_id || null,
