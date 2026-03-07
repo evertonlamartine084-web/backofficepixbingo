@@ -1,7 +1,6 @@
 import * as React from "react";
 import { Calendar, CalendarProps } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 
 interface DateTimePickerProps {
