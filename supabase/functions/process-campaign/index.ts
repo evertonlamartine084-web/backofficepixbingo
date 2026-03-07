@@ -330,6 +330,20 @@ Deno.serve(async (req) => {
             endDt,
             campaign.wallet_type || 'REAL',
           );
+        } else if (campaign.type === 'ganhou_no_keno') {
+          if (!uuid) {
+            await supabase.from('campaign_participants').update({ status: 'ERRO', credit_result: 'UUID não encontrado para leitura de prêmios' }).eq('id', participant.id);
+            errors++;
+            continue;
+          }
+
+          totalValue = await getPlayerWinTotal(
+            uuid,
+            headers,
+            startDt,
+            endDt,
+            campaign.game_filter || '',
+          );
         } else {
           totalValue = await getPlayerDepositTotal(
             participant.cpf,
