@@ -518,6 +518,7 @@ export default function Campaigns() {
                     <SelectContent>
                       <SelectItem value="aposte_e_ganhe">🎲 Aposte e Ganhe</SelectItem>
                       <SelectItem value="deposite_e_ganhe">🏦 Deposite e Ganhe</SelectItem>
+                      <SelectItem value="ganhou_no_keno">🎯 Ganhou no Keno</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
