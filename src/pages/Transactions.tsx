@@ -195,7 +195,7 @@ export default function Transactions() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={dateEnd} onSelect={setDateEnd} disabled={(d) => d > new Date() || (dateStart ? d < dateStart : false)} className={cn("p-3 pointer-events-auto")} />
+                  <DateTimePicker date={dateEnd} onSelect={(d) => setDateEnd(d)} disabled={(d) => d > new Date() || (dateStart ? d < dateStart : false)} />
                 </PopoverContent>
               </Popover>
               <Button
