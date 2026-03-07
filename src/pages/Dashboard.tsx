@@ -15,7 +15,7 @@ import { useDashboardStats, useBatches } from '@/hooks/use-supabase-data';
 import { ApiCredentialsBar } from '@/components/ApiCredentialsBar';
 import { useProxy } from '@/hooks/use-proxy';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -237,11 +237,11 @@ export default function Dashboard() {
               <div className="flex flex-col sm:flex-row">
                 <div className="p-3 border-b sm:border-b-0 sm:border-r border-border">
                   <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Data início</p>
-                  <Calendar mode="single" selected={customStart} onSelect={(d) => { if (d) { setCustomStart(d); setPeriod('custom'); } }} disabled={(d) => d > new Date()} className="p-0 pointer-events-auto" />
+                  <DateTimePicker date={customStart} onSelect={(d) => { if (d) { setCustomStart(d); setPeriod('custom'); } }} disabled={(d) => d > new Date()} />
                 </div>
                 <div className="p-3">
                   <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Data fim</p>
-                  <Calendar mode="single" selected={customEnd} onSelect={(d) => { if (d) { setCustomEnd(d); setPeriod('custom'); } }} disabled={(d) => d > new Date() || d < customStart} className="p-0 pointer-events-auto" />
+                  <DateTimePicker date={customEnd} onSelect={(d) => { if (d) { setCustomEnd(d); setPeriod('custom'); } }} disabled={(d) => d > new Date() || d < customStart} />
                 </div>
               </div>
             </PopoverContent>

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar } from '@/components/ui/calendar';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ApiCredentialsBar } from '@/components/ApiCredentialsBar';
 import { useProxy } from '@/hooks/use-proxy';
@@ -168,7 +168,7 @@ export default function Transactions() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={dateStart} onSelect={setDateStart} disabled={(d) => d > new Date()} className={cn("p-3 pointer-events-auto")} />
+                  <DateTimePicker date={dateStart} onSelect={(d) => setDateStart(d)} disabled={(d) => d > new Date()} />
                 </PopoverContent>
               </Popover>
               <Button
@@ -195,7 +195,7 @@ export default function Transactions() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={dateEnd} onSelect={setDateEnd} disabled={(d) => d > new Date() || (dateStart ? d < dateStart : false)} className={cn("p-3 pointer-events-auto")} />
+                  <DateTimePicker date={dateEnd} onSelect={(d) => setDateEnd(d)} disabled={(d) => d > new Date() || (dateStart ? d < dateStart : false)} />
                 </PopoverContent>
               </Popover>
               <Button
