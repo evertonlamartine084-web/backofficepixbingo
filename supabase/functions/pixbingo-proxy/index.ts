@@ -6,7 +6,7 @@ const corsHeaders = {
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 type Action = 'login' | 'list_users' | 'search_player' | 'player_transactions'
-  | 'credit_bonus' | 'cancel_bonus' | 'list_transactions' | 'financeiro' | 'credit_batch';
+  | 'credit_bonus' | 'cancel_bonus' | 'list_transactions' | 'financeiro' | 'credit_batch' | 'list_partidas';
 
 interface ProxyRequest {
   action: Action;
