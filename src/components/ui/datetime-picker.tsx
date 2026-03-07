@@ -72,7 +72,7 @@ function DateTimePicker({ date, onSelect, disabled, className }: DateTimePickerP
         className="p-3 pointer-events-auto"
       />
       <div className="flex border-l border-border">
-        <ScrollArea className="h-[300px] w-[54px]" ref={hourRef}>
+        <div className="h-[300px] w-[54px] overflow-y-auto" ref={hourRef}>
           <div className="flex flex-col items-center py-1">
             {hours.map((h) => (
               <button
@@ -80,7 +80,7 @@ function DateTimePicker({ date, onSelect, disabled, className }: DateTimePickerP
                 data-time-item
                 onClick={() => handleTimeChange("hour", h)}
                 className={cn(
-                  "w-10 h-8 text-sm rounded-md flex items-center justify-center transition-colors",
+                  "w-10 h-8 text-sm rounded-md flex items-center justify-center transition-colors shrink-0",
                   currentHour === h
                     ? "bg-primary text-primary-foreground font-medium"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -90,8 +90,8 @@ function DateTimePicker({ date, onSelect, disabled, className }: DateTimePickerP
               </button>
             ))}
           </div>
-        </ScrollArea>
-        <ScrollArea className="h-[300px] w-[54px] border-l border-border" ref={minuteRef}>
+        </div>
+        <div className="h-[300px] w-[54px] overflow-y-auto border-l border-border" ref={minuteRef}>
           <div className="flex flex-col items-center py-1">
             {minutes.map((m) => (
               <button
@@ -99,7 +99,7 @@ function DateTimePicker({ date, onSelect, disabled, className }: DateTimePickerP
                 data-time-item
                 onClick={() => handleTimeChange("minute", m)}
                 className={cn(
-                  "w-10 h-8 text-sm rounded-md flex items-center justify-center transition-colors",
+                  "w-10 h-8 text-sm rounded-md flex items-center justify-center transition-colors shrink-0",
                   currentMinute === m
                     ? "bg-primary text-primary-foreground font-medium"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -109,7 +109,7 @@ function DateTimePicker({ date, onSelect, disabled, className }: DateTimePickerP
               </button>
             ))}
           </div>
-        </ScrollArea>
+        </div>
       </div>
     </div>
   );
