@@ -130,6 +130,44 @@ export default function Campaigns() {
     },
   });
 
+  const { data: partidas = [] } = useQuery({
+    queryKey: ['partidas-list'],
+    queryFn: async () => {
+      const creds = getSavedCredentials();
+      if (!creds.username || !creds.password) return [];
+      const { data, error } = await supabase.functions.invoke('pixbingo-proxy', {
+        body: {
+          action: 'list_partidas',
+          site_url: 'https://pixbingobr.concurso.club',
+          login_url: 'https://pixbingobr.concurso.club/login',
+          username: creds.username,
+          password: creds.password,
+        },
+      });
+      if (error || !data?.success) return [];
+      const items = data.data?.aaData || data.data?.data || [];
+      // Extract unique card values (valor_dia)
+      const uniqueValues = new Map<string, { valor: string; tipo: string; count: number }>();
+      for (const p of items) {
+        if (p.ativo !== '1') continue;
+        const valor = String(p.valor_dia || '0').replace(',', '.');
+        const tipo = String(p.tipo_partida || 'SIMPLES');
+        const key = `${valor}_${tipo}`;
+        if (uniqueValues.has(key)) {
+          uniqueValues.get(key)!.count++;
+        } else {
+          uniqueValues.set(key, { valor, tipo, count: 1 });
+        }
+      }
+      return Array.from(uniqueValues.entries()).map(([key, v]) => ({
+        key,
+        label: `R$ ${Number(v.valor).toFixed(2)} - ${v.tipo} (${v.count} rodadas)`,
+        valor: v.valor,
+        tipo: v.tipo,
+      }));
+    },
+  });
+
   const { data: participants = [], refetch: refetchParticipants } = useQuery({
     queryKey: ['campaign-participants', selectedCampaign?.id],
     enabled: !!selectedCampaign,
@@ -440,7 +478,13 @@ export default function Campaigns() {
           <CardContent className="p-4 grid grid-cols-5 gap-4 text-sm">
             <div><span className="text-muted-foreground text-xs block">Valor Mínimo</span> R$ {Number(selectedCampaign.min_value).toFixed(2)}</div>
             <div><span className="text-muted-foreground text-xs block">Prêmio</span> R$ {Number(selectedCampaign.prize_value).toFixed(2)}</div>
-            <div><span className="text-muted-foreground text-xs block">Carteira</span> <Badge variant="outline" className="text-xs">{selectedCampaign.wallet_type}</Badge></div>
+            <div><span className="text-muted-foreground text-xs block">{selectedCampaign.type === 'ganhou_no_keno' ? 'Cartela' : 'Carteira'}</span>
+              <Badge variant="outline" className="text-xs">
+                {selectedCampaign.type === 'ganhou_no_keno'
+                  ? ((selectedCampaign as any).game_filter ? `R$ ${Number((selectedCampaign as any).game_filter).toFixed(2)}` : 'Todas')
+                  : selectedCampaign.wallet_type}
+              </Badge>
+            </div>
             <div><span className="text-muted-foreground text-xs block">Início</span> {format(new Date(selectedCampaign.start_date), 'dd/MM/yyyy HH:mm')}</div>
             <div><span className="text-muted-foreground text-xs block">Fim</span> {format(new Date(selectedCampaign.end_date), 'dd/MM/yyyy HH:mm')}</div>
           </CardContent>
@@ -547,8 +591,16 @@ export default function Campaigns() {
                 )}
                 {form.type === 'ganhou_no_keno' && (
                   <div className="space-y-1">
-                    <Label className="text-xs">Filtro de jogo *</Label>
-                    <Input value={form.game_filter} onChange={e => setForm(f => ({ ...f, game_filter: e.target.value }))} placeholder="Ex: Keno, Bingo Express" className="h-9" />
+                    <Label className="text-xs">Filtro de cartela</Label>
+                    <Select value={form.game_filter} onValueChange={v => setForm(f => ({ ...f, game_filter: v === '__none__' ? '' : v }))}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Todas as cartelas" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">🎯 Todas as cartelas</SelectItem>
+                        {partidas.map(p => (
+                          <SelectItem key={p.key} value={p.valor}>{p.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
               </div>

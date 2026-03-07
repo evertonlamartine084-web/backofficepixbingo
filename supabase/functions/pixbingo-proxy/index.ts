@@ -6,7 +6,7 @@ const corsHeaders = {
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 type Action = 'login' | 'list_users' | 'search_player' | 'player_transactions'
-  | 'credit_bonus' | 'cancel_bonus' | 'list_transactions' | 'financeiro' | 'credit_batch';
+  | 'credit_bonus' | 'cancel_bonus' | 'list_transactions' | 'financeiro' | 'credit_batch' | 'list_partidas';
 
 interface ProxyRequest {
   action: Action;
@@ -729,6 +729,54 @@ Deno.serve(async (req) => {
           menu_links: [...html.matchAll(/href=['"]([^'"]+)['"]/gi)].map(m => m[1]).filter(h => h.startsWith('/')),
           wallet_matches: walletMatches,
         };
+        break;
+      }
+      case 'list_partidas': {
+        // Try DataTables listing first
+        const params = new URLSearchParams();
+        params.set('draw', '1');
+        params.set('start', '0');
+        params.set('length', '200');
+        const partidaCols = ['id', 'nome', 'status', 'tipo', 'created_at'];
+        partidaCols.forEach((col, i) => {
+          params.set(`columns[${i}][data]`, col);
+          params.set(`columns[${i}][name]`, '');
+          params.set(`columns[${i}][searchable]`, 'true');
+          params.set(`columns[${i}][orderable]`, 'true');
+          params.set(`columns[${i}][search][value]`, '');
+          params.set(`columns[${i}][search][regex]`, 'false');
+        });
+        params.set('order[0][column]', '0');
+        params.set('order[0][dir]', 'desc');
+        params.set('search[value]', '');
+        params.set('search[regex]', 'false');
+
+        const dtResult = await fetchJSON(`${baseUrl}/partidas/listar?${params}`, headers);
+        
+        if (dtResult?.aaData || dtResult?.data) {
+          result = dtResult;
+        } else {
+          // Fallback: scrape the partidas page for game names
+          const pageRes = await fetch(`${baseUrl}/partidas`, {
+            method: 'GET',
+            headers: { ...headers, Accept: 'text/html,application/xhtml+xml,*/*' },
+            signal: AbortSignal.timeout(12000),
+          });
+          const html = await pageRes.text();
+          
+          // Extract table rows or game names from HTML
+          const nameMatches = [...html.matchAll(/<td[^>]*>([^<]+)<\/td>/gi)].map(m => m[1].trim()).filter(t => t.length > 1 && t.length < 100);
+          const ajaxUrls = [...html.matchAll(/ajax\s*:\s*['"`]([^'"`]+)['"`]/gi)].map(m => m[1]);
+          const selectOptions = [...html.matchAll(/<option[^>]*value=['"]([^'"]+)['"][^>]*>([^<]+)<\/option>/gi)].map(m => ({ value: m[1], label: m[2].trim() }));
+          
+          result = {
+            html_length: html.length,
+            table_cells: nameMatches.slice(0, 100),
+            ajax_urls: ajaxUrls,
+            select_options: selectOptions,
+            title: html.match(/<title>(.*?)<\/title>/i)?.[1] || '',
+          };
+        }
         break;
       }
     }
