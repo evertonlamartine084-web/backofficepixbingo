@@ -624,42 +624,34 @@ export default function Campaigns() {
                 <Label className="text-xs">Descrição</Label>
                 <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Detalhes da campanha..." rows={2} className="resize-none" />
               </div>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Data início *</Label>
+                  <Label className="text-xs">Início *</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="outline" size="sm" className={cn('w-full justify-start gap-1 h-9 text-xs', !form.start_date && 'text-muted-foreground')}>
                         <CalendarIcon className="w-3.5 h-3.5" />
-                        {form.start_date ? format(form.start_date, 'dd/MM/yy') : 'Selecionar'}
+                        {form.start_date ? format(form.start_date, 'dd/MM/yy HH:mm') : 'Selecionar'}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={form.start_date} onSelect={d => setForm(f => ({ ...f, start_date: d }))} className={cn("p-3 pointer-events-auto")} />
+                      <DateTimePicker date={form.start_date} onSelect={d => setForm(f => ({ ...f, start_date: d }))} />
                     </PopoverContent>
                   </Popover>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Hora início *</Label>
-                  <Input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} className="h-9" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Data fim *</Label>
+                  <Label className="text-xs">Fim *</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="outline" size="sm" className={cn('w-full justify-start gap-1 h-9 text-xs', !form.end_date && 'text-muted-foreground')}>
                         <CalendarIcon className="w-3.5 h-3.5" />
-                        {form.end_date ? format(form.end_date, 'dd/MM/yy') : 'Selecionar'}
+                        {form.end_date ? format(form.end_date, 'dd/MM/yy HH:mm') : 'Selecionar'}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={form.end_date} onSelect={d => setForm(f => ({ ...f, end_date: d }))} disabled={d => form.start_date ? d < form.start_date : false} className={cn("p-3 pointer-events-auto")} />
+                      <DateTimePicker date={form.end_date} onSelect={d => setForm(f => ({ ...f, end_date: d }))} disabled={d => form.start_date ? d < form.start_date : false} />
                     </PopoverContent>
                   </Popover>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Hora fim *</Label>
-                  <Input type="time" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} className="h-9" />
                 </div>
               </div>
             </div>
