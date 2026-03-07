@@ -176,6 +176,7 @@ export default function Campaigns() {
         prize_description: form.prize_description,
         wallet_type: form.wallet_type,
         metric: form.metric,
+        game_filter: form.game_filter || null,
         start_date: startDate.toISOString(), end_date: endDate.toISOString(),
       } as any);
       if (error) throw error;
