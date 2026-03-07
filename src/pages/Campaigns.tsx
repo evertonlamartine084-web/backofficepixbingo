@@ -130,6 +130,44 @@ export default function Campaigns() {
     },
   });
 
+  const { data: partidas = [] } = useQuery({
+    queryKey: ['partidas-list'],
+    queryFn: async () => {
+      const creds = getSavedCredentials();
+      if (!creds.username || !creds.password) return [];
+      const { data, error } = await supabase.functions.invoke('pixbingo-proxy', {
+        body: {
+          action: 'list_partidas',
+          site_url: 'https://pixbingobr.concurso.club',
+          login_url: 'https://pixbingobr.concurso.club/login',
+          username: creds.username,
+          password: creds.password,
+        },
+      });
+      if (error || !data?.success) return [];
+      const items = data.data?.aaData || data.data?.data || [];
+      // Extract unique card values (valor_dia)
+      const uniqueValues = new Map<string, { valor: string; tipo: string; count: number }>();
+      for (const p of items) {
+        if (p.ativo !== '1') continue;
+        const valor = String(p.valor_dia || '0').replace(',', '.');
+        const tipo = String(p.tipo_partida || 'SIMPLES');
+        const key = `${valor}_${tipo}`;
+        if (uniqueValues.has(key)) {
+          uniqueValues.get(key)!.count++;
+        } else {
+          uniqueValues.set(key, { valor, tipo, count: 1 });
+        }
+      }
+      return Array.from(uniqueValues.entries()).map(([key, v]) => ({
+        key,
+        label: `R$ ${Number(v.valor).toFixed(2)} - ${v.tipo} (${v.count} rodadas)`,
+        valor: v.valor,
+        tipo: v.tipo,
+      }));
+    },
+  });
+
   const { data: participants = [], refetch: refetchParticipants } = useQuery({
     queryKey: ['campaign-participants', selectedCampaign?.id],
     enabled: !!selectedCampaign,
