@@ -99,8 +99,6 @@ export default function Campaigns() {
     game_filter: '',
     start_date: undefined as Date | undefined,
     end_date: undefined as Date | undefined,
-    start_time: '00:00',
-    end_time: '23:59',
   });
 
   const { data: campaigns = [], isLoading } = useQuery({
