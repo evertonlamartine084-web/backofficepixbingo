@@ -179,6 +179,33 @@ async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, 
   return totalValue;
 }
 
+async function getPlayerWinTotal(uuid: string, headers: Record<string, string>, startDt: string, endDt: string, gameFilter: string): Promise<number> {
+  const result = await fetchJSON(`${DEFAULT_SITE}/usuarios/transacoes?id=${encodeURIComponent(uuid)}`, headers);
+  const transactions = result?.historico || result?.data?.historico || [];
+
+  let totalWin = 0;
+  const gameFilterUpper = gameFilter.toUpperCase();
+
+  for (const tx of transactions) {
+    const operation = String(tx.operacao || tx.tipo || '').toUpperCase();
+    // Look for winning transactions: PREMIO, GANHO, VENDA (returns from wins)
+    if (!operation.includes('PREMIO') && !operation.includes('GANHO') && !operation.includes('VENDA')) continue;
+
+    const txDt = extractDateTime(tx.data_registro || tx.created_at || tx.data);
+    if (!isDateTimeInRange(txDt, startDt, endDt)) continue;
+
+    // Filter by game name if specified
+    if (gameFilter) {
+      const gameName = String(tx.jogo || tx.game || '').toUpperCase();
+      if (!gameName.includes(gameFilterUpper)) continue;
+    }
+
+    totalWin += Math.abs(normalizeMoney(tx.valor));
+  }
+
+  return totalWin;
+}
+
 function formatDate(isoDate: string): string {
   const d = new Date(isoDate);
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
