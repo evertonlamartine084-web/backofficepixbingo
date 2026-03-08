@@ -91,14 +91,17 @@ export default function Popups() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      if (!form.name || !form.title || !form.start_date || !form.end_date) throw new Error('Preencha os campos obrigatórios');
+      if (!form.name || !form.start_date || !form.end_date) throw new Error('Preencha os campos obrigatórios');
+      if (form.mode === 'simple' && !form.title) throw new Error('Preencha o título');
+      if (form.mode === 'html' && !form.custom_html) throw new Error('Preencha o HTML');
       const { error } = await supabase.from('popups').insert({
         name: form.name,
-        title: form.title,
-        message: form.message,
-        image_url: form.image_url || null,
-        button_text: form.button_text || 'OK',
-        button_url: form.button_url || null,
+        title: form.mode === 'simple' ? form.title : form.name,
+        message: form.mode === 'simple' ? form.message : '',
+        image_url: form.mode === 'simple' ? (form.image_url || null) : null,
+        button_text: form.mode === 'simple' ? (form.button_text || 'OK') : '',
+        button_url: form.mode === 'simple' ? (form.button_url || null) : null,
+        custom_html: form.mode === 'html' ? form.custom_html : null,
         segment_id: form.segment_id || null,
         start_date: form.start_date.toISOString(),
         end_date: form.end_date.toISOString(),
