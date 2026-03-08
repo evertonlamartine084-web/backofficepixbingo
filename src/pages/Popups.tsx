@@ -182,13 +182,10 @@ export default function Popups() {
     },
   });
 
-  const resetForm = () => {
-    setForm({
-      name: '', mode: 'simple', title: '', message: '', image_url: '', button_text: 'OK',
-      button_url: '', custom_html: '', segment_id: '', persistent: false, start_date: undefined, end_date: undefined,
-    });
-    setWidgetConfig(defaultWidgetConfig);
-  };
+  const resetForm = () => setForm({
+    name: '', mode: 'simple', title: '', message: '', image_url: '', button_text: 'OK',
+    button_url: '', custom_html: '', segment_id: '', persistent: false, start_date: undefined, end_date: undefined,
+  });
 
   const copyEndpoint = () => {
     navigator.clipboard.writeText(endpointUrl);
