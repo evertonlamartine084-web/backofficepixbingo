@@ -136,10 +136,6 @@ export default function Popups() {
       if (!form.name || !form.start_date || !form.end_date) throw new Error('Preencha os campos obrigatórios');
       if (form.mode === 'simple' && !form.title) throw new Error('Preencha o título');
       if (form.mode === 'html' && !form.custom_html) throw new Error('Preencha o HTML');
-
-      const isWidget = form.mode === 'widget';
-      const generatedHtml = isWidget ? generateWidgetHtml(widgetConfig) : null;
-
       const { error } = await supabase.from('popups').insert({
         name: form.name,
         title: form.mode === 'simple' ? form.title : form.name,
@@ -147,9 +143,9 @@ export default function Popups() {
         image_url: form.mode === 'simple' ? (form.image_url || null) : null,
         button_text: form.mode === 'simple' ? (form.button_text || 'OK') : '',
         button_url: form.mode === 'simple' ? (form.button_url || null) : null,
-        custom_html: isWidget ? generatedHtml : (form.mode === 'html' ? form.custom_html : null),
+        custom_html: form.mode === 'html' ? form.custom_html : null,
         segment_id: form.segment_id || null,
-        persistent: isWidget ? true : form.persistent,
+        persistent: form.persistent,
         start_date: form.start_date.toISOString(),
         end_date: form.end_date.toISOString(),
       } as any);
