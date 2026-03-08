@@ -35,6 +35,46 @@ interface Popup {
   segment_name?: string;
 }
 
+const prepareHtmlPreview = (html: string) => {
+  const withoutCommonGuards = html
+    .replace(/location\.origin\s*\+\s*location\.pathname/g, "'https://pixbingobr.com/'")
+    .replace(/window\.location\.origin\s*\+\s*window\.location\.pathname/g, "'https://pixbingobr.com/'")
+    .replace(/if\s*\(\s*allowed\.indexOf\(current\)\s*===\s*-1\s*\)\s*return;?/gi, '')
+    .replace(/if\s*\(\s*!allowed\.includes\(current\)\s*\)\s*return;?/gi, '')
+    .replace(/\blocalStorage\b/g, '__lovablePreviewLocalStorage')
+    .replace(/\bsessionStorage\b/g, '__lovablePreviewSessionStorage');
+
+  return `<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      html, body { margin: 0; padding: 0; min-height: 100%; background: #f5f5f5; }
+    </style>
+    <script>
+      (function () {
+        const createStorage = () => {
+          const map = new Map();
+          return {
+            getItem: (key) => (map.has(key) ? map.get(key) : null),
+            setItem: (key, value) => map.set(key, String(value)),
+            removeItem: (key) => map.delete(key),
+            clear: () => map.clear(),
+          };
+        };
+        window.__lovablePreviewLocalStorage = createStorage();
+        window.__lovablePreviewSessionStorage = createStorage();
+        window.__POPUP_PREVIEW__ = true;
+      })();
+    </script>
+  </head>
+  <body>
+    ${withoutCommonGuards}
+  </body>
+</html>`;
+};
+
 export default function Popups() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
