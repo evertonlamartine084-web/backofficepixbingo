@@ -14,6 +14,7 @@ import Endpoints from "@/pages/admin/Endpoints";
 import Discovery from "@/pages/admin/Discovery";
 import Segments from "@/pages/Segments";
 import Campaigns from "@/pages/Campaigns";
+import Partidas from "@/pages/Partidas";
 import ManageUsers from "@/pages/admin/ManageUsers";
 import NotFound from "./pages/NotFound";
 
