@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, EyeOff, CalendarIcon } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, CalendarIcon, Code, Type } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,6 +25,7 @@ interface Popup {
   image_url: string | null;
   button_text: string;
   button_url: string | null;
+  custom_html: string | null;
   segment_id: string | null;
   start_date: string;
   end_date: string;
@@ -41,11 +42,13 @@ export default function Popups() {
   const [previewPopup, setPreviewPopup] = useState<Popup | null>(null);
   const [form, setForm] = useState({
     name: '',
+    mode: 'simple' as 'simple' | 'html',
     title: '',
     message: '',
     image_url: '',
     button_text: 'OK',
     button_url: '',
+    custom_html: '',
     segment_id: '',
     start_date: undefined as Date | undefined,
     end_date: undefined as Date | undefined,
@@ -88,14 +91,17 @@ export default function Popups() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      if (!form.name || !form.title || !form.start_date || !form.end_date) throw new Error('Preencha os campos obrigatórios');
+      if (!form.name || !form.start_date || !form.end_date) throw new Error('Preencha os campos obrigatórios');
+      if (form.mode === 'simple' && !form.title) throw new Error('Preencha o título');
+      if (form.mode === 'html' && !form.custom_html) throw new Error('Preencha o HTML');
       const { error } = await supabase.from('popups').insert({
         name: form.name,
-        title: form.title,
-        message: form.message,
-        image_url: form.image_url || null,
-        button_text: form.button_text || 'OK',
-        button_url: form.button_url || null,
+        title: form.mode === 'simple' ? form.title : form.name,
+        message: form.mode === 'simple' ? form.message : '',
+        image_url: form.mode === 'simple' ? (form.image_url || null) : null,
+        button_text: form.mode === 'simple' ? (form.button_text || 'OK') : '',
+        button_url: form.mode === 'simple' ? (form.button_url || null) : null,
+        custom_html: form.mode === 'html' ? form.custom_html : null,
         segment_id: form.segment_id || null,
         start_date: form.start_date.toISOString(),
         end_date: form.end_date.toISOString(),
@@ -134,8 +140,8 @@ export default function Popups() {
   });
 
   const resetForm = () => setForm({
-    name: '', title: '', message: '', image_url: '', button_text: 'OK',
-    button_url: '', segment_id: '', start_date: undefined, end_date: undefined,
+    name: '', mode: 'simple', title: '', message: '', image_url: '', button_text: 'OK',
+    button_url: '', custom_html: '', segment_id: '', start_date: undefined, end_date: undefined,
   });
 
   const copyEndpoint = () => {
@@ -210,8 +216,9 @@ export default function Popups() {
                       ) : (
                         <Badge variant="outline" className="text-[10px]">Inativo</Badge>
                       )}
+                      {p.custom_html && <Badge variant="outline" className="text-[10px] gap-1"><Code className="w-3 h-3" />HTML</Badge>}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{p.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{p.custom_html ? 'Conteúdo HTML customizado' : p.title}</p>
                     <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
                       <span>Segmento: {p.segment_name || 'Todos'}</span>
                       <span>•</span>
@@ -252,27 +259,54 @@ export default function Popups() {
               <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Promo março" className="mt-1" />
             </div>
             <div>
-              <Label className="text-xs">Título do popup</Label>
-              <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: 🎉 Bônus Especial!" className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs">Mensagem</Label>
-              <Textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} placeholder="Texto do popup..." rows={3} className="mt-1" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Texto do botão</Label>
-                <Input value={form.button_text} onChange={e => setForm(f => ({ ...f, button_text: e.target.value }))} className="mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs">URL do botão (opcional)</Label>
-                <Input value={form.button_url} onChange={e => setForm(f => ({ ...f, button_url: e.target.value }))} placeholder="https://..." className="mt-1" />
+              <Label className="text-xs mb-2 block">Modo do conteúdo</Label>
+              <div className="flex gap-2">
+                <Button type="button" variant={form.mode === 'simple' ? 'default' : 'outline'} size="sm" className="gap-2" onClick={() => setForm(f => ({ ...f, mode: 'simple' }))}>
+                  <Type className="w-4 h-4" /> Simples
+                </Button>
+                <Button type="button" variant={form.mode === 'html' ? 'default' : 'outline'} size="sm" className="gap-2" onClick={() => setForm(f => ({ ...f, mode: 'html' }))}>
+                  <Code className="w-4 h-4" /> HTML / CSS / JS
+                </Button>
               </div>
             </div>
-            <div>
-              <Label className="text-xs">URL da imagem (opcional)</Label>
-              <Input value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} placeholder="https://..." className="mt-1" />
-            </div>
+            {form.mode === 'simple' ? (
+              <>
+                <div>
+                  <Label className="text-xs">Título do popup</Label>
+                  <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: 🎉 Bônus Especial!" className="mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs">Mensagem</Label>
+                  <Textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} placeholder="Texto do popup..." rows={3} className="mt-1" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Texto do botão</Label>
+                    <Input value={form.button_text} onChange={e => setForm(f => ({ ...f, button_text: e.target.value }))} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">URL do botão (opcional)</Label>
+                    <Input value={form.button_url} onChange={e => setForm(f => ({ ...f, button_url: e.target.value }))} placeholder="https://..." className="mt-1" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">URL da imagem (opcional)</Label>
+                  <Input value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} placeholder="https://..." className="mt-1" />
+                </div>
+              </>
+            ) : (
+              <div>
+                <Label className="text-xs">HTML / CSS / JS customizado</Label>
+                <Textarea
+                  value={form.custom_html}
+                  onChange={e => setForm(f => ({ ...f, custom_html: e.target.value }))}
+                  placeholder={'<div style="text-align:center; padding:20px;">\n  <h2>🎉 Promoção!</h2>\n  <p>Deposite agora e ganhe bônus</p>\n  <button onclick="window.location=\'/deposito\'">Depositar</button>\n</div>'}
+                  rows={10}
+                  className="mt-1 font-mono text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">Cole aqui o HTML completo do popup. Pode incluir &lt;style&gt; e &lt;script&gt;.</p>
+              </div>
+            )}
             <div>
               <Label className="text-xs">Segmento (vazio = todos os jogadores)</Label>
               <Select value={form.segment_id} onValueChange={v => setForm(f => ({ ...f, segment_id: v === '__none__' ? '' : v }))}>
@@ -327,17 +361,29 @@ export default function Popups() {
 
       {/* Preview Dialog */}
       <Dialog open={!!previewPopup} onOpenChange={() => setPreviewPopup(null)}>
-        <DialogContent className="max-w-sm">
-          <div className="text-center space-y-4 py-2">
-            {previewPopup?.image_url && (
-              <img src={previewPopup.image_url} alt="" className="w-full max-h-48 object-cover rounded-lg" />
-            )}
-            <h2 className="text-lg font-bold">{previewPopup?.title}</h2>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{previewPopup?.message}</p>
-            <Button className="w-full gradient-primary border-0">
-              {previewPopup?.button_text || 'OK'}
-            </Button>
-          </div>
+        <DialogContent className="max-w-md">
+          {previewPopup?.custom_html ? (
+            <div className="py-2">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Preview HTML</p>
+              <iframe
+                srcDoc={previewPopup.custom_html}
+                className="w-full min-h-[300px] rounded-lg border border-border bg-white"
+                sandbox="allow-scripts"
+                title="Popup Preview"
+              />
+            </div>
+          ) : (
+            <div className="text-center space-y-4 py-2">
+              {previewPopup?.image_url && (
+                <img src={previewPopup.image_url} alt="" className="w-full max-h-48 object-cover rounded-lg" />
+              )}
+              <h2 className="text-lg font-bold">{previewPopup?.title}</h2>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{previewPopup?.message}</p>
+              <Button className="w-full gradient-primary border-0">
+                {previewPopup?.button_text || 'OK'}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

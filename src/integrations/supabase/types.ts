@@ -500,6 +500,7 @@ export type Database = {
           button_text: string | null
           button_url: string | null
           created_at: string
+          custom_html: string | null
           end_date: string
           id: string
           image_url: string | null
@@ -516,6 +517,7 @@ export type Database = {
           button_text?: string | null
           button_url?: string | null
           created_at?: string
+          custom_html?: string | null
           end_date: string
           id?: string
           image_url?: string | null
@@ -532,6 +534,7 @@ export type Database = {
           button_text?: string | null
           button_url?: string | null
           created_at?: string
+          custom_html?: string | null
           end_date?: string
           id?: string
           image_url?: string | null
