@@ -25,6 +25,7 @@ interface Popup {
   image_url: string | null;
   button_text: string;
   button_url: string | null;
+  custom_html: string | null;
   segment_id: string | null;
   start_date: string;
   end_date: string;
