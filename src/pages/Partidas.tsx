@@ -169,19 +169,17 @@ export default function Partidas() {
             <p className="text-center text-muted-foreground py-8">Nenhuma partida encontrada</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm table-fixed min-w-[800px]">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
-                    <th className="text-left py-3 px-2 font-medium">ID</th>
-                    <th className="text-left py-3 px-2 font-medium">Data/Hora</th>
-                    <th className="text-left py-3 px-2 font-medium">Tipo</th>
-                    <th className="text-right py-3 px-2 font-medium">Cartela</th>
-                    <th className="text-right py-3 px-2 font-medium">Quadra</th>
-                    <th className="text-right py-3 px-2 font-medium">Quina</th>
-                    <th className="text-right py-3 px-2 font-medium">Cartela Cheia</th>
-                    <th className="text-right py-3 px-2 font-medium">Arrecadação</th>
-                    <th className="text-right py-3 px-2 font-medium">Resultado</th>
-                    <th className="text-center py-3 px-2 font-medium">Status</th>
+                    <th className="text-left py-3 px-2 font-medium w-[60px]">ID</th>
+                    <th className="text-left py-3 px-2 font-medium w-[90px]">Data/Hora</th>
+                    <th className="text-left py-3 px-2 font-medium w-[120px]">Tipo</th>
+                    <th className="text-right py-3 px-2 font-medium w-[70px]">Cartela</th>
+                    <th className="text-right py-3 px-2 font-medium w-[110px]">Prêmios (Q/Qi/C)</th>
+                    <th className="text-right py-3 px-2 font-medium w-[100px]">Arrecadação</th>
+                    <th className="text-right py-3 px-2 font-medium w-[100px]">Resultado</th>
+                    <th className="text-center py-3 px-2 font-medium w-[90px]">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -191,47 +189,38 @@ export default function Partidas() {
                     const quadraPago = parseValor(p.premio_quadra_pago);
                     const quinaPago = parseValor(p.premio_quina_pago);
                     const cartelaPago = parseValor(p.premio_cartela_pago);
-                    const temPremio = quadraPago > 0 || quinaPago > 0 || cartelaPago > 0;
 
                     return (
                       <tr key={p.id_partida} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                        <td className="py-3 px-2 font-mono text-xs text-muted-foreground">
+                        <td className="py-3 px-2 font-mono text-xs text-muted-foreground whitespace-nowrap">
                           #{p.id_partida}
                         </td>
-                        <td className="py-3 px-2">
-                          <div className="font-medium text-foreground">{p.data_partida_f}</div>
-                          <div className="text-xs text-muted-foreground">{p.hora_partida_f}</div>
+                        <td className="py-3 px-2 whitespace-nowrap">
+                          <span className="font-medium text-foreground">{p.data_partida_f}</span>
+                          <span className="text-muted-foreground ml-1">{p.hora_partida_f}</span>
                         </td>
                         <td className="py-3 px-2">
-                          <Badge variant="outline" className="text-xs font-normal">
+                          <Badge variant="outline" className="text-xs font-normal whitespace-nowrap">
                             {p.tipo_partida}
                           </Badge>
                         </td>
-                        <td className="py-3 px-2 text-right font-mono">
+                        <td className="py-3 px-2 text-right font-mono whitespace-nowrap text-foreground">
                           R$ {parseValor(p.valor_dia).toFixed(2)}
                         </td>
-                        <td className="py-3 px-2 text-right">
-                          <div className="text-foreground">{formatBRL(parseValor(p.premio_quadra))}</div>
-                          {quadraPago > 0 && (
-                            <div className="text-xs text-destructive">-{formatBRL(quadraPago)}</div>
+                        <td className="py-3 px-2 text-right whitespace-nowrap">
+                          <div className="text-xs text-foreground font-mono">
+                            {formatBRL(parseValor(p.premio_quadra))} / {formatBRL(parseValor(p.premio_quina))} / {formatBRL(parseValor(p.premio_cartela))}
+                          </div>
+                          {(quadraPago > 0 || quinaPago > 0 || cartelaPago > 0) && (
+                            <div className="text-[10px] text-destructive font-mono">
+                              Pago: {formatBRL(quadraPago + quinaPago + cartelaPago)}
+                            </div>
                           )}
                         </td>
-                        <td className="py-3 px-2 text-right">
-                          <div className="text-foreground">{formatBRL(parseValor(p.premio_quina))}</div>
-                          {quinaPago > 0 && (
-                            <div className="text-xs text-destructive">-{formatBRL(quinaPago)}</div>
-                          )}
-                        </td>
-                        <td className="py-3 px-2 text-right">
-                          <div className="text-foreground">{formatBRL(parseValor(p.premio_cartela))}</div>
-                          {cartelaPago > 0 && (
-                            <div className="text-xs text-destructive">-{formatBRL(cartelaPago)}</div>
-                          )}
-                        </td>
-                        <td className="py-3 px-2 text-right font-mono text-foreground">
+                        <td className="py-3 px-2 text-right font-mono whitespace-nowrap text-foreground">
                           {formatBRL(parseValor(p.doacoes))}
                         </td>
-                        <td className={`py-3 px-2 text-right font-mono font-medium ${resultado < 0 ? 'text-destructive' : 'text-success'}`}>
+                        <td className={`py-3 px-2 text-right font-mono font-medium whitespace-nowrap ${resultado < 0 ? 'text-destructive' : 'text-success'}`}>
                           {formatBRL(resultado)}
                         </td>
                         <td className="py-3 px-2 text-center">
