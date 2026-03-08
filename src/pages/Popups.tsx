@@ -216,8 +216,9 @@ export default function Popups() {
                       ) : (
                         <Badge variant="outline" className="text-[10px]">Inativo</Badge>
                       )}
+                      {p.custom_html && <Badge variant="outline" className="text-[10px] gap-1"><Code className="w-3 h-3" />HTML</Badge>}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{p.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{p.custom_html ? 'Conteúdo HTML customizado' : p.title}</p>
                     <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
                       <span>Segmento: {p.segment_name || 'Todos'}</span>
                       <span>•</span>
