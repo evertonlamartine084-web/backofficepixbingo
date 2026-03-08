@@ -285,11 +285,11 @@ export default function Popups() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Início</Label>
-                <DateTimePicker date={form.start_date} setDate={d => setForm(f => ({ ...f, start_date: d }))} />
+                <DateTimePicker date={form.start_date} onSelect={d => setForm(f => ({ ...f, start_date: d }))} />
               </div>
               <div>
                 <Label className="text-xs">Fim</Label>
-                <DateTimePicker date={form.end_date} setDate={d => setForm(f => ({ ...f, end_date: d }))} />
+                <DateTimePicker date={form.end_date} onSelect={d => setForm(f => ({ ...f, end_date: d }))} />
               </div>
             </div>
           </div>
