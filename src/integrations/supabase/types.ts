@@ -506,6 +506,7 @@ export type Database = {
           image_url: string | null
           message: string
           name: string
+          persistent: boolean
           segment_id: string | null
           start_date: string
           style: Json | null
@@ -523,6 +524,7 @@ export type Database = {
           image_url?: string | null
           message?: string
           name: string
+          persistent?: boolean
           segment_id?: string | null
           start_date?: string
           style?: Json | null
@@ -540,6 +542,7 @@ export type Database = {
           image_url?: string | null
           message?: string
           name?: string
+          persistent?: boolean
           segment_id?: string | null
           start_date?: string
           style?: Json | null

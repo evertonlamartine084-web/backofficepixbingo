@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, CalendarIcon, Code, Type } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, CalendarIcon, Code, Type, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,6 +30,7 @@ interface Popup {
   start_date: string;
   end_date: string;
   active: boolean;
+  persistent: boolean;
   style: Record<string, any>;
   created_at: string;
   segment_name?: string;
@@ -90,6 +91,7 @@ export default function Popups() {
     button_url: '',
     custom_html: '',
     segment_id: '',
+    persistent: false,
     start_date: undefined as Date | undefined,
     end_date: undefined as Date | undefined,
   });
@@ -143,6 +145,7 @@ export default function Popups() {
         button_url: form.mode === 'simple' ? (form.button_url || null) : null,
         custom_html: form.mode === 'html' ? form.custom_html : null,
         segment_id: form.segment_id || null,
+        persistent: form.persistent,
         start_date: form.start_date.toISOString(),
         end_date: form.end_date.toISOString(),
       } as any);
@@ -181,7 +184,7 @@ export default function Popups() {
 
   const resetForm = () => setForm({
     name: '', mode: 'simple', title: '', message: '', image_url: '', button_text: 'OK',
-    button_url: '', custom_html: '', segment_id: '', start_date: undefined, end_date: undefined,
+    button_url: '', custom_html: '', segment_id: '', persistent: false, start_date: undefined, end_date: undefined,
   });
 
   const copyEndpoint = () => {
@@ -257,6 +260,7 @@ export default function Popups() {
                         <Badge variant="outline" className="text-[10px]">Inativo</Badge>
                       )}
                       {p.custom_html && <Badge variant="outline" className="text-[10px] gap-1"><Code className="w-3 h-3" />HTML</Badge>}
+                      {p.persistent && <Badge variant="outline" className="text-[10px] gap-1 border-blue-500/30 text-blue-400"><Pin className="w-3 h-3" />Widget</Badge>}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{p.custom_html ? 'Conteúdo HTML customizado' : p.title}</p>
                     <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
@@ -358,6 +362,13 @@ export default function Popups() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div>
+                <Label className="text-xs font-medium">Widget persistente</Label>
+                <p className="text-[10px] text-muted-foreground">Mantém visível em todas as páginas (botão flutuante, banner, etc)</p>
+              </div>
+              <Switch checked={form.persistent} onCheckedChange={v => setForm(f => ({ ...f, persistent: v }))} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
