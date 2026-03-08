@@ -14,6 +14,7 @@ import Endpoints from "@/pages/admin/Endpoints";
 import Discovery from "@/pages/admin/Discovery";
 import Segments from "@/pages/Segments";
 import Campaigns from "@/pages/Campaigns";
+import Partidas from "@/pages/Partidas";
 import ManageUsers from "@/pages/admin/ManageUsers";
 import NotFound from "./pages/NotFound";
 
@@ -32,6 +33,7 @@ const App = () => (
               <Route path="/" element={<Dashboard />} />
               <Route path="/segments" element={<Segments />} />
               <Route path="/campaigns" element={<Campaigns />} />
+              <Route path="/partidas" element={<Partidas />} />
               <Route path="/player" element={<PlayerLookup />} />
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/admin/endpoints" element={<Endpoints />} />

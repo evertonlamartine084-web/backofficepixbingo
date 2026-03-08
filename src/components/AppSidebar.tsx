@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Globe,
   LogOut, ChevronRight, Zap, Radar, UserSearch,
-  ArrowUpDown, ListFilter, ShieldCheck, Megaphone
+  ArrowUpDown, ListFilter, ShieldCheck, Megaphone, Gamepad2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/transactions', icon: ArrowUpDown, label: 'Transações' },
   { to: '/segments', icon: ListFilter, label: 'Segmentos' },
   { to: '/campaigns', icon: Megaphone, label: 'Campanhas' },
+  { to: '/partidas', icon: Gamepad2, label: 'Partidas' },
 ];
 
 const adminItems = [
