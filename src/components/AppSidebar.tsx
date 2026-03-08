@@ -12,6 +12,7 @@ const navItems = [
   { to: '/transactions', icon: ArrowUpDown, label: 'Transações' },
   { to: '/segments', icon: ListFilter, label: 'Segmentos' },
   { to: '/campaigns', icon: Megaphone, label: 'Campanhas' },
+  { to: '/partidas', icon: Gamepad2, label: 'Partidas' },
 ];
 
 const adminItems = [
