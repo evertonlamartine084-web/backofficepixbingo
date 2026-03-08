@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -34,6 +34,46 @@ interface Popup {
   created_at: string;
   segment_name?: string;
 }
+
+const prepareHtmlPreview = (html: string) => {
+  const withoutCommonGuards = html
+    .replace(/location\.origin\s*\+\s*location\.pathname/g, "'https://pixbingobr.com/'")
+    .replace(/window\.location\.origin\s*\+\s*window\.location\.pathname/g, "'https://pixbingobr.com/'")
+    .replace(/if\s*\(\s*allowed\.indexOf\(current\)\s*===\s*-1\s*\)\s*return;?/gi, '')
+    .replace(/if\s*\(\s*!allowed\.includes\(current\)\s*\)\s*return;?/gi, '')
+    .replace(/\blocalStorage\b/g, '__lovablePreviewLocalStorage')
+    .replace(/\bsessionStorage\b/g, '__lovablePreviewSessionStorage');
+
+  return `<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      html, body { margin: 0; padding: 0; min-height: 100%; background: #f5f5f5; }
+    </style>
+    <script>
+      (function () {
+        const createStorage = () => {
+          const map = new Map();
+          return {
+            getItem: (key) => (map.has(key) ? map.get(key) : null),
+            setItem: (key, value) => map.set(key, String(value)),
+            removeItem: (key) => map.delete(key),
+            clear: () => map.clear(),
+          };
+        };
+        window.__lovablePreviewLocalStorage = createStorage();
+        window.__lovablePreviewSessionStorage = createStorage();
+        window.__POPUP_PREVIEW__ = true;
+      })();
+    </script>
+  </head>
+  <body>
+    ${withoutCommonGuards}
+  </body>
+</html>`;
+};
 
 export default function Popups() {
   const queryClient = useQueryClient();
@@ -364,12 +404,15 @@ export default function Popups() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Preview: {previewPopup?.name}</DialogTitle>
+            <DialogDescription>
+              Pré-visualização do popup com simulação local para scripts HTML/CSS/JS.
+            </DialogDescription>
           </DialogHeader>
           {previewPopup?.custom_html ? (
             <div className="py-2">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Preview HTML</p>
               <iframe
-                srcDoc={previewPopup.custom_html}
+                srcDoc={prepareHtmlPreview(previewPopup.custom_html)}
                 className="w-full min-h-[300px] rounded-lg border border-border bg-white"
                 sandbox="allow-scripts"
                 title="Popup Preview"
