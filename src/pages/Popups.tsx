@@ -350,6 +350,8 @@ export default function Popups() {
                   <Input value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} placeholder="https://..." className="mt-1" />
                 </div>
               </>
+            ) : form.mode === 'widget' ? (
+              <WidgetBuilder config={widgetConfig} onChange={setWidgetConfig} />
             ) : (
               <div>
                 <Label className="text-xs">HTML / CSS / JS customizado</Label>
