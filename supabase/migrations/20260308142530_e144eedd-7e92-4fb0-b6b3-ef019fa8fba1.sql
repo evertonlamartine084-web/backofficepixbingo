@@ -1,0 +1,1 @@
+ALTER TABLE public.popups ADD COLUMN custom_html text DEFAULT NULL;
