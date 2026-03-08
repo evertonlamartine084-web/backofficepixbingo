@@ -377,13 +377,15 @@ export default function Popups() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center justify-between rounded-lg border border-border p-3">
-              <div>
-                <Label className="text-xs font-medium">Widget persistente</Label>
-                <p className="text-[10px] text-muted-foreground">Mantém visível em todas as páginas (botão flutuante, banner, etc)</p>
+            {form.mode !== 'widget' && (
+              <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                <div>
+                  <Label className="text-xs font-medium">Widget persistente</Label>
+                  <p className="text-[10px] text-muted-foreground">Mantém visível em todas as páginas (botão flutuante, banner, etc)</p>
+                </div>
+                <Switch checked={form.persistent} onCheckedChange={v => setForm(f => ({ ...f, persistent: v }))} />
               </div>
-              <Switch checked={form.persistent} onCheckedChange={v => setForm(f => ({ ...f, persistent: v }))} />
-            </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Início</Label>
