@@ -71,7 +71,7 @@ function DateTimePicker({ date, onSelect, disabled, className }: DateTimePickerP
         className="p-3 pointer-events-auto"
       />
       <div className="flex border-l border-border">
-        <div className="h-[300px] w-[54px] overflow-y-auto" ref={hourRef}>
+        <div className="h-[300px] w-[54px] overflow-y-auto scrollbar-hide" ref={hourRef}>
           <div className="flex flex-col items-center py-1">
             {hours.map((h) => (
               <button
@@ -90,7 +90,7 @@ function DateTimePicker({ date, onSelect, disabled, className }: DateTimePickerP
             ))}
           </div>
         </div>
-        <div className="h-[300px] w-[54px] overflow-y-auto border-l border-border" ref={minuteRef}>
+        <div className="h-[300px] w-[54px] overflow-y-auto scrollbar-hide border-l border-border" ref={minuteRef}>
           <div className="flex flex-col items-center py-1">
             {minutes.map((m) => (
               <button
