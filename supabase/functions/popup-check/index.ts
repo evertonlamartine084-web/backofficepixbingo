@@ -67,6 +67,7 @@ Deno.serve(async (req) => {
         button_url: p.button_url,
         custom_html: p.custom_html,
         style: p.style,
+        persistent: p.persistent || false,
       }));
 
     return new Response(JSON.stringify({ popups: result }), {
