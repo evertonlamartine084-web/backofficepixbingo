@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Globe,
   LogOut, ChevronRight, Zap, Radar, UserSearch,
-  ArrowUpDown, ListFilter, ShieldCheck, Megaphone
+  ArrowUpDown, ListFilter, ShieldCheck, Megaphone, Gamepad2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
