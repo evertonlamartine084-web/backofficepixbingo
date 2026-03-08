@@ -494,6 +494,65 @@ export type Database = {
         }
         Relationships: []
       }
+      popups: {
+        Row: {
+          active: boolean
+          button_text: string | null
+          button_url: string | null
+          created_at: string
+          end_date: string
+          id: string
+          image_url: string | null
+          message: string
+          name: string
+          segment_id: string | null
+          start_date: string
+          style: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          button_text?: string | null
+          button_url?: string | null
+          created_at?: string
+          end_date: string
+          id?: string
+          image_url?: string | null
+          message?: string
+          name: string
+          segment_id?: string | null
+          start_date?: string
+          style?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          button_text?: string | null
+          button_url?: string | null
+          created_at?: string
+          end_date?: string
+          id?: string
+          image_url?: string | null
+          message?: string
+          name?: string
+          segment_id?: string | null
+          start_date?: string
+          style?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "popups_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       segment_items: {
         Row: {
           cpf: string

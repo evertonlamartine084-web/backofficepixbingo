@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.auto-process-campaigns]
 verify_jwt = false
+
+[functions.popup-check]
+verify_jwt = false
