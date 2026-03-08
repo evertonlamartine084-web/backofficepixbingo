@@ -288,11 +288,31 @@ export default function Popups() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Início</Label>
-                <DateTimePicker date={form.start_date} onSelect={d => setForm(f => ({ ...f, start_date: d }))} />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal mt-1", !form.start_date && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {form.start_date ? format(form.start_date, "dd/MM/yyyy HH:mm") : "Selecionar"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <DateTimePicker date={form.start_date} onSelect={d => setForm(f => ({ ...f, start_date: d }))} />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <Label className="text-xs">Fim</Label>
-                <DateTimePicker date={form.end_date} onSelect={d => setForm(f => ({ ...f, end_date: d }))} />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal mt-1", !form.end_date && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {form.end_date ? format(form.end_date, "dd/MM/yyyy HH:mm") : "Selecionar"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <DateTimePicker date={form.end_date} onSelect={d => setForm(f => ({ ...f, end_date: d }))} />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>
