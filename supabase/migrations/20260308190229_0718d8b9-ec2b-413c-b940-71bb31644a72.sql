@@ -1,0 +1,1 @@
+ALTER TABLE public.popups ADD COLUMN persistent boolean NOT NULL DEFAULT false;
