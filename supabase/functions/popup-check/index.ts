@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
     const { data: popups, error: popErr } = await supabase
       .from('popups')
-      .select('id, title, message, image_url, button_text, button_url, custom_html, style, segment_id')
+      .select('id, title, message, image_url, button_text, button_url, custom_html, style, segment_id, persistent')
       .eq('active', true)
       .lte('start_date', now)
       .gte('end_date', now);
