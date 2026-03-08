@@ -404,12 +404,15 @@ export default function Popups() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Preview: {previewPopup?.name}</DialogTitle>
+            <DialogDescription>
+              Pré-visualização do popup com simulação local para scripts HTML/CSS/JS.
+            </DialogDescription>
           </DialogHeader>
           {previewPopup?.custom_html ? (
             <div className="py-2">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Preview HTML</p>
               <iframe
-                srcDoc={previewPopup.custom_html}
+                srcDoc={prepareHtmlPreview(previewPopup.custom_html)}
                 className="w-full min-h-[300px] rounded-lg border border-border bg-white"
                 sandbox="allow-scripts"
                 title="Popup Preview"
