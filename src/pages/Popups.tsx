@@ -360,17 +360,29 @@ export default function Popups() {
 
       {/* Preview Dialog */}
       <Dialog open={!!previewPopup} onOpenChange={() => setPreviewPopup(null)}>
-        <DialogContent className="max-w-sm">
-          <div className="text-center space-y-4 py-2">
-            {previewPopup?.image_url && (
-              <img src={previewPopup.image_url} alt="" className="w-full max-h-48 object-cover rounded-lg" />
-            )}
-            <h2 className="text-lg font-bold">{previewPopup?.title}</h2>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{previewPopup?.message}</p>
-            <Button className="w-full gradient-primary border-0">
-              {previewPopup?.button_text || 'OK'}
-            </Button>
-          </div>
+        <DialogContent className="max-w-md">
+          {previewPopup?.custom_html ? (
+            <div className="py-2">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Preview HTML</p>
+              <iframe
+                srcDoc={previewPopup.custom_html}
+                className="w-full min-h-[300px] rounded-lg border border-border bg-white"
+                sandbox="allow-scripts"
+                title="Popup Preview"
+              />
+            </div>
+          ) : (
+            <div className="text-center space-y-4 py-2">
+              {previewPopup?.image_url && (
+                <img src={previewPopup.image_url} alt="" className="w-full max-h-48 object-cover rounded-lg" />
+              )}
+              <h2 className="text-lg font-bold">{previewPopup?.title}</h2>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{previewPopup?.message}</p>
+              <Button className="w-full gradient-primary border-0">
+                {previewPopup?.button_text || 'OK'}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

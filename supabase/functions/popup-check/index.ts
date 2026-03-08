@@ -65,6 +65,7 @@ Deno.serve(async (req) => {
         image_url: p.image_url,
         button_text: p.button_text,
         button_url: p.button_url,
+        custom_html: p.custom_html,
         style: p.style,
       }));
 
