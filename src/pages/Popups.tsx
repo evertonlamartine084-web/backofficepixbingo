@@ -293,7 +293,7 @@ export default function Popups() {
 
       {/* Create Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className={form.mode === 'widget' ? 'max-w-2xl max-h-[90vh] overflow-y-auto' : 'max-w-lg max-h-[90vh] overflow-y-auto'}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo Popup</DialogTitle>
           </DialogHeader>
