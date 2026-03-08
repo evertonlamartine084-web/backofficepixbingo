@@ -91,6 +91,7 @@ export default function Popups() {
     button_url: '',
     custom_html: '',
     segment_id: '',
+    persistent: false,
     start_date: undefined as Date | undefined,
     end_date: undefined as Date | undefined,
   });
