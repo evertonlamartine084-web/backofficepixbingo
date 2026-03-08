@@ -304,12 +304,9 @@ export default function Popups() {
             </div>
             <div>
               <Label className="text-xs mb-2 block">Modo do conteúdo</Label>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2">
                 <Button type="button" variant={form.mode === 'simple' ? 'default' : 'outline'} size="sm" className="gap-2" onClick={() => setForm(f => ({ ...f, mode: 'simple' }))}>
                   <Type className="w-4 h-4" /> Simples
-                </Button>
-                <Button type="button" variant={form.mode === 'widget' ? 'default' : 'outline'} size="sm" className="gap-2" onClick={() => setForm(f => ({ ...f, mode: 'widget', persistent: true }))}>
-                  <Layout className="w-4 h-4" /> Widget
                 </Button>
                 <Button type="button" variant={form.mode === 'html' ? 'default' : 'outline'} size="sm" className="gap-2" onClick={() => setForm(f => ({ ...f, mode: 'html' }))}>
                   <Code className="w-4 h-4" /> HTML / CSS / JS
@@ -341,8 +338,6 @@ export default function Popups() {
                   <Input value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} placeholder="https://..." className="mt-1" />
                 </div>
               </>
-            ) : form.mode === 'widget' ? (
-              <WidgetBuilder config={widgetConfig} onChange={setWidgetConfig} />
             ) : (
               <div>
                 <Label className="text-xs">HTML / CSS / JS customizado</Label>
