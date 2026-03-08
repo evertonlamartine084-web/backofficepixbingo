@@ -145,6 +145,7 @@ export default function Popups() {
         button_url: form.mode === 'simple' ? (form.button_url || null) : null,
         custom_html: form.mode === 'html' ? form.custom_html : null,
         segment_id: form.segment_id || null,
+        persistent: form.persistent,
         start_date: form.start_date.toISOString(),
         end_date: form.end_date.toISOString(),
       } as any);
