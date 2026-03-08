@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.popup-check]
 verify_jwt = false
+
+[functions.player-profile]
+verify_jwt = false
