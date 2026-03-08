@@ -30,6 +30,7 @@ interface Popup {
   start_date: string;
   end_date: string;
   active: boolean;
+  persistent: boolean;
   style: Record<string, any>;
   created_at: string;
   segment_name?: string;
