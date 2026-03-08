@@ -258,27 +258,54 @@ export default function Popups() {
               <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Promo março" className="mt-1" />
             </div>
             <div>
-              <Label className="text-xs">Título do popup</Label>
-              <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: 🎉 Bônus Especial!" className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs">Mensagem</Label>
-              <Textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} placeholder="Texto do popup..." rows={3} className="mt-1" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Texto do botão</Label>
-                <Input value={form.button_text} onChange={e => setForm(f => ({ ...f, button_text: e.target.value }))} className="mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs">URL do botão (opcional)</Label>
-                <Input value={form.button_url} onChange={e => setForm(f => ({ ...f, button_url: e.target.value }))} placeholder="https://..." className="mt-1" />
+              <Label className="text-xs mb-2 block">Modo do conteúdo</Label>
+              <div className="flex gap-2">
+                <Button type="button" variant={form.mode === 'simple' ? 'default' : 'outline'} size="sm" className="gap-2" onClick={() => setForm(f => ({ ...f, mode: 'simple' }))}>
+                  <Type className="w-4 h-4" /> Simples
+                </Button>
+                <Button type="button" variant={form.mode === 'html' ? 'default' : 'outline'} size="sm" className="gap-2" onClick={() => setForm(f => ({ ...f, mode: 'html' }))}>
+                  <Code className="w-4 h-4" /> HTML / CSS / JS
+                </Button>
               </div>
             </div>
-            <div>
-              <Label className="text-xs">URL da imagem (opcional)</Label>
-              <Input value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} placeholder="https://..." className="mt-1" />
-            </div>
+            {form.mode === 'simple' ? (
+              <>
+                <div>
+                  <Label className="text-xs">Título do popup</Label>
+                  <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Ex: 🎉 Bônus Especial!" className="mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs">Mensagem</Label>
+                  <Textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} placeholder="Texto do popup..." rows={3} className="mt-1" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Texto do botão</Label>
+                    <Input value={form.button_text} onChange={e => setForm(f => ({ ...f, button_text: e.target.value }))} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">URL do botão (opcional)</Label>
+                    <Input value={form.button_url} onChange={e => setForm(f => ({ ...f, button_url: e.target.value }))} placeholder="https://..." className="mt-1" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">URL da imagem (opcional)</Label>
+                  <Input value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} placeholder="https://..." className="mt-1" />
+                </div>
+              </>
+            ) : (
+              <div>
+                <Label className="text-xs">HTML / CSS / JS customizado</Label>
+                <Textarea
+                  value={form.custom_html}
+                  onChange={e => setForm(f => ({ ...f, custom_html: e.target.value }))}
+                  placeholder={'<div style="text-align:center; padding:20px;">\n  <h2>🎉 Promoção!</h2>\n  <p>Deposite agora e ganhe bônus</p>\n  <button onclick="window.location=\'/deposito\'">Depositar</button>\n</div>'}
+                  rows={10}
+                  className="mt-1 font-mono text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">Cole aqui o HTML completo do popup. Pode incluir &lt;style&gt; e &lt;script&gt;.</p>
+              </div>
+            )}
             <div>
               <Label className="text-xs">Segmento (vazio = todos os jogadores)</Label>
               <Select value={form.segment_id} onValueChange={v => setForm(f => ({ ...f, segment_id: v === '__none__' ? '' : v }))}>
