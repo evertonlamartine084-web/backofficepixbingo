@@ -42,11 +42,13 @@ export default function Popups() {
   const [previewPopup, setPreviewPopup] = useState<Popup | null>(null);
   const [form, setForm] = useState({
     name: '',
+    mode: 'simple' as 'simple' | 'html',
     title: '',
     message: '',
     image_url: '',
     button_text: 'OK',
     button_url: '',
+    custom_html: '',
     segment_id: '',
     start_date: undefined as Date | undefined,
     end_date: undefined as Date | undefined,
