@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, CalendarIcon, Code, Type, Pin, Layout } from 'lucide-react';
-import { WidgetBuilder, defaultWidgetConfig, generateWidgetHtml, type WidgetConfig } from '@/components/WidgetBuilder';
+import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, CalendarIcon, Code, Type, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -84,7 +83,7 @@ export default function Popups() {
   const [previewPopup, setPreviewPopup] = useState<Popup | null>(null);
   const [form, setForm] = useState({
     name: '',
-    mode: 'simple' as 'simple' | 'html' | 'widget',
+    mode: 'simple' as 'simple' | 'html',
     title: '',
     message: '',
     image_url: '',
@@ -96,7 +95,6 @@ export default function Popups() {
     start_date: undefined as Date | undefined,
     end_date: undefined as Date | undefined,
   });
-  const [widgetConfig, setWidgetConfig] = useState<WidgetConfig>(defaultWidgetConfig);
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const endpointUrl = `https://${projectId}.supabase.co/functions/v1/popup-check?cpf=INSERIR_CPF`;
@@ -138,10 +136,6 @@ export default function Popups() {
       if (!form.name || !form.start_date || !form.end_date) throw new Error('Preencha os campos obrigatórios');
       if (form.mode === 'simple' && !form.title) throw new Error('Preencha o título');
       if (form.mode === 'html' && !form.custom_html) throw new Error('Preencha o HTML');
-
-      const isWidget = form.mode === 'widget';
-      const generatedHtml = isWidget ? generateWidgetHtml(widgetConfig) : null;
-
       const { error } = await supabase.from('popups').insert({
         name: form.name,
         title: form.mode === 'simple' ? form.title : form.name,
@@ -149,9 +143,9 @@ export default function Popups() {
         image_url: form.mode === 'simple' ? (form.image_url || null) : null,
         button_text: form.mode === 'simple' ? (form.button_text || 'OK') : '',
         button_url: form.mode === 'simple' ? (form.button_url || null) : null,
-        custom_html: isWidget ? generatedHtml : (form.mode === 'html' ? form.custom_html : null),
+        custom_html: form.mode === 'html' ? form.custom_html : null,
         segment_id: form.segment_id || null,
-        persistent: isWidget ? true : form.persistent,
+        persistent: form.persistent,
         start_date: form.start_date.toISOString(),
         end_date: form.end_date.toISOString(),
       } as any);
@@ -188,13 +182,10 @@ export default function Popups() {
     },
   });
 
-  const resetForm = () => {
-    setForm({
-      name: '', mode: 'simple', title: '', message: '', image_url: '', button_text: 'OK',
-      button_url: '', custom_html: '', segment_id: '', persistent: false, start_date: undefined, end_date: undefined,
-    });
-    setWidgetConfig(defaultWidgetConfig);
-  };
+  const resetForm = () => setForm({
+    name: '', mode: 'simple', title: '', message: '', image_url: '', button_text: 'OK',
+    button_url: '', custom_html: '', segment_id: '', persistent: false, start_date: undefined, end_date: undefined,
+  });
 
   const copyEndpoint = () => {
     navigator.clipboard.writeText(endpointUrl);
@@ -302,7 +293,7 @@ export default function Popups() {
 
       {/* Create Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className={form.mode === 'widget' ? 'max-w-2xl max-h-[90vh] overflow-y-auto' : 'max-w-lg max-h-[90vh] overflow-y-auto'}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo Popup</DialogTitle>
           </DialogHeader>
@@ -313,12 +304,9 @@ export default function Popups() {
             </div>
             <div>
               <Label className="text-xs mb-2 block">Modo do conteúdo</Label>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2">
                 <Button type="button" variant={form.mode === 'simple' ? 'default' : 'outline'} size="sm" className="gap-2" onClick={() => setForm(f => ({ ...f, mode: 'simple' }))}>
                   <Type className="w-4 h-4" /> Simples
-                </Button>
-                <Button type="button" variant={form.mode === 'widget' ? 'default' : 'outline'} size="sm" className="gap-2" onClick={() => setForm(f => ({ ...f, mode: 'widget', persistent: true }))}>
-                  <Layout className="w-4 h-4" /> Widget
                 </Button>
                 <Button type="button" variant={form.mode === 'html' ? 'default' : 'outline'} size="sm" className="gap-2" onClick={() => setForm(f => ({ ...f, mode: 'html' }))}>
                   <Code className="w-4 h-4" /> HTML / CSS / JS
@@ -350,8 +338,6 @@ export default function Popups() {
                   <Input value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} placeholder="https://..." className="mt-1" />
                 </div>
               </>
-            ) : form.mode === 'widget' ? (
-              <WidgetBuilder config={widgetConfig} onChange={setWidgetConfig} />
             ) : (
               <div>
                 <Label className="text-xs">HTML / CSS / JS customizado</Label>
@@ -377,15 +363,13 @@ export default function Popups() {
                 </SelectContent>
               </Select>
             </div>
-            {form.mode !== 'widget' && (
-              <div className="flex items-center justify-between rounded-lg border border-border p-3">
-                <div>
-                  <Label className="text-xs font-medium">Widget persistente</Label>
-                  <p className="text-[10px] text-muted-foreground">Mantém visível em todas as páginas (botão flutuante, banner, etc)</p>
-                </div>
-                <Switch checked={form.persistent} onCheckedChange={v => setForm(f => ({ ...f, persistent: v }))} />
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div>
+                <Label className="text-xs font-medium">Widget persistente</Label>
+                <p className="text-[10px] text-muted-foreground">Mantém visível em todas as páginas (botão flutuante, banner, etc)</p>
               </div>
-            )}
+              <Switch checked={form.persistent} onCheckedChange={v => setForm(f => ({ ...f, persistent: v }))} />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Início</Label>
