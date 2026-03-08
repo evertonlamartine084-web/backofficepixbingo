@@ -3,10 +3,20 @@ import {
   LayoutDashboard, Globe,
   LogOut, ChevronRight, ChevronDown, Zap, Radar, UserSearch,
   ArrowUpDown, ListFilter, ShieldCheck, Megaphone, Gamepad2,
-  MessageSquare, Mail, Bell, Trophy, ShoppingBag, Package
+  MessageSquare, Mail, Bell, Trophy, ShoppingBag, Package,
+  User, CreditCard, Wallet, FileText, Settings
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -31,6 +41,13 @@ const adminItems = [
   { to: '/admin/manage-users', icon: ShieldCheck, label: 'Gestão de Usuários' },
 ];
 
+const profileQuickLinks = [
+  { to: '/assets/inbox', icon: Mail, label: 'Notificações' },
+  { to: '/assets/levels', icon: Trophy, label: 'Níveis' },
+  { to: '/assets/store', icon: ShoppingBag, label: 'Loja' },
+  { to: '/transactions', icon: FileText, label: 'Extrato' },
+];
+
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -43,6 +60,10 @@ export function AppSidebar() {
     await signOut();
     navigate('/login');
   };
+
+  const userInitials = user?.email
+    ? user.email.substring(0, 2).toUpperCase()
+    : 'U';
 
   const linkClass = (path: string) => {
     const active = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
@@ -132,17 +153,51 @@ export function AppSidebar() {
         </div>
       </nav>
 
+      {/* Profile dropdown footer */}
       <div className="p-3 border-t border-sidebar-border">
-        {user && (
-          <p className="px-3 pb-2 text-[10px] text-muted-foreground truncate">{user.email}</p>
-        )}
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full"
-        >
-          <LogOut className="w-4 h-4" />
-          Sair
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm w-full hover:bg-secondary transition-colors">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-primary/15 text-primary text-xs font-bold">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 text-left min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {user?.email?.split('@')[0] ?? 'Usuário'}
+                </p>
+                <p className="text-[10px] text-muted-foreground truncate">{user?.email}</p>
+              </div>
+              <ChevronRight className="w-3 h-3 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="start" className="w-56 mb-1">
+            <DropdownMenuLabel className="font-normal">
+              <p className="text-sm font-medium">{user?.email?.split('@')[0]}</p>
+              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {profileQuickLinks.map((item) => (
+              <DropdownMenuItem
+                key={item.to}
+                className="cursor-pointer gap-2"
+                onClick={() => navigate(item.to)}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="cursor-pointer gap-2 text-destructive focus:text-destructive"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4" />
+              Sair
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   );
