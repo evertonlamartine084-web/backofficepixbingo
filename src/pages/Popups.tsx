@@ -362,6 +362,9 @@ export default function Popups() {
       {/* Preview Dialog */}
       <Dialog open={!!previewPopup} onOpenChange={() => setPreviewPopup(null)}>
         <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Preview: {previewPopup?.name}</DialogTitle>
+          </DialogHeader>
           {previewPopup?.custom_html ? (
             <div className="py-2">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Preview HTML</p>
