@@ -84,7 +84,7 @@ export default function Popups() {
   const [previewPopup, setPreviewPopup] = useState<Popup | null>(null);
   const [form, setForm] = useState({
     name: '',
-    mode: 'simple' as 'simple' | 'html',
+    mode: 'simple' as 'simple' | 'html' | 'widget',
     title: '',
     message: '',
     image_url: '',
@@ -96,6 +96,7 @@ export default function Popups() {
     start_date: undefined as Date | undefined,
     end_date: undefined as Date | undefined,
   });
+  const [widgetConfig, setWidgetConfig] = useState<WidgetConfig>(defaultWidgetConfig);
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const endpointUrl = `https://${projectId}.supabase.co/functions/v1/popup-check?cpf=INSERIR_CPF`;
