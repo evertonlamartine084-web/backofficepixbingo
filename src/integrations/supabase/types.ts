@@ -494,6 +494,95 @@ export type Database = {
         }
         Relationships: []
       }
+      inbox_messages: {
+        Row: {
+          active: boolean
+          button_text: string | null
+          button_url: string | null
+          created_at: string
+          end_date: string
+          id: string
+          image_url: string | null
+          message: string
+          segment_id: string | null
+          start_date: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          button_text?: string | null
+          button_url?: string | null
+          created_at?: string
+          end_date: string
+          id?: string
+          image_url?: string | null
+          message?: string
+          segment_id?: string | null
+          start_date?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          button_text?: string | null
+          button_url?: string | null
+          created_at?: string
+          end_date?: string
+          id?: string
+          image_url?: string | null
+          message?: string
+          segment_id?: string | null
+          start_date?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_messages_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_levels: {
+        Row: {
+          color: string | null
+          created_at: string
+          icon_url: string | null
+          id: string
+          level_number: number
+          min_xp: number
+          name: string
+          rewards_description: string | null
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          level_number: number
+          min_xp?: number
+          name: string
+          rewards_description?: string | null
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          level_number?: number
+          min_xp?: number
+          name?: string
+          rewards_description?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       popups: {
         Row: {
           active: boolean
@@ -559,6 +648,56 @@ export type Database = {
           },
         ]
       }
+      push_notifications: {
+        Row: {
+          action_url: string | null
+          created_at: string
+          icon_url: string | null
+          id: string
+          message: string
+          scheduled_at: string
+          segment_id: string | null
+          sent_count: number
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action_url?: string | null
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          message?: string
+          scheduled_at?: string
+          segment_id?: string | null
+          sent_count?: number
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action_url?: string | null
+          created_at?: string
+          icon_url?: string | null
+          id?: string
+          message?: string
+          scheduled_at?: string
+          segment_id?: string | null
+          sent_count?: number
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_notifications_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       segment_items: {
         Row: {
           cpf: string
@@ -611,6 +750,51 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      store_items: {
+        Row: {
+          active: boolean
+          category: string
+          created_at: string
+          description: string
+          id: string
+          image_url: string | null
+          min_level: number
+          name: string
+          price_coins: number
+          price_xp: number
+          stock: number | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          min_level?: number
+          name: string
+          price_coins?: number
+          price_xp?: number
+          stock?: number | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          min_level?: number
+          name?: string
+          price_coins?: number
+          price_xp?: number
+          stock?: number | null
           updated_at?: string
         }
         Relationships: []
