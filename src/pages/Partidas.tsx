@@ -174,7 +174,7 @@ export default function Partidas() {
                   <tr className="border-b border-border text-muted-foreground">
                     <th className="text-left py-3 px-3 font-medium">ID</th>
                     <th className="text-left py-3 px-3 font-medium">Data/Hora</th>
-                    <th className="text-left py-3 px-3 font-medium">Tipo</th>
+                    <th className="text-left py-3 px-3 font-medium min-w-[170px]">Tipo</th>
                     <th className="text-right py-3 px-3 font-medium">Cartela</th>
                     <th className="text-right py-3 px-3 font-medium">Quadra</th>
                     <th className="text-right py-3 px-3 font-medium">Quina</th>
@@ -198,9 +198,9 @@ export default function Partidas() {
                           <div className="font-medium text-foreground text-xs">{p.data_partida_f}</div>
                           <div className="text-muted-foreground text-xs">{p.hora_partida_f}</div>
                         </td>
-                        <td className="py-3 px-3">
-                          <Badge variant="outline" className="text-xs font-normal">
-                            {p.tipo_partida}
+                        <td className="py-3 px-3 whitespace-nowrap min-w-[170px]">
+                          <Badge variant="outline" className="text-xs font-normal whitespace-nowrap px-3">
+                            {String(p.tipo_partida || '').replace(/\s+/g, ' ').trim()}
                           </Badge>
                         </td>
                         <td className="py-3 px-3 text-right font-mono text-xs text-foreground">
