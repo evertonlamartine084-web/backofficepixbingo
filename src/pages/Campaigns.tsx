@@ -377,7 +377,7 @@ export default function Campaigns() {
   };
 
   const resetForm = () => setForm({
-    name: '', type: 'aposte_e_ganhe', description: '', segment_id: '',
+    name: '', type: 'aposte_e_ganhe', description: '', segment_id: '', popup_id: '',
     min_value: '', prize_value: '', prize_description: '', wallet_type: 'REAL',
     metric: 'valor', game_filter: '', start_date: undefined, end_date: undefined,
   });
