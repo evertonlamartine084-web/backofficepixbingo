@@ -243,6 +243,29 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // If popup_id is set, filter to only CPFs that clicked the popup (opt-in)
+    let eligibleCpfs = segmentItems;
+    if (campaign.popup_id) {
+      const { data: clickEvents } = await supabase
+        .from('popup_events')
+        .select('cpf, cpf_masked')
+        .eq('popup_id', campaign.popup_id)
+        .eq('event_type', 'click');
+
+      if (!clickEvents?.length) {
+        return new Response(JSON.stringify({ success: true, data: { processed: 0, eligible: 0, credited: 0, errors: 0, message: 'Nenhum jogador fez opt-in (clicou no popup)' } }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      const clickedCpfs = new Set(clickEvents.map(e => e.cpf));
+      eligibleCpfs = segmentItems.filter(si => clickedCpfs.has(si.cpf));
+
+      if (!eligibleCpfs.length) {
+        return new Response(JSON.stringify({ success: true, data: { processed: 0, eligible: 0, credited: 0, errors: 0, message: 'Nenhum jogador do segmento fez opt-in no popup' } }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
+
     // Login to platform
     const auth = await doLogin(username, password);
     if (!auth.success) {
@@ -275,7 +298,7 @@ Deno.serve(async (req) => {
     const endDt = toFortaleza(campaign.end_date);
 
     // Upsert participants
-    const participantsToUpsert = segmentItems.map(si => ({
+    const participantsToUpsert = eligibleCpfs.map(si => ({
       campaign_id,
       cpf: si.cpf,
       cpf_masked: si.cpf_masked,
