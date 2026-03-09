@@ -101,6 +101,7 @@ export default function Popups() {
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const endpointUrl = `https://${projectId}.supabase.co/functions/v1/popup-check?cpf=INSERIR_CPF`;
+  const eventEndpointUrl = `https://${projectId}.supabase.co/functions/v1/popup-event`;
 
   const { data: popups = [], isLoading } = useQuery({
     queryKey: ['popups'],
