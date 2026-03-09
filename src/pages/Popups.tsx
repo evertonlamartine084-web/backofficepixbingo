@@ -276,7 +276,6 @@ export default function Popups() {
               Envie um POST com JSON: <code className="text-primary">{'{"popup_id": "...", "cpf": "...", "event_type": "view|click"}'}</code>
             </p>
           </div>
-          </p>
         </CardContent>
       </Card>
 
