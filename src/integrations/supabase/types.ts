@@ -583,6 +583,41 @@ export type Database = {
         }
         Relationships: []
       }
+      popup_events: {
+        Row: {
+          cpf: string
+          cpf_masked: string
+          created_at: string
+          event_type: string
+          id: string
+          popup_id: string
+        }
+        Insert: {
+          cpf: string
+          cpf_masked: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          popup_id: string
+        }
+        Update: {
+          cpf?: string
+          cpf_masked?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          popup_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "popup_events_popup_id_fkey"
+            columns: ["popup_id"]
+            isOneToOne: false
+            referencedRelation: "popups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       popups: {
         Row: {
           active: boolean
