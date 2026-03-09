@@ -309,6 +309,9 @@ export default function Popups() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setStatsPopup(p)}>
+                      <BarChart3 className="w-4 h-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewPopup(p)}>
                       <Eye className="w-4 h-4" />
                     </Button>
