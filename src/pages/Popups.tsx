@@ -83,6 +83,7 @@ export default function Popups() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [previewPopup, setPreviewPopup] = useState<Popup | null>(null);
+  const [statsPopup, setStatsPopup] = useState<Popup | null>(null);
   const [form, setForm] = useState({
     name: '',
     mode: 'simple' as 'simple' | 'html',
