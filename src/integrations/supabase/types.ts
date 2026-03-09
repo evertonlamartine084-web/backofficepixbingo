@@ -254,6 +254,7 @@ export type Database = {
           metric: string
           min_value: number
           name: string
+          popup_id: string | null
           prize_description: string | null
           prize_value: number
           segment_id: string | null
@@ -272,6 +273,7 @@ export type Database = {
           metric?: string
           min_value?: number
           name: string
+          popup_id?: string | null
           prize_description?: string | null
           prize_value?: number
           segment_id?: string | null
@@ -290,6 +292,7 @@ export type Database = {
           metric?: string
           min_value?: number
           name?: string
+          popup_id?: string | null
           prize_description?: string | null
           prize_value?: number
           segment_id?: string | null
@@ -300,6 +303,13 @@ export type Database = {
           wallet_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "campaigns_popup_id_fkey"
+            columns: ["popup_id"]
+            isOneToOne: false
+            referencedRelation: "popups"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "campaigns_segment_id_fkey"
             columns: ["segment_id"]

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { Plus, Megaphone, Trash2, CalendarIcon, Dices, Landmark, Play, Loader2, Eye, ChevronLeft } from 'lucide-react';
+import { Plus, Megaphone, Trash2, CalendarIcon, Dices, Landmark, Play, Loader2, Eye, ChevronLeft, MousePointer } from 'lucide-react';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,6 +55,7 @@ interface Campaign {
   type: CampaignType;
   description: string;
   segment_id: string | null;
+  popup_id: string | null;
   min_value: number;
   prize_value: number;
   prize_description: string;
@@ -64,6 +65,7 @@ interface Campaign {
   created_at: string;
   wallet_type: 'REAL' | 'BONUS';
   segment_name?: string;
+  popup_name?: string;
 }
 
 interface Participant {
@@ -91,6 +93,7 @@ export default function Campaigns() {
     type: 'aposte_e_ganhe' as CampaignType,
     description: '',
     segment_id: '',
+    popup_id: '',
     min_value: '',
     prize_value: '',
     prize_description: '',
@@ -108,14 +111,21 @@ export default function Campaigns() {
         .from('campaigns').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       const segmentIds = [...new Set((data as any[]).filter(c => c.segment_id).map(c => c.segment_id))];
+      const popupIds = [...new Set((data as any[]).filter(c => c.popup_id).map(c => c.popup_id))];
       let segmentMap: Record<string, string> = {};
+      let popupMap: Record<string, string> = {};
       if (segmentIds.length > 0) {
         const { data: segments } = await supabase.from('segments').select('id, name').in('id', segmentIds);
         if (segments) segmentMap = Object.fromEntries(segments.map(s => [s.id, s.name]));
       }
+      if (popupIds.length > 0) {
+        const { data: popups } = await supabase.from('popups').select('id, name').in('id', popupIds);
+        if (popups) popupMap = Object.fromEntries(popups.map(p => [p.id, p.name]));
+      }
       return (data as any[]).map(c => ({
         ...c,
         segment_name: c.segment_id ? segmentMap[c.segment_id] || '—' : null,
+        popup_name: c.popup_id ? popupMap[c.popup_id] || '—' : null,
       })) as Campaign[];
     },
   });
@@ -124,6 +134,15 @@ export default function Campaigns() {
     queryKey: ['segments-list'],
     queryFn: async () => {
       const { data, error } = await supabase.from('segments').select('id, name').order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: popupsList = [] } = useQuery({
+    queryKey: ['popups-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('popups').select('id, name').order('name');
       if (error) throw error;
       return data;
     },
@@ -205,6 +224,7 @@ export default function Campaigns() {
       const { error } = await supabase.from('campaigns').insert({
         name: form.name, type: form.type, description: form.description,
         segment_id: form.segment_id || null,
+        popup_id: form.popup_id || null,
         min_value: Number(form.min_value) || 0, prize_value: Number(form.prize_value) || 0,
         prize_description: form.prize_description,
         wallet_type: form.wallet_type,
@@ -374,7 +394,7 @@ export default function Campaigns() {
   };
 
   const resetForm = () => setForm({
-    name: '', type: 'aposte_e_ganhe', description: '', segment_id: '',
+    name: '', type: 'aposte_e_ganhe', description: '', segment_id: '', popup_id: '',
     min_value: '', prize_value: '', prize_description: '', wallet_type: 'REAL',
     metric: 'valor', game_filter: '', start_date: undefined, end_date: undefined,
   });
@@ -399,7 +419,10 @@ export default function Campaigns() {
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold tracking-tight">{selectedCampaign.name}</h1>
-            <p className="text-sm text-muted-foreground">{TYPE_LABELS[selectedCampaign.type]} • {selectedCampaign.segment_name || 'Sem segmento'}</p>
+            <p className="text-sm text-muted-foreground">
+              {TYPE_LABELS[selectedCampaign.type]} • {selectedCampaign.segment_name || 'Sem segmento'}
+              {selectedCampaign.popup_name && <> • <MousePointer className="w-3 h-3 inline" /> Opt-in: {selectedCampaign.popup_name}</>}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             {autoProcessing.has(selectedCampaign.id) && (
@@ -598,6 +621,17 @@ export default function Campaigns() {
                     </Select>
                   </div>
                 )}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs flex items-center gap-1"><MousePointer className="w-3 h-3" /> Opt-in via Popup (opcional)</Label>
+                <Select value={form.popup_id} onValueChange={v => setForm(f => ({ ...f, popup_id: v === '__none__' ? '' : v }))}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Sem opt-in" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sem opt-in (todos do segmento)</SelectItem>
+                    {popupsList.map(p => (<SelectItem key={p.id} value={p.id}>🖱 {p.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground">Se selecionado, somente jogadores que clicaram neste popup participam.</p>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
