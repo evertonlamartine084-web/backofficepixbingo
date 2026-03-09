@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.player-profile]
 verify_jwt = false
+
+[functions.popup-event]
+verify_jwt = false
