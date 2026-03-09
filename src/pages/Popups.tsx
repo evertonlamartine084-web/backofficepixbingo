@@ -303,6 +303,9 @@ export default function Popups() {
                       <span>Segmento: {p.segment_name || 'Todos'}</span>
                       <span>•</span>
                       <span>{new Date(p.start_date).toLocaleDateString('pt-BR')} → {new Date(p.end_date).toLocaleDateString('pt-BR')}</span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {eventCounts[p.id]?.views || 0}</span>
+                      <span className="flex items-center gap-1"><MousePointer className="w-3 h-3" /> {eventCounts[p.id]?.clicks || 0}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
