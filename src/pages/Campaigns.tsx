@@ -111,14 +111,21 @@ export default function Campaigns() {
         .from('campaigns').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       const segmentIds = [...new Set((data as any[]).filter(c => c.segment_id).map(c => c.segment_id))];
+      const popupIds = [...new Set((data as any[]).filter(c => c.popup_id).map(c => c.popup_id))];
       let segmentMap: Record<string, string> = {};
+      let popupMap: Record<string, string> = {};
       if (segmentIds.length > 0) {
         const { data: segments } = await supabase.from('segments').select('id, name').in('id', segmentIds);
         if (segments) segmentMap = Object.fromEntries(segments.map(s => [s.id, s.name]));
       }
+      if (popupIds.length > 0) {
+        const { data: popups } = await supabase.from('popups').select('id, name').in('id', popupIds);
+        if (popups) popupMap = Object.fromEntries(popups.map(p => [p.id, p.name]));
+      }
       return (data as any[]).map(c => ({
         ...c,
         segment_name: c.segment_id ? segmentMap[c.segment_id] || '—' : null,
+        popup_name: c.popup_id ? popupMap[c.popup_id] || '—' : null,
       })) as Campaign[];
     },
   });
@@ -127,6 +134,15 @@ export default function Campaigns() {
     queryKey: ['segments-list'],
     queryFn: async () => {
       const { data, error } = await supabase.from('segments').select('id, name').order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: popupsList = [] } = useQuery({
+    queryKey: ['popups-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('popups').select('id, name').order('name');
       if (error) throw error;
       return data;
     },
