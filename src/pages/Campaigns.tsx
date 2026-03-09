@@ -224,6 +224,7 @@ export default function Campaigns() {
       const { error } = await supabase.from('campaigns').insert({
         name: form.name, type: form.type, description: form.description,
         segment_id: form.segment_id || null,
+        popup_id: form.popup_id || null,
         min_value: Number(form.min_value) || 0, prize_value: Number(form.prize_value) || 0,
         prize_description: form.prize_description,
         wallet_type: form.wallet_type,
