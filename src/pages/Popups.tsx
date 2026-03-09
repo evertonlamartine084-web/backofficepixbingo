@@ -267,6 +267,16 @@ export default function Popups() {
           <p className="text-[11px] text-muted-foreground mt-2">
             O GTM deve fazer um GET neste endpoint substituindo <code className="text-primary">INSERIR_CPF</code> pelo CPF do jogador logado. Retorna os popups ativos para aquele jogador.
           </p>
+          <div className="mt-3 pt-3 border-t border-border/50">
+            <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
+              <BarChart3 className="w-3 h-3 inline mr-1" /> Endpoint de Tracking (POST)
+            </p>
+            <code className="text-xs text-muted-foreground break-all font-mono">{eventEndpointUrl}</code>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Envie um POST com JSON: <code className="text-primary">{'{"popup_id": "...", "cpf": "...", "event_type": "view|click"}'}</code>
+            </p>
+          </div>
+          </p>
         </CardContent>
       </Card>
 
