@@ -619,6 +619,17 @@ export default function Campaigns() {
                   </div>
                 )}
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs flex items-center gap-1"><MousePointer className="w-3 h-3" /> Opt-in via Popup (opcional)</Label>
+                <Select value={form.popup_id} onValueChange={v => setForm(f => ({ ...f, popup_id: v === '__none__' ? '' : v }))}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Sem opt-in" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sem opt-in (todos do segmento)</SelectItem>
+                    {popupsList.map(p => (<SelectItem key={p.id} value={p.id}>🖱 {p.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground">Se selecionado, somente jogadores que clicaram neste popup participam.</p>
+              </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">
