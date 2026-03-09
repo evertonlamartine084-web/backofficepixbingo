@@ -485,6 +485,84 @@ export default function Popups() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Stats Dialog */}
+      <Dialog open={!!statsPopup} onOpenChange={() => setStatsPopup(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-primary" /> Estatísticas: {statsPopup?.name}
+            </DialogTitle>
+            <DialogDescription>Visualizações e cliques registrados para este popup.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <Card className="border-border">
+              <CardContent className="p-4 text-center">
+                <Eye className="w-5 h-5 mx-auto text-muted-foreground mb-1" />
+                <p className="text-2xl font-bold">{eventCounts[statsPopup?.id || '']?.views || 0}</p>
+                <p className="text-xs text-muted-foreground">Visualizações</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border">
+              <CardContent className="p-4 text-center">
+                <MousePointer className="w-5 h-5 mx-auto text-muted-foreground mb-1" />
+                <p className="text-2xl font-bold">{eventCounts[statsPopup?.id || '']?.clicks || 0}</p>
+                <p className="text-xs text-muted-foreground">Cliques</p>
+              </CardContent>
+            </Card>
+          </div>
+          <Tabs defaultValue="views">
+            <TabsList className="w-full">
+              <TabsTrigger value="views" className="flex-1 gap-1"><Eye className="w-3 h-3" /> Quem viu</TabsTrigger>
+              <TabsTrigger value="clicks" className="flex-1 gap-1"><MousePointer className="w-3 h-3" /> Quem clicou</TabsTrigger>
+            </TabsList>
+            <TabsContent value="views">
+              {statsLoading ? <p className="text-sm text-muted-foreground text-center py-4">Carregando...</p> : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">CPF</TableHead>
+                      <TableHead className="text-xs">Data</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {statsEvents.filter(e => e.event_type === 'view').length === 0 ? (
+                      <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground text-xs">Nenhuma visualização</TableCell></TableRow>
+                    ) : statsEvents.filter(e => e.event_type === 'view').map((e, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs font-mono">{e.cpf_masked}</TableCell>
+                        <TableCell className="text-xs">{new Date(e.created_at).toLocaleString('pt-BR')}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+            <TabsContent value="clicks">
+              {statsLoading ? <p className="text-sm text-muted-foreground text-center py-4">Carregando...</p> : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">CPF</TableHead>
+                      <TableHead className="text-xs">Data</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {statsEvents.filter(e => e.event_type === 'click').length === 0 ? (
+                      <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground text-xs">Nenhum clique</TableCell></TableRow>
+                    ) : statsEvents.filter(e => e.event_type === 'click').map((e, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs font-mono">{e.cpf_masked}</TableCell>
+                        <TableCell className="text-xs">{new Date(e.created_at).toLocaleString('pt-BR')}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
