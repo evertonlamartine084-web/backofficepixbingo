@@ -419,7 +419,10 @@ export default function Campaigns() {
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold tracking-tight">{selectedCampaign.name}</h1>
-            <p className="text-sm text-muted-foreground">{TYPE_LABELS[selectedCampaign.type]} • {selectedCampaign.segment_name || 'Sem segmento'}</p>
+            <p className="text-sm text-muted-foreground">
+              {TYPE_LABELS[selectedCampaign.type]} • {selectedCampaign.segment_name || 'Sem segmento'}
+              {selectedCampaign.popup_name && <> • <MousePointer className="w-3 h-3 inline" /> Opt-in: {selectedCampaign.popup_name}</>}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             {autoProcessing.has(selectedCampaign.id) && (
