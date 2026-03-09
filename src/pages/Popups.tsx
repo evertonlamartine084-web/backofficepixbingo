@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, CalendarIcon, Code, Type, Pin } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, CalendarIcon, Code, Type, Pin, MousePointer, Users, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -81,6 +83,7 @@ export default function Popups() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [previewPopup, setPreviewPopup] = useState<Popup | null>(null);
+  const [statsPopup, setStatsPopup] = useState<Popup | null>(null);
   const [form, setForm] = useState({
     name: '',
     mode: 'simple' as 'simple' | 'html',
@@ -98,6 +101,7 @@ export default function Popups() {
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const endpointUrl = `https://${projectId}.supabase.co/functions/v1/popup-check?cpf=INSERIR_CPF`;
+  const eventEndpointUrl = `https://${projectId}.supabase.co/functions/v1/popup-event`;
 
   const { data: popups = [], isLoading } = useQuery({
     queryKey: ['popups'],
@@ -128,6 +132,39 @@ export default function Popups() {
       const { data, error } = await supabase.from('segments').select('id, name').order('name');
       if (error) throw error;
       return data;
+    },
+  });
+
+  // Fetch event counts per popup
+  const { data: eventCounts = {} } = useQuery({
+    queryKey: ['popup-event-counts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('popup_events')
+        .select('popup_id, event_type');
+      if (error) throw error;
+      const counts: Record<string, { views: number; clicks: number }> = {};
+      for (const row of (data || [])) {
+        if (!counts[row.popup_id]) counts[row.popup_id] = { views: 0, clicks: 0 };
+        if (row.event_type === 'view') counts[row.popup_id].views++;
+        else if (row.event_type === 'click') counts[row.popup_id].clicks++;
+      }
+      return counts;
+    },
+  });
+
+  // Fetch detail events for selected popup
+  const { data: statsEvents = [], isLoading: statsLoading } = useQuery({
+    queryKey: ['popup-events-detail', statsPopup?.id],
+    enabled: !!statsPopup,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('popup_events')
+        .select('cpf_masked, event_type, created_at')
+        .eq('popup_id', statsPopup!.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
     },
   });
 
@@ -230,6 +267,15 @@ export default function Popups() {
           <p className="text-[11px] text-muted-foreground mt-2">
             O GTM deve fazer um GET neste endpoint substituindo <code className="text-primary">INSERIR_CPF</code> pelo CPF do jogador logado. Retorna os popups ativos para aquele jogador.
           </p>
+          <div className="mt-3 pt-3 border-t border-border/50">
+            <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
+              <BarChart3 className="w-3 h-3 inline mr-1" /> Endpoint de Tracking (POST)
+            </p>
+            <code className="text-xs text-muted-foreground break-all font-mono">{eventEndpointUrl}</code>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Envie um POST com JSON: <code className="text-primary">{'{"popup_id": "...", "cpf": "...", "event_type": "view|click"}'}</code>
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -267,9 +313,15 @@ export default function Popups() {
                       <span>Segmento: {p.segment_name || 'Todos'}</span>
                       <span>•</span>
                       <span>{new Date(p.start_date).toLocaleDateString('pt-BR')} → {new Date(p.end_date).toLocaleDateString('pt-BR')}</span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {eventCounts[p.id]?.views || 0}</span>
+                      <span className="flex items-center gap-1"><MousePointer className="w-3 h-3" /> {eventCounts[p.id]?.clicks || 0}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setStatsPopup(p)}>
+                      <BarChart3 className="w-4 h-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewPopup(p)}>
                       <Eye className="w-4 h-4" />
                     </Button>
@@ -441,6 +493,84 @@ export default function Popups() {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Stats Dialog */}
+      <Dialog open={!!statsPopup} onOpenChange={() => setStatsPopup(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-primary" /> Estatísticas: {statsPopup?.name}
+            </DialogTitle>
+            <DialogDescription>Visualizações e cliques registrados para este popup.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <Card className="border-border">
+              <CardContent className="p-4 text-center">
+                <Eye className="w-5 h-5 mx-auto text-muted-foreground mb-1" />
+                <p className="text-2xl font-bold">{eventCounts[statsPopup?.id || '']?.views || 0}</p>
+                <p className="text-xs text-muted-foreground">Visualizações</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border">
+              <CardContent className="p-4 text-center">
+                <MousePointer className="w-5 h-5 mx-auto text-muted-foreground mb-1" />
+                <p className="text-2xl font-bold">{eventCounts[statsPopup?.id || '']?.clicks || 0}</p>
+                <p className="text-xs text-muted-foreground">Cliques</p>
+              </CardContent>
+            </Card>
+          </div>
+          <Tabs defaultValue="views">
+            <TabsList className="w-full">
+              <TabsTrigger value="views" className="flex-1 gap-1"><Eye className="w-3 h-3" /> Quem viu</TabsTrigger>
+              <TabsTrigger value="clicks" className="flex-1 gap-1"><MousePointer className="w-3 h-3" /> Quem clicou</TabsTrigger>
+            </TabsList>
+            <TabsContent value="views">
+              {statsLoading ? <p className="text-sm text-muted-foreground text-center py-4">Carregando...</p> : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">CPF</TableHead>
+                      <TableHead className="text-xs">Data</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {statsEvents.filter(e => e.event_type === 'view').length === 0 ? (
+                      <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground text-xs">Nenhuma visualização</TableCell></TableRow>
+                    ) : statsEvents.filter(e => e.event_type === 'view').map((e, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs font-mono">{e.cpf_masked}</TableCell>
+                        <TableCell className="text-xs">{new Date(e.created_at).toLocaleString('pt-BR')}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+            <TabsContent value="clicks">
+              {statsLoading ? <p className="text-sm text-muted-foreground text-center py-4">Carregando...</p> : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">CPF</TableHead>
+                      <TableHead className="text-xs">Data</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {statsEvents.filter(e => e.event_type === 'click').length === 0 ? (
+                      <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground text-xs">Nenhum clique</TableCell></TableRow>
+                    ) : statsEvents.filter(e => e.event_type === 'click').map((e, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs font-mono">{e.cpf_masked}</TableCell>
+                        <TableCell className="text-xs">{new Date(e.created_at).toLocaleString('pt-BR')}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
