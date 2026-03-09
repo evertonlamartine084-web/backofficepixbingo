@@ -93,6 +93,7 @@ export default function Campaigns() {
     type: 'aposte_e_ganhe' as CampaignType,
     description: '',
     segment_id: '',
+    popup_id: '',
     min_value: '',
     prize_value: '',
     prize_description: '',
