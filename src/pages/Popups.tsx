@@ -134,6 +134,39 @@ export default function Popups() {
     },
   });
 
+  // Fetch event counts per popup
+  const { data: eventCounts = {} } = useQuery({
+    queryKey: ['popup-event-counts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('popup_events')
+        .select('popup_id, event_type');
+      if (error) throw error;
+      const counts: Record<string, { views: number; clicks: number }> = {};
+      for (const row of (data || [])) {
+        if (!counts[row.popup_id]) counts[row.popup_id] = { views: 0, clicks: 0 };
+        if (row.event_type === 'view') counts[row.popup_id].views++;
+        else if (row.event_type === 'click') counts[row.popup_id].clicks++;
+      }
+      return counts;
+    },
+  });
+
+  // Fetch detail events for selected popup
+  const { data: statsEvents = [], isLoading: statsLoading } = useQuery({
+    queryKey: ['popup-events-detail', statsPopup?.id],
+    enabled: !!statsPopup,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('popup_events')
+        .select('cpf_masked, event_type, created_at')
+        .eq('popup_id', statsPopup!.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!form.name || !form.start_date || !form.end_date) throw new Error('Preencha os campos obrigatórios');
