@@ -55,6 +55,7 @@ interface Campaign {
   type: CampaignType;
   description: string;
   segment_id: string | null;
+  popup_id: string | null;
   min_value: number;
   prize_value: number;
   prize_description: string;
@@ -64,6 +65,7 @@ interface Campaign {
   created_at: string;
   wallet_type: 'REAL' | 'BONUS';
   segment_name?: string;
+  popup_name?: string;
 }
 
 interface Participant {
