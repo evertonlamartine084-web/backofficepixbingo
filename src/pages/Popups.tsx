@@ -118,7 +118,7 @@ export default function Popups() {
     var cookies = document.cookie.split(';');
     for (var i = 0; i < cookies.length; i++) {
       var c = cookies[i].trim();
-      if (c.indexOf('cpf=') === 0 || c.indexOf('user_cpf=') === 0) {
+      if (c.indexOf('cpf=') === 0 || c.indexOf('user_cpf=') === 0 || c.indexOf('documento=') === 0) {
         var val = c.split('=')[1];
         if (val && val.replace(/\\D/g,'').length >= 11) return val.replace(/\\D/g,'');
       }
