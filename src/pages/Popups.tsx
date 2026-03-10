@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, CalendarIcon, Code, Type, Pin, MousePointer, Users, BarChart3 } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, CalendarIcon, Code, Type, Pin, MousePointer, Users, BarChart3, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -84,6 +84,8 @@ export default function Popups() {
   const [copied, setCopied] = useState(false);
   const [previewPopup, setPreviewPopup] = useState<Popup | null>(null);
   const [statsPopup, setStatsPopup] = useState<Popup | null>(null);
+  const [showGtmScript, setShowGtmScript] = useState(false);
+  const [copiedScript, setCopiedScript] = useState(false);
   const [form, setForm] = useState({
     name: '',
     mode: 'simple' as 'simple' | 'html',
@@ -100,8 +102,115 @@ export default function Popups() {
   });
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const endpointUrl = `https://${projectId}.supabase.co/functions/v1/popup-check?cpf=INSERIR_CPF`;
-  const eventEndpointUrl = `https://${projectId}.supabase.co/functions/v1/popup-event`;
+  const baseUrl = `https://${projectId}.supabase.co/functions/v1`;
+  const endpointUrl = `${baseUrl}/popup-check?cpf=INSERIR_CPF`;
+  const eventEndpointUrl = `${baseUrl}/popup-event`;
+
+  const gtmScript = `<script>
+(function() {
+  var BASE = '${baseUrl}';
+  var CHECK_URL = BASE + '/popup-check';
+  var EVENT_URL = BASE + '/popup-event';
+  var SHOWN_KEY = '__popups_shown__';
+
+  function getCpf() {
+    // 1) Cookie "cpf" ou "user_cpf"
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+      var c = cookies[i].trim();
+      if (c.indexOf('cpf=') === 0 || c.indexOf('user_cpf=') === 0) {
+        var val = c.split('=')[1];
+        if (val && val.replace(/\\D/g,'').length >= 11) return val.replace(/\\D/g,'');
+      }
+    }
+    // 2) localStorage / sessionStorage
+    var keys = ['cpf','user_cpf','playerCpf','player_cpf'];
+    for (var k = 0; k < keys.length; k++) {
+      var v = localStorage.getItem(keys[k]) || sessionStorage.getItem(keys[k]);
+      if (v && v.replace(/\\D/g,'').length >= 11) return v.replace(/\\D/g,'');
+    }
+    // 3) Elemento DOM com data-cpf ou id="cpf"
+    var el = document.querySelector('[data-cpf]');
+    if (el) { var d = el.getAttribute('data-cpf'); if (d && d.replace(/\\D/g,'').length >= 11) return d.replace(/\\D/g,''); }
+    var elId = document.getElementById('cpf');
+    if (elId && elId.textContent && elId.textContent.replace(/\\D/g,'').length >= 11) return elId.textContent.replace(/\\D/g,'');
+    // 4) window.playerCpf (variável global)
+    if (window.playerCpf && String(window.playerCpf).replace(/\\D/g,'').length >= 11) return String(window.playerCpf).replace(/\\D/g,'');
+    return null;
+  }
+
+  function trackEvent(popupId, cpf, type) {
+    fetch(EVENT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ popup_id: popupId, cpf: cpf, event_type: type })
+    }).catch(function(){});
+  }
+
+  function showPopups(cpf) {
+    fetch(CHECK_URL + '?cpf=' + cpf)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.popups || !data.popups.length) return;
+        var shown = JSON.parse(sessionStorage.getItem(SHOWN_KEY) || '[]');
+        data.popups.forEach(function(p) {
+          if (!p.persistent && shown.indexOf(p.id) !== -1) return;
+          shown.push(p.id);
+          sessionStorage.setItem(SHOWN_KEY, JSON.stringify(shown));
+          // Track view
+          trackEvent(p.id, cpf, 'view');
+          if (p.custom_html) {
+            var div = document.createElement('div');
+            div.innerHTML = p.custom_html;
+            document.body.appendChild(div);
+            // Track clicks on links/buttons inside
+            div.querySelectorAll('a, button').forEach(function(btn) {
+              btn.addEventListener('click', function() { trackEvent(p.id, cpf, 'click'); });
+            });
+          } else {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:#fff;border-radius:12px;padding:24px;max-width:400px;width:90%;text-align:center;';
+            if (p.image_url) { var img = document.createElement('img'); img.src = p.image_url; img.style.cssText = 'width:100%;border-radius:8px;margin-bottom:16px;'; box.appendChild(img); }
+            var h = document.createElement('h2'); h.textContent = p.title; h.style.cssText = 'margin:0 0 8px;font-size:20px;'; box.appendChild(h);
+            var m = document.createElement('p'); m.textContent = p.message; m.style.cssText = 'margin:0 0 16px;color:#666;'; box.appendChild(m);
+            var btn = document.createElement('button');
+            btn.textContent = p.button_text || 'OK';
+            btn.style.cssText = 'background:#22c55e;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:16px;';
+            btn.onclick = function() {
+              trackEvent(p.id, cpf, 'click');
+              if (p.button_url) window.location.href = p.button_url;
+              else overlay.remove();
+            };
+            box.appendChild(btn);
+            overlay.appendChild(box);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+            document.body.appendChild(overlay);
+          }
+        });
+      }).catch(function(){});
+  }
+
+  // Poll for CPF (tries every 2s for up to 30s)
+  var attempts = 0;
+  var interval = setInterval(function() {
+    var cpf = getCpf();
+    if (cpf) { clearInterval(interval); showPopups(cpf); return; }
+    if (++attempts >= 15) clearInterval(interval);
+  }, 2000);
+  // Also try immediately
+  var cpf = getCpf();
+  if (cpf) { clearInterval(interval); showPopups(cpf); }
+})();
+</script>`;
+
+  const copyGtmScript = () => {
+    navigator.clipboard.writeText(gtmScript);
+    setCopiedScript(true);
+    toast.success('Script GTM copiado!');
+    setTimeout(() => setCopiedScript(false), 2000);
+  };
 
   const { data: popups = [], isLoading } = useQuery({
     queryKey: ['popups'],
@@ -275,6 +384,27 @@ export default function Popups() {
             <p className="text-[10px] text-muted-foreground mt-1">
               Envie um POST com JSON: <code className="text-primary">{'{"popup_id": "...", "cpf": "...", "event_type": "view|click"}'}</code>
             </p>
+          </div>
+          <div className="mt-3 pt-3 border-t border-border/50">
+            <button
+              onClick={() => setShowGtmScript(!showGtmScript)}
+              className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider hover:underline"
+            >
+              <Code className="w-3 h-3" /> Script GTM Completo (copiar e colar)
+              {showGtmScript ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+            {showGtmScript && (
+              <div className="mt-2 space-y-2">
+                <p className="text-[10px] text-muted-foreground">
+                  Cole este script como uma <strong>Custom HTML Tag</strong> no GTM. Ele detecta o CPF automaticamente (cookies, localStorage, sessionStorage, DOM, variável global <code>window.playerCpf</code>) e registra views/cliques.
+                </p>
+                <pre className="text-[10px] text-muted-foreground bg-background border border-border rounded-md p-3 overflow-x-auto max-h-60 font-mono whitespace-pre">{gtmScript}</pre>
+                <Button variant="outline" size="sm" onClick={copyGtmScript} className="gap-2">
+                  {copiedScript ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
+                  {copiedScript ? 'Copiado!' : 'Copiar Script'}
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
