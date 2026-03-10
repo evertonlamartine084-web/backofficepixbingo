@@ -318,7 +318,7 @@ Deno.serve(async (req) => {
       .eq('prize_credited', false);
 
     if (!participants?.length) {
-      return new Response(JSON.stringify({ success: true, data: { processed: 0, eligible: 0, credited: 0, errors: 0, message: 'Todos já foram processados' } }),
+      return new Response(JSON.stringify({ success: true, data: { processed: 0, eligible: 0, credited: 0, errors: 0, waiting_for_optins: !!campaign.popup_id, message: 'Todos já foram processados' } }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
