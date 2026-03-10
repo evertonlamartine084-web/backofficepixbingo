@@ -146,12 +146,16 @@ export default function Popups() {
     return null;
   }
 
-  function trackEvent(popupId, cpf, type) {
-    fetch(EVENT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ popup_id: popupId, cpf: cpf, event_type: type })
-    }).catch(function(){});
+  function trackEvent(popupId, cpf, type, callback) {
+    var payload = JSON.stringify({ popup_id: popupId, cpf: cpf, event_type: type });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(EVENT_URL, new Blob([payload], { type: 'application/json' }));
+      if (callback) setTimeout(callback, 100);
+    } else {
+      fetch(EVENT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload })
+        .then(function() { if (callback) callback(); })
+        .catch(function() { if (callback) callback(); });
+    }
   }
 
   var activeCpf = null;
@@ -188,9 +192,10 @@ export default function Popups() {
             btn.textContent = p.button_text || 'OK';
             btn.style.cssText = 'background:#22c55e;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:16px;';
             btn.onclick = function() {
-              trackEvent(p.id, cpf, 'click');
-              if (p.button_url) window.location.href = p.button_url;
-              else overlay.remove();
+              trackEvent(p.id, cpf, 'click', function() {
+                if (p.button_url) window.location.href = p.button_url;
+                else overlay.remove();
+              });
             };
             box.appendChild(btn);
             overlay.appendChild(box);
