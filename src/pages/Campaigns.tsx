@@ -286,14 +286,16 @@ export default function Campaigns() {
         if (!data?.success) throw new Error(data?.error || 'Erro');
 
         const result = data.data;
-        const hasPending = result.processed > 0 && (result.processed > result.credited + result.errors);
-        const waitingOptins = result.waiting_for_optins === true;
 
         // Check if campaign is still ATIVA
         const { data: campData } = await supabase
-          .from('campaigns').select('status').eq('id', campaign.id).single();
+          .from('campaigns').select('status, popup_id').eq('id', campaign.id).single();
 
-        if (campData?.status !== 'ATIVA' || (!hasPending && !waitingOptins)) {
+        const isActive = campData?.status === 'ATIVA';
+        const hasOptinPopup = !!campData?.popup_id;
+
+        // Keep running if: campaign is active AND (has pending items OR has opt-in popup)
+        if (!isActive) {
           stopAutoProcess(campaign.id);
           if (result.credited > 0) {
             toast.success(`✅ Processamento concluído: ${result.credited} creditados, ${result.errors} erros`);
