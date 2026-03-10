@@ -1,0 +1,1 @@
+ALTER TABLE public.campaigns ADD COLUMN activated_at timestamp with time zone DEFAULT NULL;

@@ -335,7 +335,11 @@ export default function Campaigns() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: CampaignStatus }) => {
-      const { error } = await supabase.from('campaigns').update({ status } as any).eq('id', id);
+      const updateData: any = { status };
+      if (status === 'ATIVA') {
+        updateData.activated_at = new Date().toISOString();
+      }
+      const { error } = await supabase.from('campaigns').update(updateData).eq('id', id);
       if (error) throw error;
       return { id, status };
     },

@@ -292,9 +292,11 @@ Deno.serve(async (req) => {
       return `${d}/${m}/${y}`;
     }
 
-    const dateStart = toFortalezaDate(campaign.start_date);
+    // Use activated_at as effective start (only count activity after campaign was turned on)
+    const effectiveStart = campaign.activated_at || campaign.start_date;
+    const dateStart = toFortalezaDate(effectiveStart);
     const dateEnd = toFortalezaDate(campaign.end_date);
-    const startDt = toFortaleza(campaign.start_date);
+    const startDt = toFortaleza(effectiveStart);
     const endDt = toFortaleza(campaign.end_date);
 
     // Upsert participants

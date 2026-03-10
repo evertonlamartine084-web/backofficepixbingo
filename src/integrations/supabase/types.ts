@@ -246,6 +246,7 @@ export type Database = {
       }
       campaigns: {
         Row: {
+          activated_at: string | null
           created_at: string
           description: string | null
           end_date: string
@@ -265,6 +266,7 @@ export type Database = {
           wallet_type: string
         }
         Insert: {
+          activated_at?: string | null
           created_at?: string
           description?: string | null
           end_date: string
@@ -284,6 +286,7 @@ export type Database = {
           wallet_type?: string
         }
         Update: {
+          activated_at?: string | null
           created_at?: string
           description?: string | null
           end_date?: string
