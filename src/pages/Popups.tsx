@@ -206,18 +206,21 @@ export default function Popups() {
       }).catch(function(){});
   }
 
+  // Initial delay (5s) so popup doesn't flash immediately on login
+  var INITIAL_DELAY = 5000;
+
   // Initial CPF detection with polling (tries every 2s for 30s)
   var attempts = 0;
   var cpfInterval = setInterval(function() {
     var cpf = getCpf();
-    if (cpf) { activeCpf = cpf; clearInterval(cpfInterval); checkAndShow(); return; }
+    if (cpf) { activeCpf = cpf; clearInterval(cpfInterval); setTimeout(checkAndShow, INITIAL_DELAY); return; }
     if (++attempts >= 15) clearInterval(cpfInterval);
   }, 2000);
   var cpf = getCpf();
-  if (cpf) { activeCpf = cpf; clearInterval(cpfInterval); checkAndShow(); }
+  if (cpf) { activeCpf = cpf; clearInterval(cpfInterval); setTimeout(checkAndShow, INITIAL_DELAY); }
 
-  // Continuous polling every 10s for new popups
-  setInterval(checkAndShow, 10000);
+  // Continuous polling every 10s for new popups (starts after initial delay)
+  setTimeout(function() { setInterval(checkAndShow, 10000); }, INITIAL_DELAY);
 })();
 </script>`;
 
