@@ -730,7 +730,8 @@ export default function Campaigns() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Campanha</TableHead>
+                   <TableHead className="w-[80px]">ID</TableHead>
+                   <TableHead>Campanha</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Segmento</TableHead>
                   <TableHead>Valor Mín.</TableHead>
