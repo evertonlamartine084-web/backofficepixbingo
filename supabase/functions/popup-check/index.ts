@@ -81,7 +81,7 @@ Deno.serve(async (req: Request) => {
       }));
 
     return new Response(JSON.stringify({ popups: result }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-cache, no-store, must-revalidate' },
     });
   } catch (error) {
     return new Response(JSON.stringify({ popups: [], error: (error as Error).message }), {
