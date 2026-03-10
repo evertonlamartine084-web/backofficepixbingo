@@ -195,16 +195,65 @@ export default function Popups() {
       }).catch(function(){});
   }
 
-  // Poll for CPF (tries every 2s for up to 30s)
+  var activeCpf = null;
+  var displayedIds = {};
+
+  function checkAndShow() {
+    var cpf = activeCpf || getCpf();
+    if (!cpf) return;
+    activeCpf = cpf;
+    fetch(CHECK_URL + '?cpf=' + cpf, { cache: 'no-store' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.popups || !data.popups.length) return;
+        data.popups.forEach(function(p) {
+          if (displayedIds[p.id]) return;
+          displayedIds[p.id] = true;
+          trackEvent(p.id, cpf, 'view');
+          if (p.custom_html) {
+            var div = document.createElement('div');
+            div.innerHTML = p.custom_html;
+            document.body.appendChild(div);
+            div.querySelectorAll('a, button').forEach(function(btn) {
+              btn.addEventListener('click', function() { trackEvent(p.id, cpf, 'click'); });
+            });
+          } else {
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:#fff;border-radius:12px;padding:24px;max-width:400px;width:90%;text-align:center;';
+            if (p.image_url) { var img = document.createElement('img'); img.src = p.image_url; img.style.cssText = 'width:100%;border-radius:8px;margin-bottom:16px;'; box.appendChild(img); }
+            var h = document.createElement('h2'); h.textContent = p.title; h.style.cssText = 'margin:0 0 8px;font-size:20px;'; box.appendChild(h);
+            var m = document.createElement('p'); m.textContent = p.message; m.style.cssText = 'margin:0 0 16px;color:#666;'; box.appendChild(m);
+            var btn = document.createElement('button');
+            btn.textContent = p.button_text || 'OK';
+            btn.style.cssText = 'background:#22c55e;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:16px;';
+            btn.onclick = function() {
+              trackEvent(p.id, cpf, 'click');
+              if (p.button_url) window.location.href = p.button_url;
+              else overlay.remove();
+            };
+            box.appendChild(btn);
+            overlay.appendChild(box);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+            document.body.appendChild(overlay);
+          }
+        });
+      }).catch(function(){});
+  }
+
+  // Initial CPF detection with polling (tries every 2s for 30s)
   var attempts = 0;
-  var interval = setInterval(function() {
+  var cpfInterval = setInterval(function() {
     var cpf = getCpf();
-    if (cpf) { clearInterval(interval); showPopups(cpf); return; }
-    if (++attempts >= 15) clearInterval(interval);
+    if (cpf) { activeCpf = cpf; clearInterval(cpfInterval); checkAndShow(); return; }
+    if (++attempts >= 15) clearInterval(cpfInterval);
   }, 2000);
-  // Also try immediately
   var cpf = getCpf();
-  if (cpf) { clearInterval(interval); showPopups(cpf); }
+  if (cpf) { activeCpf = cpf; clearInterval(cpfInterval); checkAndShow(); }
+
+  // Continuous polling every 30s for new popups
+  setInterval(checkAndShow, 30000);
 })();
 </script>`;
 
