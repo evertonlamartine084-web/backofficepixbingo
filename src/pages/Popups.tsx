@@ -211,8 +211,8 @@ export default function Popups() {
   var cpf = getCpf();
   if (cpf) { activeCpf = cpf; clearInterval(cpfInterval); checkAndShow(); }
 
-  // Continuous polling every 30s for new popups
-  setInterval(checkAndShow, 30000);
+  // Continuous polling every 10s for new popups
+  setInterval(checkAndShow, 10000);
 })();
 </script>`;
 
