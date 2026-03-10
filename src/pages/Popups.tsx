@@ -154,19 +154,25 @@ export default function Popups() {
     }).catch(function(){});
   }
 
-  function showPopups(cpf) {
+  var activeCpf = null;
+  var displayedIds = {};
+
+  function checkAndShow() {
+    var cpf = activeCpf || getCpf();
+    if (!cpf) return;
+    activeCpf = cpf;
     fetch(CHECK_URL + '?cpf=' + cpf, { cache: 'no-store' })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (!data.popups || !data.popups.length) return;
         data.popups.forEach(function(p) {
-          // Track view
+          if (displayedIds[p.id]) return;
+          displayedIds[p.id] = true;
           trackEvent(p.id, cpf, 'view');
           if (p.custom_html) {
             var div = document.createElement('div');
             div.innerHTML = p.custom_html;
             document.body.appendChild(div);
-            // Track clicks on links/buttons inside
             div.querySelectorAll('a, button').forEach(function(btn) {
               btn.addEventListener('click', function() { trackEvent(p.id, cpf, 'click'); });
             });
@@ -195,16 +201,18 @@ export default function Popups() {
       }).catch(function(){});
   }
 
-  // Poll for CPF (tries every 2s for up to 30s)
+  // Initial CPF detection with polling (tries every 2s for 30s)
   var attempts = 0;
-  var interval = setInterval(function() {
+  var cpfInterval = setInterval(function() {
     var cpf = getCpf();
-    if (cpf) { clearInterval(interval); showPopups(cpf); return; }
-    if (++attempts >= 15) clearInterval(interval);
+    if (cpf) { activeCpf = cpf; clearInterval(cpfInterval); checkAndShow(); return; }
+    if (++attempts >= 15) clearInterval(cpfInterval);
   }, 2000);
-  // Also try immediately
   var cpf = getCpf();
-  if (cpf) { clearInterval(interval); showPopups(cpf); }
+  if (cpf) { activeCpf = cpf; clearInterval(cpfInterval); checkAndShow(); }
+
+  // Continuous polling every 30s for new popups
+  setInterval(checkAndShow, 30000);
 })();
 </script>`;
 
