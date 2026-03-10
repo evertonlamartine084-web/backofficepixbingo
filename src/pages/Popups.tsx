@@ -114,27 +114,34 @@ export default function Popups() {
   var SHOWN_KEY = '__popups_shown__';
 
   function getCpf() {
-    // 1) Cookie "cpf" ou "user_cpf"
+    // 1) Scan all page text for CPF pattern (xxx.xxx.xxx-xx or 11 digits)
+    var bodyText = document.body ? document.body.innerText || '' : '';
+    var cpfMatch = bodyText.match(/\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}/);
+    if (cpfMatch) return cpfMatch[0].replace(/\\D/g,'');
+    // 2) Try input fields (hidden or visible) with CPF-like values
+    var inputs = document.querySelectorAll('input');
+    for (var i = 0; i < inputs.length; i++) {
+      var v = inputs[i].value || '';
+      if (v.replace(/\\D/g,'').length === 11) return v.replace(/\\D/g,'');
+    }
+    // 3) Cookie fallback (cpf, user_cpf, documento)
     var cookies = document.cookie.split(';');
-    for (var i = 0; i < cookies.length; i++) {
-      var c = cookies[i].trim();
+    for (var j = 0; j < cookies.length; j++) {
+      var c = cookies[j].trim();
       if (c.indexOf('cpf=') === 0 || c.indexOf('user_cpf=') === 0 || c.indexOf('documento=') === 0) {
         var val = c.split('=')[1];
         if (val && val.replace(/\\D/g,'').length >= 11) return val.replace(/\\D/g,'');
       }
     }
-    // 2) localStorage / sessionStorage
+    // 4) localStorage / sessionStorage
     var keys = ['cpf','user_cpf','playerCpf','player_cpf'];
     for (var k = 0; k < keys.length; k++) {
-      var v = localStorage.getItem(keys[k]) || sessionStorage.getItem(keys[k]);
-      if (v && v.replace(/\\D/g,'').length >= 11) return v.replace(/\\D/g,'');
+      var s = localStorage.getItem(keys[k]) || sessionStorage.getItem(keys[k]);
+      if (s && s.replace(/\\D/g,'').length >= 11) return s.replace(/\\D/g,'');
     }
-    // 3) Elemento DOM com data-cpf ou id="cpf"
+    // 5) data-cpf attribute or window global
     var el = document.querySelector('[data-cpf]');
     if (el) { var d = el.getAttribute('data-cpf'); if (d && d.replace(/\\D/g,'').length >= 11) return d.replace(/\\D/g,''); }
-    var elId = document.getElementById('cpf');
-    if (elId && elId.textContent && elId.textContent.replace(/\\D/g,'').length >= 11) return elId.textContent.replace(/\\D/g,'');
-    // 4) window.playerCpf (variável global)
     if (window.playerCpf && String(window.playerCpf).replace(/\\D/g,'').length >= 11) return String(window.playerCpf).replace(/\\D/g,'');
     return null;
   }
