@@ -111,7 +111,7 @@ export default function Popups() {
   var BASE = '${baseUrl}';
   var CHECK_URL = BASE + '/popup-check';
   var EVENT_URL = BASE + '/popup-event';
-  var SHOWN_KEY = '__popups_shown__';
+  
 
   function getCpf() {
     // 1) Scan all page text for CPF pattern (xxx.xxx.xxx-xx or 11 digits)
