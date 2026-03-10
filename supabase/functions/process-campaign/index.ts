@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
       eligibleCpfs = segmentItems.filter(si => clickedCpfs.has(si.cpf));
 
       if (!eligibleCpfs.length) {
-        return new Response(JSON.stringify({ success: true, data: { processed: 0, eligible: 0, credited: 0, errors: 0, message: 'Nenhum jogador do segmento fez opt-in no popup' } }),
+        return new Response(JSON.stringify({ success: true, data: { processed: 0, eligible: 0, credited: 0, errors: 0, waiting_for_optins: true, message: 'Nenhum jogador do segmento fez opt-in no popup' } }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }
