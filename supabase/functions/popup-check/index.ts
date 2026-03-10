@@ -22,7 +22,6 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get active popups (RLS already filters by active + date range for anon, but we use service role)
     const now = new Date().toISOString();
     const { data: popups, error: popErr } = await supabase
       .from('popups')
@@ -43,7 +42,6 @@ Deno.serve(async (req: Request) => {
     let matchingSegmentIds = new Set<string>();
 
     if (segmentIds.length > 0) {
-      // Check if CPF exists in any of these segments
       const { data: items } = await supabase
         .from('segment_items')
         .select('segment_id')
@@ -55,9 +53,21 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Filter: popups with no segment (show to all) OR popups whose segment contains this CPF
+    // Check which popups this CPF already viewed (server-side dismissal tracking)
+    const popupIds = popups.map(p => p.id);
+    const { data: viewedEvents } = await supabase
+      .from('popup_events')
+      .select('popup_id')
+      .in('popup_id', popupIds)
+      .eq('cpf', cpf)
+      .eq('event_type', 'view');
+
+    const viewedPopupIds = new Set((viewedEvents || []).map(e => e.popup_id));
+
+    // Filter: segment match + not already viewed (unless persistent)
     const result = popups
       .filter(p => !p.segment_id || matchingSegmentIds.has(p.segment_id))
+      .filter(p => p.persistent || !viewedPopupIds.has(p.id))
       .map(p => ({
         id: p.id,
         title: p.title,
