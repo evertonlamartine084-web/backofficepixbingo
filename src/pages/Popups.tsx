@@ -155,15 +155,11 @@ export default function Popups() {
   }
 
   function showPopups(cpf) {
-    fetch(CHECK_URL + '?cpf=' + cpf)
+    fetch(CHECK_URL + '?cpf=' + cpf, { cache: 'no-store' })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (!data.popups || !data.popups.length) return;
-        var shown = JSON.parse(sessionStorage.getItem(SHOWN_KEY) || '[]');
         data.popups.forEach(function(p) {
-          if (!p.persistent && shown.indexOf(p.id) !== -1) return;
-          shown.push(p.id);
-          sessionStorage.setItem(SHOWN_KEY, JSON.stringify(shown));
           // Track view
           trackEvent(p.id, cpf, 'view');
           if (p.custom_html) {
