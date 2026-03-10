@@ -730,7 +730,8 @@ export default function Campaigns() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Campanha</TableHead>
+                   <TableHead className="w-[80px]">ID</TableHead>
+                   <TableHead>Campanha</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Segmento</TableHead>
                   <TableHead>Valor Mín.</TableHead>
@@ -744,9 +745,10 @@ export default function Campaigns() {
                 {campaigns.map(c => {
                   const Icon = TYPE_ICONS[c.type] || Megaphone;
                   return (
-                    <TableRow key={c.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                     <TableRow key={c.id}>
+                       <TableCell className="font-mono text-xs text-muted-foreground">{c.id.slice(0, 8)}</TableCell>
+                       <TableCell>
+                         <div className="flex items-center gap-2">
                           <Icon className="w-4 h-4 text-muted-foreground" />
                           <div>
                             <p className="font-medium text-sm">{c.name}</p>
