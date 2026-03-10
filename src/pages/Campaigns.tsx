@@ -287,12 +287,13 @@ export default function Campaigns() {
 
         const result = data.data;
         const hasPending = result.processed > 0 && (result.processed > result.credited + result.errors);
+        const waitingOptins = result.waiting_for_optins === true;
 
         // Check if campaign is still ATIVA
         const { data: campData } = await supabase
           .from('campaigns').select('status').eq('id', campaign.id).single();
 
-        if (campData?.status !== 'ATIVA' || !hasPending) {
+        if (campData?.status !== 'ATIVA' || (!hasPending && !waitingOptins)) {
           stopAutoProcess(campaign.id);
           if (result.credited > 0) {
             toast.success(`✅ Processamento concluído: ${result.credited} creditados, ${result.errors} erros`);
