@@ -63,8 +63,12 @@ Deno.serve(async (req) => {
           };
           allResults.push(result);
 
-          // If there are still pending participants, we have more work
+          // If there are still pending participants or waiting for opt-ins, we have more work
           if (data?.data?.processed > 0 && data?.data?.processed > data?.data?.credited + data?.data?.errors) {
+            hasWork = true;
+          }
+          // Opt-in campaigns always have potential work (new clicks can arrive anytime)
+          if (data?.data?.waiting_for_optins) {
             hasWork = true;
           }
         } catch (e) {
