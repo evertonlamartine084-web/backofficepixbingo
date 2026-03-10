@@ -148,14 +148,14 @@ export default function Popups() {
 
   function trackEvent(popupId, cpf, type, callback) {
     var payload = JSON.stringify({ popup_id: popupId, cpf: cpf, event_type: type });
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(EVENT_URL, new Blob([payload], { type: 'application/json' }));
-      if (callback) setTimeout(callback, 100);
-    } else {
-      fetch(EVENT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload })
-        .then(function() { if (callback) callback(); })
-        .catch(function() { if (callback) callback(); });
-    }
+    fetch(EVENT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': '${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}' },
+      body: payload,
+      keepalive: true
+    })
+    .then(function() { if (callback) callback(); })
+    .catch(function() { if (callback) callback(); });
   }
 
   var activeCpf = null;
