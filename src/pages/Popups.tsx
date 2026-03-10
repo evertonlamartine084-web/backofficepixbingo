@@ -146,12 +146,16 @@ export default function Popups() {
     return null;
   }
 
-  function trackEvent(popupId, cpf, type) {
-    fetch(EVENT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ popup_id: popupId, cpf: cpf, event_type: type })
-    }).catch(function(){});
+  function trackEvent(popupId, cpf, type, callback) {
+    var payload = JSON.stringify({ popup_id: popupId, cpf: cpf, event_type: type });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(EVENT_URL, new Blob([payload], { type: 'application/json' }));
+      if (callback) setTimeout(callback, 100);
+    } else {
+      fetch(EVENT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload })
+        .then(function() { if (callback) callback(); })
+        .catch(function() { if (callback) callback(); });
+    }
   }
 
   var activeCpf = null;
