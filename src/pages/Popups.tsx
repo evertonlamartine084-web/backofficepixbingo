@@ -192,9 +192,10 @@ export default function Popups() {
             btn.textContent = p.button_text || 'OK';
             btn.style.cssText = 'background:#22c55e;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:16px;';
             btn.onclick = function() {
-              trackEvent(p.id, cpf, 'click');
-              if (p.button_url) window.location.href = p.button_url;
-              else overlay.remove();
+              trackEvent(p.id, cpf, 'click', function() {
+                if (p.button_url) window.location.href = p.button_url;
+                else overlay.remove();
+              });
             };
             box.appendChild(btn);
             overlay.appendChild(box);
