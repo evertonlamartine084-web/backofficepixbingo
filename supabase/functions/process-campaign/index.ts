@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
         .eq('event_type', 'click');
 
       if (!clickEvents?.length) {
-        return new Response(JSON.stringify({ success: true, data: { processed: 0, eligible: 0, credited: 0, errors: 0, message: 'Nenhum jogador fez opt-in (clicou no popup)' } }),
+        return new Response(JSON.stringify({ success: true, data: { processed: 0, eligible: 0, credited: 0, errors: 0, waiting_for_optins: true, message: 'Nenhum jogador fez opt-in (clicou no popup)' } }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
