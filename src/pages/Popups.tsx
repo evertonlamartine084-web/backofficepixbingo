@@ -206,29 +206,34 @@ export default function Popups() {
       }).catch(function(){});
   }
 
-  // Check if CPF is available immediately (user already logged in)
-  var cpf = getCpf();
-  if (cpf) {
-    // Already logged in — show popup immediately
-    activeCpf = cpf;
-    checkAndShow();
-  } else {
-    // Not logged in yet — poll for CPF (login in progress), with 5s delay after detection
-    var attempts = 0;
-    var cpfInterval = setInterval(function() {
-      var cpf = getCpf();
-      if (cpf) {
-        activeCpf = cpf;
-        clearInterval(cpfInterval);
-        setTimeout(checkAndShow, 5000);
-        return;
-      }
-      if (++attempts >= 15) clearInterval(cpfInterval);
-    }, 2000);
+  // Use sessionStorage to know if this is the first load of the session (login)
+  var SESSION_KEY = '__pbr_popup_ready';
+  var isFirstLoad = !sessionStorage.getItem(SESSION_KEY);
+  sessionStorage.setItem(SESSION_KEY, '1');
+
+  function startPopups() {
+    var cpf = getCpf();
+    if (cpf) {
+      activeCpf = cpf;
+      checkAndShow();
+    } else {
+      var attempts = 0;
+      var cpfInterval = setInterval(function() {
+        var cpf = getCpf();
+        if (cpf) { activeCpf = cpf; clearInterval(cpfInterval); checkAndShow(); return; }
+        if (++attempts >= 15) clearInterval(cpfInterval);
+      }, 2000);
+    }
+    // Continuous polling every 10s
+    setInterval(checkAndShow, 10000);
   }
 
-  // Continuous polling every 10s for new popups
-  setInterval(checkAndShow, 10000);
+  // First load of session (login) → delay 5s. Already in session → immediate.
+  if (isFirstLoad) {
+    setTimeout(startPopups, 5000);
+  } else {
+    startPopups();
+  }
 })();
 </script>`;
 
