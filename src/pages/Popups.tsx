@@ -109,54 +109,60 @@ export default function Popups() {
 
   const gtmScript = `<script>
 (function() {
+  // Guard: prevent duplicate execution if GTM re-fires
+  if (window.__pbr_popup_loaded) return;
+  window.__pbr_popup_loaded = true;
+
   var BASE = '${baseUrl}';
   var CHECK_URL = BASE + '/popup-check';
   var EVENT_URL = BASE + '/popup-event';
-  
+  var API_KEY = '${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}';
 
   function getCpf() {
-    // 1) Scan all page text for CPF pattern (xxx.xxx.xxx-xx or 11 digits)
-    var bodyText = document.body ? document.body.innerText || '' : '';
-    var cpfMatch = bodyText.match(/\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}/);
-    if (cpfMatch) return cpfMatch[0].replace(/\\D/g,'');
-    // 2) Try input fields (hidden or visible) with CPF-like values
-    var inputs = document.querySelectorAll('input');
-    for (var i = 0; i < inputs.length; i++) {
-      var v = inputs[i].value || '';
-      if (v.replace(/\\D/g,'').length === 11) return v.replace(/\\D/g,'');
+    // 1) Input #cpf_login (primary — always present on pixbingobr.com after login)
+    var cpfInput = document.getElementById('cpf_login');
+    if (cpfInput && cpfInput.value) {
+      var v = cpfInput.value.replace(/\\D/g,'');
+      if (v.length === 11) return v;
     }
-    // 3) Cookie fallback (cpf, user_cpf, documento)
-    var cookies = document.cookie.split(';');
-    for (var j = 0; j < cookies.length; j++) {
-      var c = cookies[j].trim();
-      if (c.indexOf('cpf=') === 0 || c.indexOf('user_cpf=') === 0 || c.indexOf('documento=') === 0) {
-        var val = c.split('=')[1];
-        if (val && val.replace(/\\D/g,'').length >= 11) return val.replace(/\\D/g,'');
-      }
+    // 2) Fallback: any input with name="cpf"
+    var namedInput = document.querySelector('input[name="cpf"]');
+    if (namedInput && namedInput.value) {
+      var v2 = namedInput.value.replace(/\\D/g,'');
+      if (v2.length === 11) return v2;
     }
-    // 4) localStorage / sessionStorage
-    var keys = ['cpf','user_cpf','playerCpf','player_cpf'];
-    for (var k = 0; k < keys.length; k++) {
-      var s = localStorage.getItem(keys[k]) || sessionStorage.getItem(keys[k]);
-      if (s && s.replace(/\\D/g,'').length >= 11) return s.replace(/\\D/g,'');
+    // 3) Window global
+    if (window.playerCpf && String(window.playerCpf).replace(/\\D/g,'').length === 11) {
+      return String(window.playerCpf).replace(/\\D/g,'');
     }
-    // 5) data-cpf attribute or window global
+    // 4) data-cpf attribute
     var el = document.querySelector('[data-cpf]');
-    if (el) { var d = el.getAttribute('data-cpf'); if (d && d.replace(/\\D/g,'').length >= 11) return d.replace(/\\D/g,''); }
-    if (window.playerCpf && String(window.playerCpf).replace(/\\D/g,'').length >= 11) return String(window.playerCpf).replace(/\\D/g,'');
+    if (el) {
+      var d = el.getAttribute('data-cpf');
+      if (d && d.replace(/\\D/g,'').length === 11) return d.replace(/\\D/g,'');
+    }
     return null;
   }
 
   function trackEvent(popupId, cpf, type, callback) {
-    var payload = JSON.stringify({ popup_id: popupId, cpf: cpf, event_type: type });
     fetch(EVENT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': '${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}' },
-      body: payload,
+      headers: { 'Content-Type': 'application/json', 'apikey': API_KEY },
+      body: JSON.stringify({ popup_id: popupId, cpf: cpf, event_type: type }),
       keepalive: true
     })
     .then(function() { if (callback) callback(); })
     .catch(function() { if (callback) callback(); });
+  }
+
+  function createCloseBtn(parent) {
+    var btn = document.createElement('button');
+    btn.textContent = '\\u00D7';
+    btn.style.cssText = 'position:absolute;top:8px;right:12px;background:none;border:none;font-size:24px;color:#999;cursor:pointer;line-height:1;padding:4px;';
+    btn.onmouseover = function() { btn.style.color = '#333'; };
+    btn.onmouseout = function() { btn.style.color = '#999'; };
+    btn.onclick = function() { parent.remove(); };
+    return btn;
   }
 
   var activeCpf = null;
@@ -166,7 +172,10 @@ export default function Popups() {
     var cpf = activeCpf || getCpf();
     if (!cpf) return;
     activeCpf = cpf;
-    fetch(CHECK_URL + '?cpf=' + cpf, { cache: 'no-store' })
+    fetch(CHECK_URL + '?cpf=' + cpf, {
+      cache: 'no-store',
+      headers: { 'apikey': API_KEY }
+    })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (!data.popups || !data.popups.length) return;
@@ -174,24 +183,47 @@ export default function Popups() {
           if (displayedIds[p.id]) return;
           displayedIds[p.id] = true;
           trackEvent(p.id, cpf, 'view');
+
           if (p.custom_html) {
-            var div = document.createElement('div');
-            div.innerHTML = p.custom_html;
-            document.body.appendChild(div);
-            div.querySelectorAll('a, button').forEach(function(btn) {
-              btn.addEventListener('click', function() { trackEvent(p.id, cpf, 'click'); });
+            // Custom HTML wrapped in overlay
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
+            var wrapper = document.createElement('div');
+            wrapper.style.cssText = 'position:relative;max-width:90vw;max-height:90vh;overflow:auto;';
+            wrapper.innerHTML = p.custom_html;
+            wrapper.querySelectorAll('a, button').forEach(function(el) {
+              el.addEventListener('click', function() { trackEvent(p.id, cpf, 'click'); });
             });
+            if (!p.persistent) {
+              overlay.appendChild(createCloseBtn(overlay));
+              overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+            }
+            overlay.appendChild(wrapper);
+            document.body.appendChild(overlay);
           } else {
+            // Simple popup with overlay
             var overlay = document.createElement('div');
             overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
             var box = document.createElement('div');
-            box.style.cssText = 'background:#fff;border-radius:12px;padding:24px;max-width:400px;width:90%;text-align:center;';
-            if (p.image_url) { var img = document.createElement('img'); img.src = p.image_url; img.style.cssText = 'width:100%;border-radius:8px;margin-bottom:16px;'; box.appendChild(img); }
-            var h = document.createElement('h2'); h.textContent = p.title; h.style.cssText = 'margin:0 0 8px;font-size:20px;'; box.appendChild(h);
-            var m = document.createElement('p'); m.textContent = p.message; m.style.cssText = 'margin:0 0 16px;color:#666;'; box.appendChild(m);
+            box.style.cssText = 'position:relative;background:#fff;border-radius:12px;padding:28px 24px 24px;max-width:400px;width:90%;max-height:90vh;overflow:auto;text-align:center;';
+            box.appendChild(createCloseBtn(overlay));
+            if (p.image_url) {
+              var img = document.createElement('img');
+              img.src = p.image_url;
+              img.style.cssText = 'width:100%;border-radius:8px;margin-bottom:16px;';
+              box.appendChild(img);
+            }
+            var h = document.createElement('h2');
+            h.textContent = p.title;
+            h.style.cssText = 'margin:0 0 8px;font-size:20px;color:#111;';
+            box.appendChild(h);
+            var m = document.createElement('p');
+            m.textContent = p.message;
+            m.style.cssText = 'margin:0 0 16px;color:#666;font-size:14px;';
+            box.appendChild(m);
             var btn = document.createElement('button');
             btn.textContent = p.button_text || 'OK';
-            btn.style.cssText = 'background:#22c55e;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:16px;';
+            btn.style.cssText = 'background:#22c55e;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:16px;width:100%;';
             btn.onclick = function() {
               trackEvent(p.id, cpf, 'click', function() {
                 if (p.button_url) window.location.href = p.button_url;
@@ -207,7 +239,6 @@ export default function Popups() {
       }).catch(function(){});
   }
 
-  // Use sessionStorage to know if this is the first load of the session (login)
   var SESSION_KEY = '__pbr_popup_ready';
   var isFirstLoad = !sessionStorage.getItem(SESSION_KEY);
   sessionStorage.setItem(SESSION_KEY, '1');
@@ -225,11 +256,9 @@ export default function Popups() {
         if (++attempts >= 15) clearInterval(cpfInterval);
       }, 2000);
     }
-    // Continuous polling every 10s
     setInterval(checkAndShow, 10000);
   }
 
-  // First load of session (login) → delay 5s. Already in session → immediate.
   if (isFirstLoad) {
     setTimeout(startPopups, 5000);
   } else {
