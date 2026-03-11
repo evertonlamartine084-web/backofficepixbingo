@@ -559,10 +559,10 @@ export default function Popups() {
       )}
 
       {/* Create Dialog */}
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditingPopup(null); resetForm(); } }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Novo Popup</DialogTitle>
+            <DialogTitle>{editingPopup ? 'Editar Popup' : 'Novo Popup'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
