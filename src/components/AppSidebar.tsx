@@ -29,10 +29,6 @@ const navItems = [
 
 const assetsItems = [
   { to: '/assets/popups', icon: MessageSquare, label: 'Popups GTM' },
-  { to: '/assets/inbox', icon: Mail, label: 'Inbox' },
-  { to: '/assets/push', icon: Bell, label: 'Push' },
-  { to: '/assets/levels', icon: Trophy, label: 'Níveis' },
-  { to: '/assets/store', icon: ShoppingBag, label: 'Loja' },
 ];
 
 const adminItems = [
@@ -42,9 +38,6 @@ const adminItems = [
 ];
 
 const profileQuickLinks = [
-  { to: '/assets/inbox', icon: Mail, label: 'Notificações' },
-  { to: '/assets/levels', icon: Trophy, label: 'Níveis' },
-  { to: '/assets/store', icon: ShoppingBag, label: 'Loja' },
   { to: '/transactions', icon: FileText, label: 'Extrato' },
 ];
 
