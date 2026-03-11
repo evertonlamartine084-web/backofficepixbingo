@@ -13,7 +13,7 @@ Deno.serve(async (req: Request) => {
     const cpf = url.searchParams.get('cpf')?.replace(/\D/g, '') || '';
 
     if (!cpf || cpf.length < 11) {
-      return new Response(JSON.stringify({ popups: [] }), {
+      return new Response(JSON.stringify({ popups: [], debug: 'invalid cpf' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -30,15 +30,19 @@ Deno.serve(async (req: Request) => {
       .lte('start_date', now)
       .gte('end_date', now);
 
-    if (popErr || !popups?.length) {
-      return new Response(JSON.stringify({ popups: [] }), {
+    if (popErr) {
+      return new Response(JSON.stringify({ popups: [], debug: 'popups query error', error: popErr.message }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Check which popups apply to this CPF via segment
+    if (!popups?.length) {
+      return new Response(JSON.stringify({ popups: [], debug: 'no active popups found', now, cpf }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const segmentIds = [...new Set(popups.filter(p => p.segment_id).map(p => p.segment_id))];
-    
     let matchingSegmentIds = new Set<string>();
 
     if (segmentIds.length > 0) {
@@ -53,7 +57,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Check which popups this CPF already dismissed (server-side dismissal tracking)
     const popupIds = popups.map(p => p.id);
     const { data: dismissedEvents } = await supabase
       .from('popup_events')
@@ -64,7 +67,6 @@ Deno.serve(async (req: Request) => {
 
     const viewedPopupIds = new Set((dismissedEvents || []).map(e => e.popup_id));
 
-    // Filter: segment match + not already viewed (unless persistent)
     const result = popups
       .filter(p => !p.segment_id || matchingSegmentIds.has(p.segment_id))
       .filter(p => p.persistent || !viewedPopupIds.has(p.id))
@@ -80,11 +82,22 @@ Deno.serve(async (req: Request) => {
         persistent: p.persistent || false,
       }));
 
-    return new Response(JSON.stringify({ popups: result }), {
+    return new Response(JSON.stringify({
+      popups: result,
+      debug: {
+        now,
+        cpf,
+        totalActive: popups.length,
+        segmentIds: [...segmentIds],
+        matchingSegments: [...matchingSegmentIds],
+        dismissedCount: viewedPopupIds.size,
+        resultCount: result.length
+      }
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-cache, no-store, must-revalidate' },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ popups: [], error: (error as Error).message }), {
+    return new Response(JSON.stringify({ popups: [], debug: 'exception', error: (error as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
