@@ -678,8 +678,6 @@ export default function Popups() {
               {editingPopup ? 'Salvar Alterações' : 'Criar Popup'}
             </Button>
           </DialogFooter>
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
