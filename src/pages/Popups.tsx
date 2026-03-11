@@ -119,9 +119,8 @@ export default function Popups() {
   var API_KEY = '${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}';
 
   function getCpf() {
-    // Only detect CPF if user is logged in (login modal hidden)
-    var loginModal = document.getElementById('loginModal');
-    if (loginModal && loginModal.classList.contains('show')) return null;
+    // Only detect CPF if user is logged in (saldo element only exists after login)
+    if (!document.querySelector('.menu-saldo-body')) return null;
     // 1) Input #cpf_login (primary — always present on pixbingobr.com after login)
     var cpfInput = document.getElementById('cpf_login');
     if (cpfInput && cpfInput.value) {
