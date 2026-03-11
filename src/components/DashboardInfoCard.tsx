@@ -40,11 +40,11 @@ export function DashboardInfoCard({
       <div className="flex items-start justify-between gap-4">
         {/* Left: main value */}
         <div className="space-y-1 min-w-0">
-          <p className="font-mono tabular-nums text-xl font-bold text-foreground tracking-tight">{mainValue}</p>
+          <p className="tabular-nums text-xl font-bold text-foreground tracking-tight">{mainValue}</p>
           <p className="text-[11px] text-muted-foreground">{mainLabel}</p>
           {secondaryValue && (
             <>
-              <p className="font-mono tabular-nums text-lg font-bold text-foreground tracking-tight mt-2">{secondaryValue}</p>
+              <p className="tabular-nums text-lg font-bold text-foreground tracking-tight mt-2">{secondaryValue}</p>
               {secondaryLabel && <p className="text-[11px] text-muted-foreground">{secondaryLabel}</p>}
             </>
           )}
@@ -55,7 +55,7 @@ export function DashboardInfoCard({
           <div className="text-right space-y-1.5 shrink-0">
             {stats.map((s, i) => (
               <div key={i}>
-                <p className="font-mono tabular-nums text-sm font-semibold text-foreground">{s.value}</p>
+                <p className="tabular-nums text-sm font-semibold text-foreground">{s.value}</p>
                 <p className="text-[10px] text-muted-foreground">{s.label}</p>
               </div>
             ))}
