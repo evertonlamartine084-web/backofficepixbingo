@@ -435,7 +435,7 @@ export default function Popups() {
             Gerencie popups que serão exibidos no site via Google Tag Manager
           </p>
         </div>
-        <Button onClick={() => setOpen(true)} className="gap-2 gradient-primary border-0">
+        <Button onClick={() => { setEditingPopup(null); resetForm(); setOpen(true); }} className="gap-2 gradient-primary border-0">
           <Plus className="w-4 h-4" /> Novo Popup
         </Button>
       </div>
