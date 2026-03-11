@@ -158,8 +158,11 @@ export default function Popups() {
     .catch(function() { if (callback) callback(); });
   }
 
-  function dismiss(popupId, cpf, overlay) {
-    trackEvent(popupId, cpf, 'dismiss', function() { overlay.remove(); });
+  function dismiss(popupId, cpf, dialog) {
+    trackEvent(popupId, cpf, 'dismiss', function() {
+      if (dialog.close) dialog.close();
+      dialog.remove();
+    });
   }
 
   function createCloseBtn(popupId, cpf, overlay) {
@@ -191,39 +194,42 @@ export default function Popups() {
           displayedIds[p.id] = true;
           trackEvent(p.id, cpf, 'view');
 
-          // Force repaint helper
-          function showOverlay(overlay) {
-            overlay.style.display = 'none';
-            document.body.appendChild(overlay);
-            overlay.offsetHeight; // force reflow
-            overlay.style.display = 'flex';
+          // Inject global styles once for dialog backdrop
+          if (!document.getElementById('__pbr_popup_style')) {
+            var style = document.createElement('style');
+            style.id = '__pbr_popup_style';
+            style.textContent = 'dialog.__pbr_popup::backdrop{background:rgba(0,0,0,.6)} dialog.__pbr_popup{border:none;padding:0;background:transparent;max-width:90vw;max-height:90vh;overflow:visible;}';
+            document.head.appendChild(style);
           }
 
-          var OVERLAY_CSS = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2147483647;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
+          function showPopup(content, popupId, cpfVal, isPersistent) {
+            var dialog = document.createElement('dialog');
+            dialog.className = '__pbr_popup';
+            dialog.appendChild(content);
+            if (!isPersistent) {
+              dialog.appendChild(createCloseBtn(popupId, cpfVal, dialog));
+              dialog.addEventListener('click', function(e) {
+                if (e.target === dialog) dismiss(popupId, cpfVal, dialog);
+              });
+              dialog.addEventListener('cancel', function(e) {
+                e.preventDefault();
+                dismiss(popupId, cpfVal, dialog);
+              });
+            }
+            document.body.appendChild(dialog);
+            dialog.showModal();
+          }
 
           if (p.custom_html) {
-            // Custom HTML wrapped in overlay
-            var overlay = document.createElement('div');
-            overlay.setAttribute('style', OVERLAY_CSS);
             var wrapper = document.createElement('div');
-            wrapper.setAttribute('style', 'position:relative;max-width:90vw;max-height:90vh;overflow:auto;');
             wrapper.innerHTML = p.custom_html;
             wrapper.querySelectorAll('a, button').forEach(function(el) {
               el.addEventListener('click', function() { trackEvent(p.id, cpf, 'click'); });
             });
-            if (!p.persistent) {
-              overlay.appendChild(createCloseBtn(p.id, cpf, overlay));
-              overlay.addEventListener('click', function(e) { if (e.target === overlay) dismiss(p.id, cpf, overlay); });
-            }
-            overlay.appendChild(wrapper);
-            showOverlay(overlay);
+            showPopup(wrapper, p.id, cpf, p.persistent);
           } else {
-            // Simple popup with overlay
-            var overlay = document.createElement('div');
-            overlay.setAttribute('style', OVERLAY_CSS);
             var box = document.createElement('div');
-            box.setAttribute('style', 'position:relative;background:#fff;border-radius:12px;padding:28px 24px 24px;max-width:400px;width:90%;max-height:90vh;overflow:auto;text-align:center;');
-            box.appendChild(createCloseBtn(p.id, cpf, overlay));
+            box.setAttribute('style', 'background:#fff;border-radius:12px;padding:28px 24px 24px;max-width:400px;width:90vw;text-align:center;position:relative;');
             if (p.image_url) {
               var img = document.createElement('img');
               img.src = p.image_url;
@@ -244,13 +250,11 @@ export default function Popups() {
             btn.onclick = function() {
               trackEvent(p.id, cpf, 'click', function() {
                 if (p.button_url) window.location.href = p.button_url;
-                else dismiss(p.id, cpf, overlay);
+                else dismiss(p.id, cpf, btn.closest('dialog'));
               });
             };
             box.appendChild(btn);
-            overlay.appendChild(box);
-            overlay.addEventListener('click', function(e) { if (e.target === overlay) dismiss(p.id, cpf, overlay); });
-            showOverlay(overlay);
+            showPopup(box, p.id, cpf, false);
           }
         });
       }).catch(function(){});
