@@ -81,6 +81,7 @@ const prepareHtmlPreview = (html: string) => {
 export default function Popups() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editingPopup, setEditingPopup] = useState<Popup | null>(null);
   const [copied, setCopied] = useState(false);
   const [previewPopup, setPreviewPopup] = useState<Popup | null>(null);
   const [statsPopup, setStatsPopup] = useState<Popup | null>(null);
