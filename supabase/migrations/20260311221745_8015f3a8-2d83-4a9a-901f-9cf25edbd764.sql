@@ -1,0 +1,1 @@
+DELETE FROM popup_events WHERE cpf = '70791576418';
