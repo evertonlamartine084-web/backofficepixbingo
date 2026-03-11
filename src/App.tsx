@@ -39,10 +39,6 @@ const App = () => (
               <Route path="/segments" element={<Segments />} />
               <Route path="/campaigns" element={<Campaigns />} />
               <Route path="/assets/popups" element={<Popups />} />
-              <Route path="/assets/inbox" element={<Inbox />} />
-              <Route path="/assets/push" element={<Push />} />
-              <Route path="/assets/levels" element={<Levels />} />
-              <Route path="/assets/store" element={<Store />} />
               <Route path="/partidas" element={<Partidas />} />
               <Route path="/player" element={<PlayerLookup />} />
               <Route path="/transactions" element={<Transactions />} />
