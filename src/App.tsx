@@ -17,10 +17,6 @@ import Campaigns from "@/pages/Campaigns";
 import Popups from "@/pages/Popups";
 import Partidas from "@/pages/Partidas";
 import ManageUsers from "@/pages/admin/ManageUsers";
-import Inbox from "@/pages/assets/Inbox";
-import Push from "@/pages/assets/Push";
-import Levels from "@/pages/assets/Levels";
-import Store from "@/pages/assets/Store";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();

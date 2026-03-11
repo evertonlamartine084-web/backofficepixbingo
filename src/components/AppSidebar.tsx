@@ -38,9 +38,6 @@ const adminItems = [
 ];
 
 const profileQuickLinks = [
-  { to: '/assets/inbox', icon: Mail, label: 'Notificações' },
-  { to: '/assets/levels', icon: Trophy, label: 'Níveis' },
-  { to: '/assets/store', icon: ShoppingBag, label: 'Loja' },
   { to: '/transactions', icon: FileText, label: 'Extrato' },
 ];
 
