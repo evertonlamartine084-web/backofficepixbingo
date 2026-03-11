@@ -396,6 +396,25 @@ export default function Popups() {
     button_url: '', custom_html: '', segment_id: '', persistent: false, start_date: undefined, end_date: undefined,
   });
 
+  const openEdit = (p: Popup) => {
+    setEditingPopup(p);
+    setForm({
+      name: p.name,
+      mode: p.custom_html ? 'html' : 'simple',
+      title: p.title || '',
+      message: p.message || '',
+      image_url: p.image_url || '',
+      button_text: p.button_text || 'OK',
+      button_url: p.button_url || '',
+      custom_html: p.custom_html || '',
+      segment_id: p.segment_id || '',
+      persistent: p.persistent,
+      start_date: new Date(p.start_date),
+      end_date: new Date(p.end_date),
+    });
+    setOpen(true);
+  };
+
   const copyEndpoint = () => {
     navigator.clipboard.writeText(endpointUrl);
     setCopied(true);
