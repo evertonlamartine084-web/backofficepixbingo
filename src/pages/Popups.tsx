@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, CalendarIcon, Code, Type, Pin, MousePointer, Users, BarChart3, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, CalendarIcon, Code, Type, Pin, MousePointer, Users, BarChart3, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -81,6 +81,7 @@ const prepareHtmlPreview = (html: string) => {
 export default function Popups() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editingPopup, setEditingPopup] = useState<Popup | null>(null);
   const [copied, setCopied] = useState(false);
   const [previewPopup, setPreviewPopup] = useState<Popup | null>(null);
   const [statsPopup, setStatsPopup] = useState<Popup | null>(null);
@@ -338,6 +339,36 @@ export default function Popups() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!form.name || !form.start_date || !form.end_date) throw new Error('Preencha os campos obrigatórios');
+      if (form.mode === 'simple' && !form.title) throw new Error('Preencha o título');
+      if (form.mode === 'html' && !form.custom_html) throw new Error('Preencha o HTML');
+      const { error } = await supabase.from('popups').update({
+        name: form.name,
+        title: form.mode === 'simple' ? form.title : form.name,
+        message: form.mode === 'simple' ? form.message : '',
+        image_url: form.mode === 'simple' ? (form.image_url || null) : null,
+        button_text: form.mode === 'simple' ? (form.button_text || 'OK') : '',
+        button_url: form.mode === 'simple' ? (form.button_url || null) : null,
+        custom_html: form.mode === 'html' ? form.custom_html : null,
+        segment_id: form.segment_id || null,
+        persistent: form.persistent,
+        start_date: form.start_date.toISOString(),
+        end_date: form.end_date.toISOString(),
+      } as any).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['popups'] });
+      toast.success('Popup atualizado');
+      setOpen(false);
+      setEditingPopup(null);
+      resetForm();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const toggleMutation = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
       const { error } = await supabase.from('popups').update({ active } as any).eq('id', id);
@@ -365,6 +396,25 @@ export default function Popups() {
     button_url: '', custom_html: '', segment_id: '', persistent: false, start_date: undefined, end_date: undefined,
   });
 
+  const openEdit = (p: Popup) => {
+    setEditingPopup(p);
+    setForm({
+      name: p.name,
+      mode: p.custom_html ? 'html' : 'simple',
+      title: p.title || '',
+      message: p.message || '',
+      image_url: p.image_url || '',
+      button_text: p.button_text || 'OK',
+      button_url: p.button_url || '',
+      custom_html: p.custom_html || '',
+      segment_id: p.segment_id || '',
+      persistent: p.persistent,
+      start_date: new Date(p.start_date),
+      end_date: new Date(p.end_date),
+    });
+    setOpen(true);
+  };
+
   const copyEndpoint = () => {
     navigator.clipboard.writeText(endpointUrl);
     setCopied(true);
@@ -385,7 +435,7 @@ export default function Popups() {
             Gerencie popups que serão exibidos no site via Google Tag Manager
           </p>
         </div>
-        <Button onClick={() => setOpen(true)} className="gap-2 gradient-primary border-0">
+        <Button onClick={() => { setEditingPopup(null); resetForm(); setOpen(true); }} className="gap-2 gradient-primary border-0">
           <Plus className="w-4 h-4" /> Novo Popup
         </Button>
       </div>
@@ -481,6 +531,9 @@ export default function Popups() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
+                      <Pencil className="w-4 h-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setStatsPopup(p)}>
                       <BarChart3 className="w-4 h-4" />
                     </Button>
@@ -506,10 +559,10 @@ export default function Popups() {
       )}
 
       {/* Create Dialog */}
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditingPopup(null); resetForm(); } }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Novo Popup</DialogTitle>
+            <DialogTitle>{editingPopup ? 'Editar Popup' : 'Novo Popup'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -616,9 +669,13 @@ export default function Popups() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending} className="gradient-primary border-0">
-              Criar Popup
+            <Button variant="outline" onClick={() => { setOpen(false); setEditingPopup(null); resetForm(); }}>Cancelar</Button>
+            <Button
+              onClick={() => editingPopup ? updateMutation.mutate(editingPopup.id) : createMutation.mutate()}
+              disabled={createMutation.isPending || updateMutation.isPending}
+              className="gradient-primary border-0"
+            >
+              {editingPopup ? 'Salvar Alterações' : 'Criar Popup'}
             </Button>
           </DialogFooter>
         </DialogContent>
