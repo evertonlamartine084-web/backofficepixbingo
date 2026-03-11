@@ -669,9 +669,15 @@ export default function Popups() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending} className="gradient-primary border-0">
-              Criar Popup
+            <Button variant="outline" onClick={() => { setOpen(false); setEditingPopup(null); resetForm(); }}>Cancelar</Button>
+            <Button
+              onClick={() => editingPopup ? updateMutation.mutate(editingPopup.id) : createMutation.mutate()}
+              disabled={createMutation.isPending || updateMutation.isPending}
+              className="gradient-primary border-0"
+            >
+              {editingPopup ? 'Salvar Alterações' : 'Criar Popup'}
+            </Button>
+          </DialogFooter>
             </Button>
           </DialogFooter>
         </DialogContent>
