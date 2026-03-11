@@ -440,54 +440,28 @@ export default function Popups() {
         </Button>
       </div>
 
-      {/* Endpoint URL Card */}
+      {/* GTM Script Card */}
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
-                <ExternalLink className="w-3 h-3 inline mr-1" /> Endpoint para o GTM
+          <button
+            onClick={() => setShowGtmScript(!showGtmScript)}
+            className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider hover:underline"
+          >
+            <Code className="w-3 h-3" /> Script GTM (copiar e colar no Google Tag Manager)
+            {showGtmScript ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+          {showGtmScript && (
+            <div className="mt-2 space-y-2">
+              <p className="text-[10px] text-muted-foreground">
+                Cole este script como uma <strong>Custom HTML Tag</strong> no GTM. Ele detecta o CPF automaticamente e gerencia exibição, views e cliques.
               </p>
-              <code className="text-xs text-muted-foreground break-all font-mono">{endpointUrl}</code>
+              <pre className="text-[10px] text-muted-foreground bg-background border border-border rounded-md p-3 overflow-x-auto max-h-60 font-mono whitespace-pre">{gtmScript}</pre>
+              <Button variant="outline" size="sm" onClick={copyGtmScript} className="gap-2">
+                {copiedScript ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
+                {copiedScript ? 'Copiado!' : 'Copiar Script'}
+              </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={copyEndpoint} className="shrink-0 gap-2">
-              {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Copiado' : 'Copiar'}
-            </Button>
-          </div>
-          <p className="text-[11px] text-muted-foreground mt-2">
-            O GTM deve fazer um GET neste endpoint substituindo <code className="text-primary">INSERIR_CPF</code> pelo CPF do jogador logado. Retorna os popups ativos para aquele jogador.
-          </p>
-          <div className="mt-3 pt-3 border-t border-border/50">
-            <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
-              <BarChart3 className="w-3 h-3 inline mr-1" /> Endpoint de Tracking (POST)
-            </p>
-            <code className="text-xs text-muted-foreground break-all font-mono">{eventEndpointUrl}</code>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Envie um POST com JSON: <code className="text-primary">{'{"popup_id": "...", "cpf": "...", "event_type": "view|click"}'}</code>
-            </p>
-          </div>
-          <div className="mt-3 pt-3 border-t border-border/50">
-            <button
-              onClick={() => setShowGtmScript(!showGtmScript)}
-              className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider hover:underline"
-            >
-              <Code className="w-3 h-3" /> Script GTM Completo (copiar e colar)
-              {showGtmScript ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </button>
-            {showGtmScript && (
-              <div className="mt-2 space-y-2">
-                <p className="text-[10px] text-muted-foreground">
-                  Cole este script como uma <strong>Custom HTML Tag</strong> no GTM. Ele detecta o CPF automaticamente (cookies, localStorage, sessionStorage, DOM, variável global <code>window.playerCpf</code>) e registra views/cliques.
-                </p>
-                <pre className="text-[10px] text-muted-foreground bg-background border border-border rounded-md p-3 overflow-x-auto max-h-60 font-mono whitespace-pre">{gtmScript}</pre>
-                <Button variant="outline" size="sm" onClick={copyGtmScript} className="gap-2">
-                  {copiedScript ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
-                  {copiedScript ? 'Copiado!' : 'Copiar Script'}
-                </Button>
-              </div>
-            )}
-          </div>
+          )}
         </CardContent>
       </Card>
 
