@@ -191,12 +191,22 @@ export default function Popups() {
           displayedIds[p.id] = true;
           trackEvent(p.id, cpf, 'view');
 
+          // Force repaint helper
+          function showOverlay(overlay) {
+            overlay.style.display = 'none';
+            document.body.appendChild(overlay);
+            overlay.offsetHeight; // force reflow
+            overlay.style.display = 'flex';
+          }
+
+          var OVERLAY_CSS = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2147483647;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
+
           if (p.custom_html) {
             // Custom HTML wrapped in overlay
             var overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;z-index:2147483647;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
+            overlay.setAttribute('style', OVERLAY_CSS);
             var wrapper = document.createElement('div');
-            wrapper.style.cssText = 'position:relative;max-width:90vw;max-height:90vh;overflow:auto;';
+            wrapper.setAttribute('style', 'position:relative;max-width:90vw;max-height:90vh;overflow:auto;');
             wrapper.innerHTML = p.custom_html;
             wrapper.querySelectorAll('a, button').forEach(function(el) {
               el.addEventListener('click', function() { trackEvent(p.id, cpf, 'click'); });
@@ -206,31 +216,31 @@ export default function Popups() {
               overlay.addEventListener('click', function(e) { if (e.target === overlay) dismiss(p.id, cpf, overlay); });
             }
             overlay.appendChild(wrapper);
-            document.body.appendChild(overlay);
+            showOverlay(overlay);
           } else {
             // Simple popup with overlay
             var overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;z-index:2147483647;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
+            overlay.setAttribute('style', OVERLAY_CSS);
             var box = document.createElement('div');
-            box.style.cssText = 'position:relative;background:#fff;border-radius:12px;padding:28px 24px 24px;max-width:400px;width:90%;max-height:90vh;overflow:auto;text-align:center;';
+            box.setAttribute('style', 'position:relative;background:#fff;border-radius:12px;padding:28px 24px 24px;max-width:400px;width:90%;max-height:90vh;overflow:auto;text-align:center;');
             box.appendChild(createCloseBtn(p.id, cpf, overlay));
             if (p.image_url) {
               var img = document.createElement('img');
               img.src = p.image_url;
-              img.style.cssText = 'width:100%;border-radius:8px;margin-bottom:16px;';
+              img.setAttribute('style', 'width:100%;border-radius:8px;margin-bottom:16px;');
               box.appendChild(img);
             }
             var h = document.createElement('h2');
             h.textContent = p.title;
-            h.style.cssText = 'margin:0 0 8px;font-size:20px;color:#111;';
+            h.setAttribute('style', 'margin:0 0 8px;font-size:20px;color:#111;');
             box.appendChild(h);
             var m = document.createElement('p');
             m.textContent = p.message;
-            m.style.cssText = 'margin:0 0 16px;color:#666;font-size:14px;';
+            m.setAttribute('style', 'margin:0 0 16px;color:#666;font-size:14px;');
             box.appendChild(m);
             var btn = document.createElement('button');
             btn.textContent = p.button_text || 'OK';
-            btn.style.cssText = 'background:#22c55e;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:16px;width:100%;';
+            btn.setAttribute('style', 'background:#22c55e;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:16px;width:100%;');
             btn.onclick = function() {
               trackEvent(p.id, cpf, 'click', function() {
                 if (p.button_url) window.location.href = p.button_url;
@@ -240,7 +250,7 @@ export default function Popups() {
             box.appendChild(btn);
             overlay.appendChild(box);
             overlay.addEventListener('click', function(e) { if (e.target === overlay) dismiss(p.id, cpf, overlay); });
-            document.body.appendChild(overlay);
+            showOverlay(overlay);
           }
         });
       }).catch(function(){});
