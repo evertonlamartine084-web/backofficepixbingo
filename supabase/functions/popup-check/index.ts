@@ -53,16 +53,16 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Check which popups this CPF already viewed (server-side dismissal tracking)
+    // Check which popups this CPF already dismissed (server-side dismissal tracking)
     const popupIds = popups.map(p => p.id);
-    const { data: viewedEvents } = await supabase
+    const { data: dismissedEvents } = await supabase
       .from('popup_events')
       .select('popup_id')
       .in('popup_id', popupIds)
       .eq('cpf', cpf)
-      .eq('event_type', 'view');
+      .eq('event_type', 'dismiss');
 
-    const viewedPopupIds = new Set((viewedEvents || []).map(e => e.popup_id));
+    const viewedPopupIds = new Set((dismissedEvents || []).map(e => e.popup_id));
 
     // Filter: segment match + not already viewed (unless persistent)
     const result = popups

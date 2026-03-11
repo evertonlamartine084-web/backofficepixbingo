@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
     const { popup_id, cpf, event_type } = await req.json();
     const cleanCpf = (cpf || '').replace(/\D/g, '');
 
-    if (!popup_id || !cleanCpf || cleanCpf.length < 11 || !['view', 'click'].includes(event_type)) {
+    if (!popup_id || !cleanCpf || cleanCpf.length < 11 || !['view', 'click', 'dismiss'].includes(event_type)) {
       return new Response(JSON.stringify({ error: 'Parâmetros inválidos' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -155,13 +155,17 @@ export default function Popups() {
     .catch(function() { if (callback) callback(); });
   }
 
-  function createCloseBtn(parent) {
+  function dismiss(popupId, cpf, overlay) {
+    trackEvent(popupId, cpf, 'dismiss', function() { overlay.remove(); });
+  }
+
+  function createCloseBtn(popupId, cpf, overlay) {
     var btn = document.createElement('button');
     btn.textContent = '\\u00D7';
-    btn.style.cssText = 'position:absolute;top:8px;right:12px;background:none;border:none;font-size:24px;color:#999;cursor:pointer;line-height:1;padding:4px;';
+    btn.style.cssText = 'position:absolute;top:8px;right:12px;background:none;border:none;font-size:24px;color:#999;cursor:pointer;line-height:1;padding:4px;z-index:1;';
     btn.onmouseover = function() { btn.style.color = '#333'; };
     btn.onmouseout = function() { btn.style.color = '#999'; };
-    btn.onclick = function() { parent.remove(); };
+    btn.onclick = function() { dismiss(popupId, cpf, overlay); };
     return btn;
   }
 
@@ -195,8 +199,8 @@ export default function Popups() {
               el.addEventListener('click', function() { trackEvent(p.id, cpf, 'click'); });
             });
             if (!p.persistent) {
-              overlay.appendChild(createCloseBtn(overlay));
-              overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+              overlay.appendChild(createCloseBtn(p.id, cpf, overlay));
+              overlay.addEventListener('click', function(e) { if (e.target === overlay) dismiss(p.id, cpf, overlay); });
             }
             overlay.appendChild(wrapper);
             document.body.appendChild(overlay);
@@ -206,7 +210,7 @@ export default function Popups() {
             overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
             var box = document.createElement('div');
             box.style.cssText = 'position:relative;background:#fff;border-radius:12px;padding:28px 24px 24px;max-width:400px;width:90%;max-height:90vh;overflow:auto;text-align:center;';
-            box.appendChild(createCloseBtn(overlay));
+            box.appendChild(createCloseBtn(p.id, cpf, overlay));
             if (p.image_url) {
               var img = document.createElement('img');
               img.src = p.image_url;
@@ -227,12 +231,12 @@ export default function Popups() {
             btn.onclick = function() {
               trackEvent(p.id, cpf, 'click', function() {
                 if (p.button_url) window.location.href = p.button_url;
-                else overlay.remove();
+                else dismiss(p.id, cpf, overlay);
               });
             };
             box.appendChild(btn);
             overlay.appendChild(box);
-            overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) dismiss(p.id, cpf, overlay); });
             document.body.appendChild(overlay);
           }
         });
