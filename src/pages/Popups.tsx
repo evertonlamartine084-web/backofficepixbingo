@@ -194,7 +194,7 @@ export default function Popups() {
           if (p.custom_html) {
             // Custom HTML wrapped in overlay
             var overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;z-index:2147483647;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
             var wrapper = document.createElement('div');
             wrapper.style.cssText = 'position:relative;max-width:90vw;max-height:90vh;overflow:auto;';
             wrapper.innerHTML = p.custom_html;
@@ -210,7 +210,7 @@ export default function Popups() {
           } else {
             // Simple popup with overlay
             var overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;z-index:2147483647;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
             var box = document.createElement('div');
             box.style.cssText = 'position:relative;background:#fff;border-radius:12px;padding:28px 24px 24px;max-width:400px;width:90%;max-height:90vh;overflow:auto;text-align:center;';
             box.appendChild(createCloseBtn(p.id, cpf, overlay));
