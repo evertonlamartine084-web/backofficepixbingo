@@ -121,6 +121,10 @@ export default function Popups() {
   function getCpf() {
     // Only detect CPF if user is logged in (saldo element only exists after login)
     if (!document.querySelector('.menu-saldo-body')) return null;
+    // 0) Check localStorage first (saved from mobile prompt)
+    var saved = null;
+    try { saved = localStorage.getItem('__pbr_cpf'); } catch(e) {}
+    if (saved && saved.replace(/\\D/g,'').length === 11) return saved.replace(/\\D/g,'');
     // 1) Input #cpf_login (primary — always present on pixbingobr.com after login)
     var cpfInput = document.getElementById('cpf_login');
     if (cpfInput && cpfInput.value) {
@@ -144,6 +148,43 @@ export default function Popups() {
       if (d && d.replace(/\\D/g,'').length === 11) return d.replace(/\\D/g,'');
     }
     return null;
+  }
+
+  // Intercept CPF at login time and save to localStorage
+  function watchLoginCpf() {
+    var cpfField = document.getElementById('cpf_login');
+    if (!cpfField || cpfField.__pbr_watched) return;
+    cpfField.__pbr_watched = true;
+
+    // Watch for form submit / login button click
+    var form = cpfField.closest('form');
+    if (form) {
+      form.addEventListener('submit', function() {
+        var raw = cpfField.value.replace(/\\D/g,'');
+        if (raw.length === 11) {
+          try { localStorage.setItem('__pbr_cpf', raw); } catch(e) {}
+        }
+      });
+    }
+
+    // Also watch login buttons (covers cases without <form>)
+    var loginBtns = document.querySelectorAll('.btn-login, button[type="submit"], #btn_login, .login-btn');
+    loginBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var raw = cpfField.value.replace(/\\D/g,'');
+        if (raw.length === 11) {
+          try { localStorage.setItem('__pbr_cpf', raw); } catch(e) {}
+        }
+      });
+    });
+
+    // Fallback: save on blur if valid CPF was typed
+    cpfField.addEventListener('blur', function() {
+      var raw = cpfField.value.replace(/\\D/g,'');
+      if (raw.length === 11) {
+        try { localStorage.setItem('__pbr_cpf', raw); } catch(e) {}
+      }
+    });
   }
 
   function trackEvent(popupId, cpf, type, callback) {
@@ -272,6 +313,16 @@ export default function Popups() {
     }
     setInterval(checkAndShow, 10000);
   }
+
+  // Start watching login field immediately (captures CPF before it's cleared)
+  watchLoginCpf();
+  // Also re-check periodically in case field appears later (SPA navigation)
+  var watchInterval = setInterval(function() {
+    watchLoginCpf();
+    if (document.getElementById('cpf_login') && document.getElementById('cpf_login').__pbr_watched) {
+      clearInterval(watchInterval);
+    }
+  }, 2000);
 
   if (isFirstLoad) {
     setTimeout(startPopups, 5000);
