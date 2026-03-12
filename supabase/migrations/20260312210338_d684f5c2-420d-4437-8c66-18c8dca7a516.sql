@@ -1,0 +1,1 @@
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS processing_started_at timestamptz DEFAULT NULL;

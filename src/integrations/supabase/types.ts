@@ -258,6 +258,7 @@ export type Database = {
           popup_id: string | null
           prize_description: string | null
           prize_value: number
+          processing_started_at: string | null
           segment_id: string | null
           start_date: string
           status: string
@@ -278,6 +279,7 @@ export type Database = {
           popup_id?: string | null
           prize_description?: string | null
           prize_value?: number
+          processing_started_at?: string | null
           segment_id?: string | null
           start_date?: string
           status?: string
@@ -298,6 +300,7 @@ export type Database = {
           popup_id?: string | null
           prize_description?: string | null
           prize_value?: number
+          processing_started_at?: string | null
           segment_id?: string | null
           start_date?: string
           status?: string
