@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     const { error } = await supabase
       .from('popup_events')
       .upsert(
-        { popup_id, cpf: cleanCpf, cpf_masked: cpfMasked, event_type },
+        { popup_id, cpf: cleanCpf, cpf_masked: cpfMasked, event_type, updated_at: new Date().toISOString() },
         { onConflict: 'popup_id,cpf,event_type' }
       );
 

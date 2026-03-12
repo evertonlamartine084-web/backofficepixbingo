@@ -5,6 +5,13 @@ const corsHeaders = {
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+const FREQUENCY_MS: Record<string, number> = {
+  minute: 60 * 1000,
+  hour: 60 * 60 * 1000,
+  day: 24 * 60 * 60 * 1000,
+  week: 7 * 24 * 60 * 60 * 1000,
+};
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -13,7 +20,7 @@ Deno.serve(async (req: Request) => {
     const cpf = url.searchParams.get('cpf')?.replace(/\D/g, '') || '';
 
     if (!cpf || cpf.length < 11) {
-      return new Response(JSON.stringify({ popups: [], debug: 'invalid cpf' }), {
+      return new Response(JSON.stringify({ popups: [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -25,19 +32,13 @@ Deno.serve(async (req: Request) => {
     const now = new Date().toISOString();
     const { data: popups, error: popErr } = await supabase
       .from('popups')
-      .select('id, title, message, image_url, button_text, button_url, custom_html, style, segment_id, persistent')
+      .select('id, title, message, image_url, button_text, button_url, custom_html, style, segment_id, persistent, frequency')
       .eq('active', true)
       .lte('start_date', now)
       .gte('end_date', now);
 
-    if (popErr) {
-      return new Response(JSON.stringify({ popups: [], debug: 'popups query error', error: popErr.message }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (!popups?.length) {
-      return new Response(JSON.stringify({ popups: [], debug: 'no active popups found', now, cpf }), {
+    if (popErr || !popups?.length) {
+      return new Response(JSON.stringify({ popups: [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -60,16 +61,35 @@ Deno.serve(async (req: Request) => {
     const popupIds = popups.map(p => p.id);
     const { data: dismissedEvents } = await supabase
       .from('popup_events')
-      .select('popup_id')
+      .select('popup_id, updated_at')
       .in('popup_id', popupIds)
       .eq('cpf', cpf)
       .eq('event_type', 'dismiss');
 
-    const viewedPopupIds = new Set((dismissedEvents || []).map(e => e.popup_id));
+    // Map popup_id -> last dismiss timestamp
+    const dismissMap = new Map<string, string>();
+    for (const e of (dismissedEvents || [])) {
+      dismissMap.set(e.popup_id, e.updated_at);
+    }
+
+    const nowMs = Date.now();
 
     const result = popups
       .filter(p => !p.segment_id || matchingSegmentIds.has(p.segment_id))
-      .filter(p => p.persistent || !viewedPopupIds.has(p.id))
+      .filter(p => {
+        if (p.persistent) return true;
+        const dismissedAt = dismissMap.get(p.id);
+        if (!dismissedAt) return true; // never dismissed
+
+        const freq = p.frequency || 'once';
+        if (freq === 'once') return false; // dismissed once = gone
+
+        // Check if enough time has passed since last dismiss
+        const intervalMs = FREQUENCY_MS[freq];
+        if (!intervalMs) return false;
+        const elapsed = nowMs - new Date(dismissedAt).getTime();
+        return elapsed >= intervalMs;
+      })
       .map(p => ({
         id: p.id,
         title: p.title,
@@ -80,24 +100,14 @@ Deno.serve(async (req: Request) => {
         custom_html: p.custom_html,
         style: p.style,
         persistent: p.persistent || false,
+        frequency: p.frequency || 'once',
       }));
 
-    return new Response(JSON.stringify({
-      popups: result,
-      debug: {
-        now,
-        cpf,
-        totalActive: popups.length,
-        segmentIds: [...segmentIds],
-        matchingSegments: [...matchingSegmentIds],
-        dismissedCount: viewedPopupIds.size,
-        resultCount: result.length
-      }
-    }), {
+    return new Response(JSON.stringify({ popups: result }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-cache, no-store, must-revalidate' },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ popups: [], debug: 'exception', error: (error as Error).message }), {
+    return new Response(JSON.stringify({ popups: [], error: (error as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

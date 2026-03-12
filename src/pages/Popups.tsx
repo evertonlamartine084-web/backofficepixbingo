@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, CalendarIcon, Code, Type, Pin, MousePointer, Users, BarChart3, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, CalendarIcon, Code, Type, Pin, MousePointer, Users, BarChart3, ChevronDown, ChevronUp, Pencil, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,6 +33,7 @@ interface Popup {
   end_date: string;
   active: boolean;
   persistent: boolean;
+  frequency: string;
   style: Record<string, any>;
   created_at: string;
   segment_name?: string;
@@ -98,6 +99,7 @@ export default function Popups() {
     custom_html: '',
     segment_id: '',
     persistent: false,
+    frequency: 'once' as string,
     start_date: undefined as Date | undefined,
     end_date: undefined as Date | undefined,
   });
@@ -201,6 +203,8 @@ export default function Popups() {
   function dismiss(popupId, cpf, overlay) {
     trackEvent(popupId, cpf, 'dismiss', function() {
       overlay.remove();
+      // Allow recurring popups to re-display after dismiss
+      delete displayedIds[popupId];
     });
   }
 
@@ -229,7 +233,9 @@ export default function Popups() {
       .then(function(data) {
         if (!data.popups || !data.popups.length) return;
         data.popups.forEach(function(p) {
-          if (displayedIds[p.id]) return;
+          // For recurring popups, allow re-display if backend returned it again
+          if (displayedIds[p.id] && (!p.frequency || p.frequency === 'once')) return;
+          if (displayedIds[p.id]) return; // already showing in this cycle
           displayedIds[p.id] = true;
           trackEvent(p.id, cpf, 'view');
 
@@ -419,6 +425,7 @@ export default function Popups() {
         custom_html: form.mode === 'html' ? form.custom_html : null,
         segment_id: form.segment_id || null,
         persistent: form.persistent,
+        frequency: form.frequency,
         start_date: form.start_date.toISOString(),
         end_date: form.end_date.toISOString(),
       } as any);
@@ -448,6 +455,7 @@ export default function Popups() {
         custom_html: form.mode === 'html' ? form.custom_html : null,
         segment_id: form.segment_id || null,
         persistent: form.persistent,
+        frequency: form.frequency,
         start_date: form.start_date.toISOString(),
         end_date: form.end_date.toISOString(),
       } as any).eq('id', id);
@@ -487,7 +495,7 @@ export default function Popups() {
 
   const resetForm = () => setForm({
     name: '', mode: 'simple', title: '', message: '', image_url: '', button_text: 'OK',
-    button_url: '', custom_html: '', segment_id: '', persistent: false, start_date: undefined, end_date: undefined,
+    button_url: '', custom_html: '', segment_id: '', persistent: false, frequency: 'once', start_date: undefined, end_date: undefined,
   });
 
   const openEdit = (p: Popup) => {
@@ -503,6 +511,7 @@ export default function Popups() {
       custom_html: p.custom_html || '',
       segment_id: p.segment_id || '',
       persistent: p.persistent,
+      frequency: p.frequency || 'once',
       start_date: new Date(p.start_date),
       end_date: new Date(p.end_date),
     });
@@ -587,6 +596,7 @@ export default function Popups() {
                       )}
                       {p.custom_html && <Badge variant="outline" className="text-[10px] gap-1"><Code className="w-3 h-3" />HTML</Badge>}
                       {p.persistent && <Badge variant="outline" className="text-[10px] gap-1 border-blue-500/30 text-blue-400"><Pin className="w-3 h-3" />Widget</Badge>}
+                      {p.frequency && p.frequency !== 'once' && <Badge variant="outline" className="text-[10px] gap-1 border-purple-500/30 text-purple-400"><Clock className="w-3 h-3" />{{ minute: '1min', hour: '1h', day: '1d', week: '1sem' }[p.frequency]}</Badge>}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{p.custom_html ? 'Conteúdo HTML customizado' : p.title}</p>
                     <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
@@ -704,6 +714,19 @@ export default function Popups() {
                 <p className="text-[10px] text-muted-foreground">Mantém visível em todas as páginas (botão flutuante, banner, etc)</p>
               </div>
               <Switch checked={form.persistent} onCheckedChange={v => setForm(f => ({ ...f, persistent: v }))} />
+            </div>
+            <div>
+              <Label className="text-xs">Frequência de exibição</Label>
+              <Select value={form.frequency} onValueChange={v => setForm(f => ({ ...f, frequency: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="once">Uma vez (não reaparece após fechar)</SelectItem>
+                  <SelectItem value="minute">A cada minuto</SelectItem>
+                  <SelectItem value="hour">A cada hora</SelectItem>
+                  <SelectItem value="day">A cada dia</SelectItem>
+                  <SelectItem value="week">A cada semana</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
