@@ -230,6 +230,22 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // Prevent concurrent processing using atomic update
+    const now = new Date().toISOString();
+    const thirtySecsAgo = new Date(Date.now() - 30000).toISOString();
+    const { data: lockResult } = await supabase
+      .from('campaigns')
+      .update({ processing_started_at: now } as any)
+      .eq('id', campaign_id)
+      .or(`processing_started_at.is.null,processing_started_at.lt.${thirtySecsAgo}`)
+      .select('id')
+      .maybeSingle();
+
+    if (!lockResult) {
+      return new Response(JSON.stringify({ success: true, data: { processed: 0, eligible: 0, credited: 0, errors: 0, message: 'Processamento já em andamento' } }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // Get segment players
     if (!campaign.segment_id) {
       return new Response(JSON.stringify({ success: false, error: 'Campanha sem segmento vinculado' }),
@@ -424,12 +440,23 @@ Deno.serve(async (req) => {
       await new Promise(r => setTimeout(r, 300));
     }
 
+    // Release lock
+    await supabase.from('campaigns').update({ processing_started_at: null } as any).eq('id', campaign_id);
+
     return new Response(JSON.stringify({
       success: true,
       data: { processed, eligible, credited, errors, total: participants.length },
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
+    // Release lock on error too
+    try {
+      const body2 = await req.clone().json().catch(() => ({}));
+      if (body2.campaign_id) {
+        const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+        await sb.from('campaigns').update({ processing_started_at: null } as any).eq('id', body2.campaign_id);
+      }
+    } catch {}
     return new Response(JSON.stringify({ success: false, error: (error as Error).message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
