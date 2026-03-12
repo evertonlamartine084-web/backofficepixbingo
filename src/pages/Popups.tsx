@@ -277,42 +277,38 @@ export default function Popups() {
             var wrapper = document.createElement('div');
             wrapper.innerHTML = p.custom_html;
 
-            // Re-execute scripts from custom HTML (innerHTML doesn't run them)
-            wrapper.querySelectorAll('script').forEach(function(oldScript) {
-              var newScript = document.createElement('script');
-              newScript.textContent = oldScript.textContent;
-              oldScript.parentNode.replaceChild(newScript, oldScript);
-            });
-
             // Track clicks on CTA links
             wrapper.querySelectorAll('a').forEach(function(el) {
               el.addEventListener('click', function() { trackEvent(p.id, cpf, 'click'); });
             });
 
-            // Find close buttons and hook dismiss
-            setTimeout(function() {
-              var closeEls = wrapper.querySelectorAll('.popup-close, [id*="close"], [class*="close-btn"]');
-              closeEls.forEach(function(el) {
-                el.addEventListener('click', function(e) {
-                  e.stopImmediatePropagation();
-                  var ov = wrapper.closest('.__pbr_overlay');
-                  if (ov) dismiss(p.id, cpf, ov);
-                });
-              });
-
-              // Also hook overlay background click for custom HTML overlays
-              var innerOverlay = wrapper.querySelector('.popup-overlay, [id*="popup"][style*="fixed"], [id*="Overlay"]');
-              if (innerOverlay) {
-                innerOverlay.addEventListener('click', function(e) {
-                  if (e.target === innerOverlay) {
-                    var ov = wrapper.closest('.__pbr_overlay');
-                    if (ov) dismiss(p.id, cpf, ov);
+            // CAPTURE phase listener on wrapper — fires BEFORE any inner handler
+            (function(pid, cpfVal, wrap) {
+              wrap.addEventListener('click', function(e) {
+                var target = e.target;
+                // Check if clicked element is a close button
+                while (target && target !== wrap) {
+                  var id = (target.id || '').toLowerCase();
+                  var cls = (target.className || '').toLowerCase();
+                  var txt = (target.textContent || '').trim();
+                  if (id.indexOf('close') > -1 || cls.indexOf('close') > -1 || txt === '\\u00d7' || txt === 'x' || txt === 'X') {
+                    var ov = wrap.closest('.__pbr_overlay');
+                    if (ov) dismiss(pid, cpfVal, ov);
+                    return;
                   }
-                });
-              }
-            }, 100);
+                  target = target.parentElement;
+                }
+              }, true); // CAPTURE phase
+            })(p.id, cpf, wrapper);
 
             showPopup(wrapper, p.id, cpf, p.persistent);
+
+            // Re-execute scripts from custom HTML AFTER showPopup (innerHTML doesn't run them)
+            wrapper.querySelectorAll('script').forEach(function(oldScript) {
+              var newScript = document.createElement('script');
+              newScript.textContent = oldScript.textContent;
+              oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
           } else {
             var box = document.createElement('div');
             box.setAttribute('style', 'background:#fff;border-radius:12px;padding:28px 24px 24px;max-width:400px;width:90vw;text-align:center;position:relative;');
