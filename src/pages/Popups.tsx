@@ -452,6 +452,24 @@ export default function Popups() {
     },
   });
 
+  // Realtime: auto-refresh when popup events arrive
+  useEffect(() => {
+    const channel = supabase
+      .channel('popup-events-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'popup_events',
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['popup-event-counts'] });
+        if (statsPopup) {
+          queryClient.invalidateQueries({ queryKey: ['popup-events-detail', statsPopup.id] });
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [statsPopup?.id]);
+
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!form.name || !form.start_date || !form.end_date) throw new Error('Preencha os campos obrigatórios');
