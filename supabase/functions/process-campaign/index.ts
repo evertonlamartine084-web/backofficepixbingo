@@ -153,11 +153,12 @@ async function getPlayerDepositTotal(cpf: string, headers: Record<string, string
   return totalValue;
 }
 
-async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, startDt: string, endDt: string, walletType: string): Promise<number> {
+async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, startDt: string, endDt: string, walletType: string, gameFilter: string): Promise<number> {
   const result = await fetchJSON(`${DEFAULT_SITE}/usuarios/transacoes?id=${encodeURIComponent(uuid)}`, headers);
   const transactions = result?.historico || result?.data?.historico || [];
 
   let totalValue = 0;
+  const gameFilterUpper = (gameFilter || '').toUpperCase();
 
   for (const tx of transactions) {
     const operation = String(tx.operacao || tx.tipo || '').toUpperCase();
@@ -165,6 +166,19 @@ async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, 
 
     const txDt = extractDateTime(tx.data_registro || tx.created_at || tx.data);
     if (!isDateTimeInRange(txDt, startDt, endDt)) continue;
+
+    // Filter by game category
+    if (gameFilterUpper) {
+      const gameName = String(tx.jogo || tx.game || tx.descricao || '').toUpperCase();
+      if (gameFilterUpper === 'BINGO') {
+        if (!gameName.includes('BINGO')) continue;
+      } else if (gameFilterUpper === 'CASSINO') {
+        if (gameName.includes('BINGO')) continue;
+      } else {
+        // Specific game name filter
+        if (!gameName.includes(gameFilterUpper)) continue;
+      }
+    }
 
     const wallet = String(tx.carteira || '').toUpperCase();
     const walletIsBonus = wallet === 'BONUS';
@@ -371,6 +385,7 @@ Deno.serve(async (req) => {
             startDt,
             endDt,
             campaign.wallet_type || 'REAL',
+            campaign.game_filter || '',
           );
         } else if (campaign.type === 'ganhou_no_keno') {
           if (!uuid) {

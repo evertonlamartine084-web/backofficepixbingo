@@ -616,13 +616,26 @@ export default function Campaigns() {
                     </Select>
                   </div>
                 )}
+                {form.type === 'aposte_e_ganhe' && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Categoria do jogo</Label>
+                    <Select value={form.game_filter} onValueChange={v => setForm(f => ({ ...f, game_filter: v === '__none__' ? '' : v }))}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Todos os jogos" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Todos os jogos</SelectItem>
+                        <SelectItem value="BINGO">Somente Bingo</SelectItem>
+                        <SelectItem value="CASSINO">Somente Cassino</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 {form.type === 'ganhou_no_keno' && (
                   <div className="space-y-1">
                     <Label className="text-xs">Filtro de cartela</Label>
                     <Select value={form.game_filter} onValueChange={v => setForm(f => ({ ...f, game_filter: v === '__none__' ? '' : v }))}>
                       <SelectTrigger className="h-9"><SelectValue placeholder="Todas as cartelas" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none__">🎯 Todas as cartelas</SelectItem>
+                        <SelectItem value="__none__">Todas as cartelas</SelectItem>
                         {partidas.map(p => (
                           <SelectItem key={p.key} value={p.valor}>{p.label}</SelectItem>
                         ))}
