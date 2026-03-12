@@ -6,7 +6,7 @@ const corsHeaders = {
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const MAX_RUNTIME_MS = 50_000; // 50s max to stay within edge function limits
-const LOOP_INTERVAL_MS = 10_000; // Check every 10 seconds
+const LOOP_INTERVAL_MS = 3_000; // Check every 3 seconds
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
