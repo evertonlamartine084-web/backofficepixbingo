@@ -277,30 +277,42 @@ export default function Popups() {
             var wrapper = document.createElement('div');
             wrapper.innerHTML = p.custom_html;
 
-            // Track clicks on links and buttons
-            wrapper.querySelectorAll('a, button').forEach(function(el) {
+            // Re-execute scripts from custom HTML (innerHTML doesn't run them)
+            wrapper.querySelectorAll('script').forEach(function(oldScript) {
+              var newScript = document.createElement('script');
+              newScript.textContent = oldScript.textContent;
+              oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
+
+            // Track clicks on CTA links
+            wrapper.querySelectorAll('a').forEach(function(el) {
               el.addEventListener('click', function() { trackEvent(p.id, cpf, 'click'); });
             });
 
-            showPopup(wrapper, p.id, cpf, p.persistent);
-
-            // Watch for custom HTML hiding itself (close button, etc)
-            // When content becomes hidden, trigger dismiss
-            var gtmOverlay = wrapper.closest('.__pbr_overlay');
-            if (gtmOverlay) {
-              var observer = new MutationObserver(function(mutations) {
-                // Check if any child was hidden or removed
-                var content = wrapper.querySelector('.popup-overlay, .popup-frame, [id*="popup"]');
-                if (content) {
-                  var style = window.getComputedStyle(content);
-                  if (style.display === 'none' || style.visibility === 'hidden') {
-                    observer.disconnect();
-                    dismiss(p.id, cpf, gtmOverlay);
-                  }
-                }
+            // Find close buttons and hook dismiss
+            setTimeout(function() {
+              var closeEls = wrapper.querySelectorAll('.popup-close, [id*="close"], [class*="close-btn"]');
+              closeEls.forEach(function(el) {
+                el.addEventListener('click', function(e) {
+                  e.stopImmediatePropagation();
+                  var ov = wrapper.closest('.__pbr_overlay');
+                  if (ov) dismiss(p.id, cpf, ov);
+                });
               });
-              observer.observe(wrapper, { attributes: true, childList: true, subtree: true, attributeFilter: ['style', 'class'] });
-            }
+
+              // Also hook overlay background click for custom HTML overlays
+              var innerOverlay = wrapper.querySelector('.popup-overlay, [id*="popup"][style*="fixed"], [id*="Overlay"]');
+              if (innerOverlay) {
+                innerOverlay.addEventListener('click', function(e) {
+                  if (e.target === innerOverlay) {
+                    var ov = wrapper.closest('.__pbr_overlay');
+                    if (ov) dismiss(p.id, cpf, ov);
+                  }
+                });
+              }
+            }, 100);
+
+            showPopup(wrapper, p.id, cpf, p.persistent);
           } else {
             var box = document.createElement('div');
             box.setAttribute('style', 'background:#fff;border-radius:12px;padding:28px 24px 24px;max-width:400px;width:90vw;text-align:center;position:relative;');
