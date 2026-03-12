@@ -157,10 +157,9 @@ export default function Popups() {
     .catch(function() { if (callback) callback(); });
   }
 
-  function dismiss(popupId, cpf, dialog) {
+  function dismiss(popupId, cpf, overlay) {
     trackEvent(popupId, cpf, 'dismiss', function() {
-      if (dialog.close) dialog.close();
-      dialog.remove();
+      overlay.remove();
     });
   }
 
@@ -193,30 +192,25 @@ export default function Popups() {
           displayedIds[p.id] = true;
           trackEvent(p.id, cpf, 'view');
 
-          // Inject global styles once for dialog backdrop
+          // Inject global styles once
           if (!document.getElementById('__pbr_popup_style')) {
             var style = document.createElement('style');
             style.id = '__pbr_popup_style';
-            style.textContent = 'dialog.__pbr_popup::backdrop{background:rgba(0,0,0,.6)} dialog.__pbr_popup{border:none;padding:0;background:transparent;max-width:90vw;max-height:90vh;overflow:visible;}';
+            style.textContent = '.__pbr_overlay{position:fixed!important;top:0!important;left:0!important;width:100%!important;height:100%!important;z-index:2147483647!important;background:rgba(0,0,0,.6)!important;display:flex!important;align-items:center!important;justify-content:center!important;margin:0!important;padding:0!important;border:none!important;}';
             document.head.appendChild(style);
           }
 
           function showPopup(content, popupId, cpfVal, isPersistent) {
-            var dialog = document.createElement('dialog');
-            dialog.className = '__pbr_popup';
-            dialog.appendChild(content);
+            var overlay = document.createElement('div');
+            overlay.className = '__pbr_overlay';
+            overlay.appendChild(content);
             if (!isPersistent) {
-              dialog.appendChild(createCloseBtn(popupId, cpfVal, dialog));
-              dialog.addEventListener('click', function(e) {
-                if (e.target === dialog) dismiss(popupId, cpfVal, dialog);
-              });
-              dialog.addEventListener('cancel', function(e) {
-                e.preventDefault();
-                dismiss(popupId, cpfVal, dialog);
+              overlay.appendChild(createCloseBtn(popupId, cpfVal, overlay));
+              overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) dismiss(popupId, cpfVal, overlay);
               });
             }
-            document.body.appendChild(dialog);
-            dialog.showModal();
+            document.documentElement.appendChild(overlay);
           }
 
           if (p.custom_html) {
@@ -249,7 +243,7 @@ export default function Popups() {
             btn.onclick = function() {
               trackEvent(p.id, cpf, 'click', function() {
                 if (p.button_url) window.location.href = p.button_url;
-                else dismiss(p.id, cpf, btn.closest('dialog'));
+                else dismiss(p.id, cpf, btn.closest('.__pbr_overlay'));
               });
             };
             box.appendChild(btn);
