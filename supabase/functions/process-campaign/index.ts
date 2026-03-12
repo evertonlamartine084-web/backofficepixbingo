@@ -167,8 +167,8 @@ async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, 
     if (!isDateTimeInRange(txDt, startDt, endDt)) continue;
 
     const wallet = String(tx.carteira || '').toUpperCase();
-    const walletIsBonus = wallet === 'BONUS' || wallet === 'PREMIO';
-    const walletIsReal = wallet === 'REAL' || wallet === 'CREDITO';
+    const walletIsBonus = wallet === 'BONUS';
+    const walletIsReal = wallet === 'REAL' || wallet === 'CREDITO' || wallet === 'PREMIO';
 
     if (walletType === 'BONUS' && !walletIsBonus) continue;
     if (walletType === 'REAL' && !walletIsReal) continue;
