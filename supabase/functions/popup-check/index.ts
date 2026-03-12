@@ -59,17 +59,22 @@ Deno.serve(async (req: Request) => {
     }
 
     const popupIds = popups.map(p => p.id);
-    const { data: dismissedEvents } = await supabase
+
+    // Use 'view' events to control frequency (more reliable than dismiss)
+    const { data: viewEvents } = await supabase
       .from('popup_events')
       .select('popup_id, updated_at')
       .in('popup_id', popupIds)
       .eq('cpf', cpf)
-      .eq('event_type', 'dismiss');
+      .eq('event_type', 'view');
 
-    // Map popup_id -> last dismiss timestamp
-    const dismissMap = new Map<string, string>();
-    for (const e of (dismissedEvents || [])) {
-      dismissMap.set(e.popup_id, e.updated_at);
+    // Map popup_id -> last view timestamp
+    const viewMap = new Map<string, string>();
+    for (const e of (viewEvents || [])) {
+      const existing = viewMap.get(e.popup_id);
+      if (!existing || e.updated_at > existing) {
+        viewMap.set(e.popup_id, e.updated_at);
+      }
     }
 
     const nowMs = Date.now();
@@ -78,16 +83,16 @@ Deno.serve(async (req: Request) => {
       .filter(p => !p.segment_id || matchingSegmentIds.has(p.segment_id))
       .filter(p => {
         if (p.persistent) return true;
-        const dismissedAt = dismissMap.get(p.id);
-        if (!dismissedAt) return true; // never dismissed
+        const viewedAt = viewMap.get(p.id);
+        if (!viewedAt) return true; // never viewed
 
         const freq = p.frequency || 'once';
-        if (freq === 'once') return false; // dismissed once = gone
+        if (freq === 'once') return false; // viewed once = don't show again
 
-        // Check if enough time has passed since last dismiss
+        // Check if enough time has passed since last view
         const intervalMs = FREQUENCY_MS[freq];
         if (!intervalMs) return false;
-        const elapsed = nowMs - new Date(dismissedAt).getTime();
+        const elapsed = nowMs - new Date(viewedAt).getTime();
         return elapsed >= intervalMs;
       })
       .map(p => ({
