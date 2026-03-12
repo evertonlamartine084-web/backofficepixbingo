@@ -200,7 +200,23 @@ export default function Popups() {
     .catch(function() { if (callback) callback(); });
   }
 
+  function getDismissKey(popupId) { return '__pbr_dismiss_' + popupId; }
+
+  function isDismissedLocally(popupId, frequency) {
+    try {
+      var raw = localStorage.getItem(getDismissKey(popupId));
+      if (!raw) return false;
+      var ts = Number(raw);
+      if (!frequency || frequency === 'once') return true;
+      var intervals = { minute: 60000, hour: 3600000, day: 86400000, week: 604800000 };
+      var interval = intervals[frequency];
+      if (!interval) return true;
+      return (Date.now() - ts) < interval;
+    } catch(e) { return false; }
+  }
+
   function dismiss(popupId, cpf, overlay) {
+    try { localStorage.setItem(getDismissKey(popupId), String(Date.now())); } catch(e) {}
     trackEvent(popupId, cpf, 'dismiss', function() {
       overlay.remove();
     });
@@ -232,6 +248,7 @@ export default function Popups() {
         if (!data.popups || !data.popups.length) return;
         data.popups.forEach(function(p) {
           if (displayedIds[p.id]) return;
+          if (isDismissedLocally(p.id, p.frequency)) return;
           displayedIds[p.id] = true;
           trackEvent(p.id, cpf, 'view');
 
