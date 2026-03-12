@@ -604,6 +604,7 @@ export type Database = {
           event_type: string
           id: string
           popup_id: string
+          updated_at: string
         }
         Insert: {
           cpf: string
@@ -612,6 +613,7 @@ export type Database = {
           event_type?: string
           id?: string
           popup_id: string
+          updated_at?: string
         }
         Update: {
           cpf?: string
@@ -620,6 +622,7 @@ export type Database = {
           event_type?: string
           id?: string
           popup_id?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -639,6 +642,7 @@ export type Database = {
           created_at: string
           custom_html: string | null
           end_date: string
+          frequency: string
           id: string
           image_url: string | null
           message: string
@@ -657,6 +661,7 @@ export type Database = {
           created_at?: string
           custom_html?: string | null
           end_date: string
+          frequency?: string
           id?: string
           image_url?: string | null
           message?: string
@@ -675,6 +680,7 @@ export type Database = {
           created_at?: string
           custom_html?: string | null
           end_date?: string
+          frequency?: string
           id?: string
           image_url?: string | null
           message?: string
