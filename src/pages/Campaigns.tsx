@@ -307,8 +307,10 @@ export default function Campaigns() {
         const timer = setTimeout(runIteration, 15000);
         autoProcessRef.current.set(campaign.id, timer);
       } catch (e: any) {
-        toast.error(`Erro no processamento automático: ${e.message}`);
-        stopAutoProcess(campaign.id);
+        console.error('Erro no processamento automático:', e.message);
+        // Don't stop on error — retry after delay
+        const timer = setTimeout(runIteration, 30000);
+        autoProcessRef.current.set(campaign.id, timer);
       }
     };
 

@@ -313,11 +313,12 @@ Deno.serve(async (req) => {
         .upsert(participantsToUpsert.slice(i, i + 500), { onConflict: 'campaign_id,cpf', ignoreDuplicates: true });
     }
 
-    // Get all participants that haven't been credited yet
+    // Get all participants that haven't been credited yet (PENDENTE + NAO_ELEGIVEL to re-check)
     const { data: participants } = await supabase
       .from('campaign_participants').select('*')
       .eq('campaign_id', campaign_id)
-      .eq('prize_credited', false);
+      .eq('prize_credited', false)
+      .in('status', ['PENDENTE', 'NAO_ELEGIVEL']);
 
     if (!participants?.length) {
       return new Response(JSON.stringify({ success: true, data: { processed: 0, eligible: 0, credited: 0, errors: 0, waiting_for_optins: !!campaign.popup_id, message: 'Todos já foram processados' } }),
