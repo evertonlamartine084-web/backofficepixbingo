@@ -203,8 +203,6 @@ export default function Popups() {
   function dismiss(popupId, cpf, overlay) {
     trackEvent(popupId, cpf, 'dismiss', function() {
       overlay.remove();
-      // Allow recurring popups to re-display after dismiss
-      delete displayedIds[popupId];
     });
   }
 
@@ -233,9 +231,7 @@ export default function Popups() {
       .then(function(data) {
         if (!data.popups || !data.popups.length) return;
         data.popups.forEach(function(p) {
-          // For recurring popups, allow re-display if backend returned it again
-          if (displayedIds[p.id] && (!p.frequency || p.frequency === 'once')) return;
-          if (displayedIds[p.id]) return; // already showing in this cycle
+          if (displayedIds[p.id]) return;
           displayedIds[p.id] = true;
           trackEvent(p.id, cpf, 'view');
 
