@@ -277,9 +277,19 @@ export default function Popups() {
             var wrapper = document.createElement('div');
             wrapper.innerHTML = p.custom_html;
 
-            // Track clicks on CTA links
+            // Track clicks on CTA links — prevent navigation until click is tracked
             wrapper.querySelectorAll('a').forEach(function(el) {
-              el.addEventListener('click', function() { trackEvent(p.id, cpf, 'click'); });
+              el.addEventListener('click', function(e) {
+                var href = el.getAttribute('href');
+                if (href && href !== '#' && href !== 'javascript:void(0)') {
+                  e.preventDefault();
+                  trackEvent(p.id, cpf, 'click', function() {
+                    window.location.href = href;
+                  });
+                } else {
+                  trackEvent(p.id, cpf, 'click');
+                }
+              });
             });
 
             // CAPTURE phase listener on wrapper — fires BEFORE any inner handler
