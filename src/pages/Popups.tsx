@@ -275,10 +275,29 @@ export default function Popups() {
 
           if (p.custom_html) {
             var wrapper = document.createElement('div');
-            wrapper.innerHTML = p.custom_html;
+            // Strip the custom HTML's own overlay/close scripts — GTM handles that
+            var cleanHtml = p.custom_html
+              .replace(/<script[\\s\\S]*?<\\/script>/gi, '')
+              .replace(/class="popup-overlay"/gi, 'class="popup-overlay" style="position:relative;background:none;min-height:auto;padding:0;inset:auto;"');
+            wrapper.innerHTML = cleanHtml;
+
+            // Hook CTA links to track click
             wrapper.querySelectorAll('a, button').forEach(function(el) {
-              el.addEventListener('click', function() { trackEvent(p.id, cpf, 'click'); });
+              el.addEventListener('click', function(e) {
+                trackEvent(p.id, cpf, 'click');
+              });
             });
+
+            // Hook close buttons inside custom HTML to call dismiss
+            wrapper.querySelectorAll('.popup-close, [id*="close"], [class*="close"]').forEach(function(el) {
+              el.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var ov = el.closest('.__pbr_overlay');
+                if (ov) dismiss(p.id, cpf, ov);
+              });
+            });
+
             showPopup(wrapper, p.id, cpf, p.persistent);
           } else {
             var box = document.createElement('div');
