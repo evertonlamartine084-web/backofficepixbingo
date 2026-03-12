@@ -275,30 +275,32 @@ export default function Popups() {
 
           if (p.custom_html) {
             var wrapper = document.createElement('div');
-            // Strip the custom HTML's own overlay/close scripts — GTM handles that
-            var cleanHtml = p.custom_html
-              .replace(/<script[\\s\\S]*?<\\/script>/gi, '')
-              .replace(/class="popup-overlay"/gi, 'class="popup-overlay" style="position:relative;background:none;min-height:auto;padding:0;inset:auto;"');
-            wrapper.innerHTML = cleanHtml;
+            wrapper.innerHTML = p.custom_html;
 
-            // Hook CTA links to track click
+            // Track clicks on links and buttons
             wrapper.querySelectorAll('a, button').forEach(function(el) {
-              el.addEventListener('click', function(e) {
-                trackEvent(p.id, cpf, 'click');
-              });
-            });
-
-            // Hook close buttons inside custom HTML to call dismiss
-            wrapper.querySelectorAll('.popup-close, [id*="close"], [class*="close"]').forEach(function(el) {
-              el.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                var ov = el.closest('.__pbr_overlay');
-                if (ov) dismiss(p.id, cpf, ov);
-              });
+              el.addEventListener('click', function() { trackEvent(p.id, cpf, 'click'); });
             });
 
             showPopup(wrapper, p.id, cpf, p.persistent);
+
+            // Watch for custom HTML hiding itself (close button, etc)
+            // When content becomes hidden, trigger dismiss
+            var gtmOverlay = wrapper.closest('.__pbr_overlay');
+            if (gtmOverlay) {
+              var observer = new MutationObserver(function(mutations) {
+                // Check if any child was hidden or removed
+                var content = wrapper.querySelector('.popup-overlay, .popup-frame, [id*="popup"]');
+                if (content) {
+                  var style = window.getComputedStyle(content);
+                  if (style.display === 'none' || style.visibility === 'hidden') {
+                    observer.disconnect();
+                    dismiss(p.id, cpf, gtmOverlay);
+                  }
+                }
+              });
+              observer.observe(wrapper, { attributes: true, childList: true, subtree: true, attributeFilter: ['style', 'class'] });
+            }
           } else {
             var box = document.createElement('div');
             box.setAttribute('style', 'background:#fff;border-radius:12px;padding:28px 24px 24px;max-width:400px;width:90vw;text-align:center;position:relative;');
