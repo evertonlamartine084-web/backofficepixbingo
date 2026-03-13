@@ -170,10 +170,11 @@ async function getPlayerBetTotal(uuid: string, headers: Record<string, string>, 
     // Filter by game category
     if (gameFilterUpper) {
       const gameName = String(tx.jogo || tx.game || tx.descricao || '').toUpperCase();
+      const isBingoGame = gameName.includes('BINGO') || gameName.includes('KENO');
       if (gameFilterUpper === 'BINGO') {
-        if (!gameName.includes('BINGO')) continue;
+        if (!isBingoGame) continue;
       } else if (gameFilterUpper === 'CASSINO') {
-        if (gameName.includes('BINGO')) continue;
+        if (isBingoGame) continue;
       } else {
         // Specific game name filter
         if (!gameName.includes(gameFilterUpper)) continue;
