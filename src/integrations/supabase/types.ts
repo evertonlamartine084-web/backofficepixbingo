@@ -858,16 +858,19 @@ export type Database = {
       }
       user_roles: {
         Row: {
+          allowed_pages: string[] | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
+          allowed_pages?: string[] | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
+          allowed_pages?: string[] | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
@@ -879,6 +882,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_my_permissions: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
