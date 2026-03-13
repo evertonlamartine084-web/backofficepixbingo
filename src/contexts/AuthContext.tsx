@@ -52,18 +52,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await (supabase as any)
         .from('user_roles')
-        .select('role, allowed_pages')
+        .select('*')
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching permissions:', error.message);
+      if (error || !data) {
+        console.error('Error fetching permissions:', error?.message);
+        setRole('sem_role');
         return;
       }
-      setRole(data?.role || 'sem_role');
-      setAllowedPages((data?.allowed_pages as PageKey[] | null) || null);
+      setRole(data.role || 'sem_role');
+      // allowed_pages may not exist if migration hasn't run
+      setAllowedPages((data.allowed_pages as PageKey[] | null) ?? null);
     } catch (e) {
       console.error('Error fetching permissions:', e);
+      setRole('sem_role');
     }
   }, []);
 
