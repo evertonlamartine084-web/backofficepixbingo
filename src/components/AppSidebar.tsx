@@ -6,7 +6,7 @@ import {
   MessageSquare, Mail, Bell, Trophy, ShoppingBag, Package,
   User, CreditCard, Wallet, FileText, Settings
 } from 'lucide-react';
-import { useAuth, PageKey } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import {
   DropdownMenu,
@@ -18,23 +18,23 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
-const navItems: { to: string; icon: any; label: string; pageKey: PageKey }[] = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard', pageKey: 'dashboard' },
-  { to: '/player', icon: UserSearch, label: 'Consultar Jogador', pageKey: 'player' },
-  { to: '/transactions', icon: ArrowUpDown, label: 'Transações', pageKey: 'transactions' },
-  { to: '/segments', icon: ListFilter, label: 'Segmentos', pageKey: 'segments' },
-  { to: '/campaigns', icon: Megaphone, label: 'Campanhas', pageKey: 'campaigns' },
-  { to: '/partidas', icon: Gamepad2, label: 'Partidas', pageKey: 'partidas' },
+const navItems = [
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/player', icon: UserSearch, label: 'Consultar Jogador' },
+  { to: '/transactions', icon: ArrowUpDown, label: 'Transações' },
+  { to: '/segments', icon: ListFilter, label: 'Segmentos' },
+  { to: '/campaigns', icon: Megaphone, label: 'Campanhas' },
+  { to: '/partidas', icon: Gamepad2, label: 'Partidas' },
 ];
 
-const assetsItems: { to: string; icon: any; label: string; pageKey: PageKey }[] = [
-  { to: '/assets/popups', icon: MessageSquare, label: 'Popups GTM', pageKey: 'popups' },
+const assetsItems = [
+  { to: '/assets/popups', icon: MessageSquare, label: 'Popups GTM' },
 ];
 
-const adminItems: { to: string; icon: any; label: string; pageKey: PageKey }[] = [
-  { to: '/admin/endpoints', icon: Globe, label: 'Endpoints', pageKey: 'endpoints' },
-  { to: '/admin/discovery', icon: Radar, label: 'Auto-Discovery', pageKey: 'discovery' },
-  { to: '/admin/manage-users', icon: ShieldCheck, label: 'Gestão de Usuários', pageKey: 'manage_users' },
+const adminItems = [
+  { to: '/admin/endpoints', icon: Globe, label: 'Endpoints' },
+  { to: '/admin/discovery', icon: Radar, label: 'Auto-Discovery' },
+  { to: '/admin/manage-users', icon: ShieldCheck, label: 'Gestão de Usuários' },
 ];
 
 const profileQuickLinks = [
@@ -44,7 +44,7 @@ const profileQuickLinks = [
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, user, hasAccess } = useAuth();
+  const { signOut, user } = useAuth();
 
   const isAssetsRoute = location.pathname.startsWith('/assets');
   const [assetsOpen, setAssetsOpen] = useState(isAssetsRoute);
@@ -76,11 +76,6 @@ export function AppSidebar() {
     }`;
   };
 
-  // Filter items by permission
-  const visibleNavItems = navItems.filter(item => hasAccess(item.pageKey));
-  const visibleAssetsItems = assetsItems.filter(item => hasAccess(item.pageKey));
-  const visibleAdminItems = adminItems.filter(item => hasAccess(item.pageKey));
-
   return (
     <aside className="w-64 h-screen bg-sidebar border-r border-sidebar-border flex flex-col fixed left-0 top-0 z-30">
       <div className="p-5 border-b border-sidebar-border">
@@ -96,67 +91,59 @@ export function AppSidebar() {
       </div>
 
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {visibleNavItems.length > 0 && (
-          <>
-            <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Operações
-            </p>
-            {visibleNavItems.map((item) => (
-              <NavLink key={item.to} to={item.to} className={linkClass(item.to)}>
-                <item.icon className="w-4 h-4" />
-                {item.label}
-                <ChevronRight className="w-3 h-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-              </NavLink>
-            ))}
-          </>
-        )}
+        <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          Operações
+        </p>
+        {navItems.map((item) => (
+          <NavLink key={item.to} to={item.to} className={linkClass(item.to)}>
+            <item.icon className="w-4 h-4" />
+            {item.label}
+            <ChevronRight className="w-3 h-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+          </NavLink>
+        ))}
 
         {/* Assets collapsible group */}
-        {visibleAssetsItems.length > 0 && (
-          <div className="pt-1">
-            <button
-              onClick={() => setAssetsOpen(o => !o)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full ${
-                isAssetsRoute
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-              }`}
-            >
-              <Package className="w-4 h-4" />
-              Assets
-              {assetsOpen ? (
-                <ChevronDown className="w-3 h-3 ml-auto" />
-              ) : (
-                <ChevronRight className="w-3 h-3 ml-auto" />
-              )}
-            </button>
-            {assetsOpen && (
-              <div className="ml-3 pl-3 border-l border-border space-y-0.5 mt-1">
-                {visibleAssetsItems.map((item) => (
-                  <NavLink key={item.to} to={item.to} className={subLinkClass(item.to)}>
-                    <item.icon className="w-3.5 h-3.5" />
-                    {item.label}
-                  </NavLink>
-                ))}
-              </div>
+        <div className="pt-1">
+          <button
+            onClick={() => setAssetsOpen(o => !o)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full ${
+              isAssetsRoute
+                ? 'bg-primary/10 text-primary'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+            }`}
+          >
+            <Package className="w-4 h-4" />
+            Assets
+            {assetsOpen ? (
+              <ChevronDown className="w-3 h-3 ml-auto" />
+            ) : (
+              <ChevronRight className="w-3 h-3 ml-auto" />
             )}
-          </div>
-        )}
+          </button>
+          {assetsOpen && (
+            <div className="ml-3 pl-3 border-l border-border space-y-0.5 mt-1">
+              {assetsItems.map((item) => (
+                <NavLink key={item.to} to={item.to} className={subLinkClass(item.to)}>
+                  <item.icon className="w-3.5 h-3.5" />
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </div>
 
-        {visibleAdminItems.length > 0 && (
-          <div className="pt-4">
-            <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Administração
-            </p>
-            {visibleAdminItems.map((item) => (
-              <NavLink key={item.to} to={item.to} className={linkClass(item.to)}>
-                <item.icon className="w-4 h-4" />
-                {item.label}
-                <ChevronRight className="w-3 h-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-              </NavLink>
-            ))}
-          </div>
-        )}
+        <div className="pt-4">
+          <p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Administração
+          </p>
+          {adminItems.map((item) => (
+            <NavLink key={item.to} to={item.to} className={linkClass(item.to)}>
+              <item.icon className="w-4 h-4" />
+              {item.label}
+              <ChevronRight className="w-3 h-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+            </NavLink>
+          ))}
+        </div>
       </nav>
 
       {/* Profile dropdown footer */}
