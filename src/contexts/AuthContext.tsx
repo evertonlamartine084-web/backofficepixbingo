@@ -89,6 +89,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user?.id) {
         fetchPermissions(session.user.id);
       }
+    }).catch(() => {
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
