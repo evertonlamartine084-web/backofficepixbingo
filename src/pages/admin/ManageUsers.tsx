@@ -8,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { UserPlus, Trash2, KeyRound, Shield, Loader2, RefreshCw } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { UserPlus, Trash2, KeyRound, Shield, Loader2, RefreshCw, Lock } from 'lucide-react';
 import { format } from 'date-fns';
+import { ALL_PAGES, PageKey } from '@/contexts/AuthContext';
 
 interface ManagedUser {
   id: string;
@@ -17,6 +19,7 @@ interface ManagedUser {
   created_at: string;
   last_sign_in_at: string | null;
   role: string;
+  allowed_pages: string[] | null;
 }
 
 const roleBadge: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
@@ -43,6 +46,13 @@ export default function AdminUsers() {
   const [resetEmail, setResetEmail] = useState('');
   const [resetPassword, setResetPassword] = useState('');
   const [resetting, setResetting] = useState(false);
+
+  // Permissions dialog
+  const [permOpen, setPermOpen] = useState(false);
+  const [permUser, setPermUser] = useState<ManagedUser | null>(null);
+  const [permPages, setPermPages] = useState<Set<string>>(new Set());
+  const [permAllAccess, setPermAllAccess] = useState(true);
+  const [savingPerm, setSavingPerm] = useState(false);
 
   const callManageUsers = useCallback(async (body: Record<string, any>) => {
     const { data, error } = await supabase.functions.invoke('manage-users', { body });
@@ -121,12 +131,63 @@ export default function AdminUsers() {
     }
   };
 
+  const openPermissions = (user: ManagedUser) => {
+    setPermUser(user);
+    if (user.role === 'admin' || !user.allowed_pages) {
+      setPermAllAccess(true);
+      setPermPages(new Set(ALL_PAGES.map(p => p.key)));
+    } else {
+      setPermAllAccess(false);
+      setPermPages(new Set(user.allowed_pages));
+    }
+    setPermOpen(true);
+  };
+
+  const togglePage = (key: string) => {
+    setPermPages(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleAllAccess = (checked: boolean) => {
+    setPermAllAccess(checked);
+    if (checked) {
+      setPermPages(new Set(ALL_PAGES.map(p => p.key)));
+    }
+  };
+
+  const handleSavePermissions = async () => {
+    if (!permUser) return;
+    setSavingPerm(true);
+    try {
+      const allowed_pages = permAllAccess ? null : Array.from(permPages);
+      await callManageUsers({ action: 'update_permissions', user_id: permUser.id, allowed_pages });
+      toast.success('Permissões atualizadas');
+      setPermOpen(false);
+      loadUsers();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSavingPerm(false);
+    }
+  };
+
+  const getPermissionSummary = (user: ManagedUser) => {
+    if (user.role === 'admin') return 'Acesso total';
+    if (!user.allowed_pages) return 'Todas as páginas';
+    if (user.allowed_pages.length === 0) return 'Nenhum acesso';
+    return `${user.allowed_pages.length} de ${ALL_PAGES.length} páginas`;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Gestão de Usuários</h1>
-          <p className="text-sm text-muted-foreground mt-1">Crie, edite e gerencie usuários do sistema</p>
+          <p className="text-sm text-muted-foreground mt-1">Crie, edite e gerencie usuários e permissões do sistema</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={loadUsers} disabled={loading}>
@@ -182,6 +243,7 @@ export default function AdminUsers() {
             <TableRow>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Permissões</TableHead>
               <TableHead>Criado em</TableHead>
               <TableHead>Último login</TableHead>
               <TableHead className="text-right">Ações</TableHead>
@@ -190,13 +252,13 @@ export default function AdminUsers() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
+                <TableCell colSpan={6} className="text-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   Nenhum usuário encontrado
                 </TableCell>
               </TableRow>
@@ -216,6 +278,17 @@ export default function AdminUsers() {
                         <SelectItem value="visualizador">Visualizador</SelectItem>
                       </SelectContent>
                     </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1.5"
+                      onClick={() => openPermissions(user)}
+                    >
+                      <Lock className="w-3 h-3" />
+                      {getPermissionSummary(user)}
+                    </Button>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {format(new Date(user.created_at), 'dd/MM/yyyy HH:mm')}
@@ -274,6 +347,79 @@ export default function AdminUsers() {
               {resetting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <KeyRound className="w-4 h-4 mr-2" />}
               Resetar
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permissions Dialog */}
+      <Dialog open={permOpen} onOpenChange={setPermOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              Permissões de Acesso
+            </DialogTitle>
+          </DialogHeader>
+          {permUser && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Configurar páginas acessíveis para <strong>{permUser.email}</strong>
+              </p>
+
+              {permUser.role === 'admin' ? (
+                <div className="rounded-lg border border-border bg-muted/30 p-4 text-center">
+                  <Shield className="w-8 h-8 mx-auto text-primary mb-2" />
+                  <p className="text-sm font-medium">Administradores têm acesso total</p>
+                  <p className="text-xs text-muted-foreground mt-1">Mude a role para restringir o acesso</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
+                    <Checkbox
+                      id="all-access"
+                      checked={permAllAccess}
+                      onCheckedChange={(checked) => toggleAllAccess(!!checked)}
+                    />
+                    <Label htmlFor="all-access" className="font-medium cursor-pointer">
+                      Acesso total (todas as páginas)
+                    </Label>
+                  </div>
+
+                  {!permAllAccess && (
+                    <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground px-1 pb-1">
+                        Selecione as páginas
+                      </p>
+                      {ALL_PAGES.map(page => (
+                        <div
+                          key={page.key}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted/30 transition-colors"
+                        >
+                          <Checkbox
+                            id={`perm-${page.key}`}
+                            checked={permPages.has(page.key)}
+                            onCheckedChange={() => togglePage(page.key)}
+                          />
+                          <Label htmlFor={`perm-${page.key}`} className="cursor-pointer flex-1 text-sm">
+                            {page.label}
+                          </Label>
+                          <span className="text-[10px] text-muted-foreground font-mono">{page.path}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+            {permUser?.role !== 'admin' && (
+              <Button onClick={handleSavePermissions} disabled={savingPerm} className="gradient-primary border-0">
+                {savingPerm ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Shield className="w-4 h-4 mr-2" />}
+                Salvar Permissões
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
