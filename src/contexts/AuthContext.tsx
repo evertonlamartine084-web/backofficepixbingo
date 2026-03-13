@@ -36,8 +36,8 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   role: null,
   allowedPages: null,
-  hasAccess: () => false,
-  hasAccessToPath: () => false,
+  hasAccess: () => true, // Default to true while loading
+  hasAccessToPath: () => true,
   signOut: async () => {},
   refreshPermissions: async () => {},
 });
@@ -48,16 +48,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<string | null>(null);
   const [allowedPages, setAllowedPages] = useState<PageKey[] | null>(null);
 
-  const fetchPermissions = useCallback(async () => {
+  const fetchPermissions = useCallback(async (userId: string) => {
     try {
-      const { data, error } = await (supabase.rpc as any)('get_my_permissions');
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role, allowed_pages')
+        .eq('user_id', userId)
+        .maybeSingle();
+
       if (error) {
         console.error('Error fetching permissions:', error.message);
         return;
       }
-      const result = data as any;
-      setRole(result?.role || 'sem_role');
-      setAllowedPages(result?.allowed_pages || null);
+      setRole(data?.role || 'sem_role');
+      setAllowedPages(data?.allowed_pages || null);
     } catch (e) {
       console.error('Error fetching permissions:', e);
     }
@@ -66,30 +70,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) {
-        fetchPermissions();
+      setLoading(false);
+      if (session?.user?.id) {
+        // Fire and forget - don't block rendering
+        fetchPermissions(session.user.id);
       } else {
         setRole(null);
         setAllowedPages(null);
       }
-      setLoading(false);
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) {
-        fetchPermissions();
-      }
       setLoading(false);
+      if (session?.user?.id) {
+        fetchPermissions(session.user.id);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, [fetchPermissions]);
 
   const hasAccess = useCallback((pageKey: PageKey): boolean => {
-    // Admin role always has full access
     if (role === 'admin') return true;
-    // null = all pages (backward compatible)
     if (allowedPages === null) return true;
     return allowedPages.includes(pageKey);
   }, [role, allowedPages]);
@@ -101,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (p.path === '/') return path === '/';
       return path === p.path || path.startsWith(p.path + '/');
     });
-    if (!page) return true; // Unknown route, let it through
+    if (!page) return true;
     return allowedPages.includes(page.key);
   }, [role, allowedPages]);
 
@@ -119,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hasAccess,
       hasAccessToPath,
       signOut,
-      refreshPermissions: fetchPermissions,
+      refreshPermissions: () => session?.user?.id ? fetchPermissions(session.user.id) : Promise.resolve(),
     }}>
       {children}
     </AuthContext.Provider>
