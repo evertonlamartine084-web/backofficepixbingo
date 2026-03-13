@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchPermissions = useCallback(async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('user_roles')
         .select('role, allowed_pages')
         .eq('user_id', userId)
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       setRole(data?.role || 'sem_role');
-      setAllowedPages(data?.allowed_pages || null);
+      setAllowedPages((data?.allowed_pages as PageKey[] | null) || null);
     } catch (e) {
       console.error('Error fetching permissions:', e);
     }
