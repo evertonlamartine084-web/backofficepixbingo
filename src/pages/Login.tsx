@@ -24,13 +24,24 @@ export default function Login() {
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      toast.error(error.message === 'Invalid login credentials'
-        ? 'Email ou senha inválidos'
-        : error.message);
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 15000)
+      );
+      const loginPromise = supabase.auth.signInWithPassword({ email, password });
+      const result = await Promise.race([loginPromise, timeoutPromise]) as any;
+      if (result?.error) {
+        toast.error(result.error.message === 'Invalid login credentials'
+          ? 'Email ou senha inválidos'
+          : result.error.message);
+      }
+    } catch (err: any) {
+      toast.error(err?.message === 'timeout'
+        ? 'Servidor não respondeu. Tente novamente.'
+        : 'Erro de conexão. Verifique sua internet.');
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   return (
