@@ -96,13 +96,14 @@ export function useDashboardStats() {
 
       for (const b of batches || []) {
         const s = b.stats as any;
-        totals.total_items += (s.pendente + s.processando + s.sem_bonus + s.bonus_1x + s.bonus_2x_plus + s.erro);
-        totals.pendente += s.pendente;
-        totals.processando += s.processando;
-        totals.sem_bonus += s.sem_bonus;
-        totals.bonus_1x += s.bonus_1x;
-        totals.bonus_2x_plus += s.bonus_2x_plus;
-        totals.erro += s.erro;
+        if (!s) continue;
+        totals.total_items += ((s.pendente || 0) + (s.processando || 0) + (s.sem_bonus || 0) + (s.bonus_1x || 0) + (s.bonus_2x_plus || 0) + (s.erro || 0));
+        totals.pendente += (s.pendente || 0);
+        totals.processando += (s.processando || 0);
+        totals.sem_bonus += (s.sem_bonus || 0);
+        totals.bonus_1x += (s.bonus_1x || 0);
+        totals.bonus_2x_plus += (s.bonus_2x_plus || 0);
+        totals.erro += (s.erro || 0);
       }
 
       return totals;

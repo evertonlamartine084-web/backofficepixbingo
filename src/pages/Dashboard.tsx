@@ -87,8 +87,8 @@ interface FinancialData {
 }
 
 export default function Dashboard() {
-  const { data: s, isLoading: loadingStats } = useDashboardStats();
-  const { data: batches, isLoading: loadingBatches } = useBatches();
+  const { data: s, isLoading: loadingStats, isError: errorStats } = useDashboardStats();
+  const { data: batches, isLoading: loadingBatches, isError: errorBatches } = useBatches();
   const [creds, setCreds] = useState({ username: '', password: '' });
   const [period, setPeriod] = useState<PeriodFilter>('today');
   const [customStart, setCustomStart] = useState<Date>(new Date());
@@ -155,6 +155,17 @@ export default function Dashboard() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (errorStats || errorBatches) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center space-y-2">
+          <AlertTriangle className="w-8 h-8 text-destructive mx-auto" />
+          <p className="text-sm text-muted-foreground">Erro ao carregar dados do dashboard</p>
+        </div>
       </div>
     );
   }
