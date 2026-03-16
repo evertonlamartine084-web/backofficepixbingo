@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { format } from 'date-fns';
-import { RotateCcw, Trash2, Play, Eye, Plus, Percent } from 'lucide-react';
+import { RotateCcw, Trash2, Play, Eye, Plus, Percent, Loader2, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,8 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import {
-  CashbackRule, CashbackRuleStatus, CashbackGameType, CashbackPeriod,
-  GAME_TYPE_LABELS, PERIOD_LABELS, CASHBACK_STATUS_COLORS,
+  CashbackRule, CashbackRuleStatus, CashbackGameType, CashbackPeriod, CashbackProcessMode,
+  GAME_TYPE_LABELS, PERIOD_LABELS, PROCESS_MODE_LABELS, CASHBACK_STATUS_COLORS,
   useCashbackRules, useCashbackProcessing,
 } from '@/hooks/use-cashback';
 import { CashbackDetail } from '@/components/CashbackDetail';
@@ -26,12 +25,13 @@ interface FormData {
   max_cashback: string;
   wallet_type: 'REAL' | 'BONUS';
   segment_id: string;
+  process_mode: CashbackProcessMode;
 }
 
 const INITIAL_FORM: FormData = {
   name: '', game_type: 'both', period: 'weekly',
   percentage: '', min_loss: '', max_cashback: '',
-  wallet_type: 'BONUS', segment_id: '',
+  wallet_type: 'BONUS', segment_id: '', process_mode: 'manual',
 };
 
 export default function Cashback() {
@@ -40,7 +40,7 @@ export default function Cashback() {
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
 
   const { rules, isLoading, segments, createMutation, deleteMutation, updateStatusMutation } = useCashbackRules();
-  const { processing, processCashback } = useCashbackProcessing();
+  const { processing, autoProcessing, startAutoProcess, stopAutoProcess, processCashback } = useCashbackProcessing(rules);
 
   const handleSubmit = () => {
     createMutation.mutate(form, {
@@ -51,8 +51,23 @@ export default function Cashback() {
     });
   };
 
+  // Auto-start when status changes to ATIVA for auto rules
+  const handleStatusChange = (id: string, status: CashbackRuleStatus) => {
+    updateStatusMutation.mutate({ id, status }, {
+      onSuccess: () => {
+        if (status === 'ATIVA') {
+          const rule = rules.find(r => r.id === id);
+          if (rule && rule.process_mode === 'auto') {
+            startAutoProcess({ ...rule, status: 'ATIVA' });
+          }
+        }
+        if (status !== 'ATIVA') stopAutoProcess(id);
+      },
+    });
+  };
+
   if (selectedRule) {
-    return <CashbackDetail rule={selectedRule} onBack={() => setSelectedRule(null)} />;
+    return <CashbackDetail rule={selectedRule} rules={rules} onBack={() => setSelectedRule(null)} />;
   }
 
   return (
@@ -73,15 +88,15 @@ export default function Cashback() {
                 <Label className="text-xs">Nome *</Label>
                 <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Cashback Semanal 10%" className="h-9" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Tipo de Jogo *</Label>
                   <Select value={form.game_type} onValueChange={v => setForm(f => ({ ...f, game_type: v as CashbackGameType }))}>
                     <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="both">Ambos (Bingo + Cassino)</SelectItem>
-                      <SelectItem value="bingo">Somente Bingo</SelectItem>
-                      <SelectItem value="cassino">Somente Cassino</SelectItem>
+                      <SelectItem value="both">Ambos</SelectItem>
+                      <SelectItem value="bingo">Bingo</SelectItem>
+                      <SelectItem value="cassino">Cassino</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -95,7 +110,28 @@ export default function Cashback() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Processamento *</Label>
+                  <Select value={form.process_mode} onValueChange={v => setForm(f => ({ ...f, process_mode: v as CashbackProcessMode }))}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">Manual</SelectItem>
+                      <SelectItem value="auto">Automático</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+              {form.process_mode === 'auto' && (
+                <p className="text-[10px] text-muted-foreground bg-secondary/50 p-2 rounded">
+                  No modo automático, o cashback será processado automaticamente quando a regra estiver ATIVA.
+                  {form.period === 'daily' ? ' Processa o dia anterior a cada 1 hora.' : ' Processa a semana anterior a cada 6 horas.'}
+                </p>
+              )}
+              {form.process_mode === 'manual' && (
+                <p className="text-[10px] text-muted-foreground bg-secondary/50 p-2 rounded">
+                  No modo manual, você precisará clicar em "Processar" para executar o cashback.
+                </p>
+              )}
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Cashback (%) *</Label>
@@ -175,12 +211,12 @@ export default function Cashback() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Jogo</TableHead>
                   <TableHead>Período</TableHead>
+                  <TableHead>Modo</TableHead>
                   <TableHead>Cashback</TableHead>
                   <TableHead>Perda Mín.</TableHead>
-                  <TableHead>Max</TableHead>
                   <TableHead>Segmento</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-[140px]">Ações</TableHead>
+                  <TableHead className="w-[160px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -195,16 +231,25 @@ export default function Cashback() {
                     </TableCell>
                     <TableCell><Badge variant="outline" className="text-xs">{GAME_TYPE_LABELS[r.game_type]}</Badge></TableCell>
                     <TableCell><span className="text-xs">{PERIOD_LABELS[r.period]}</span></TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={cn('text-[10px]', r.process_mode === 'auto' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : '')}>
+                        {PROCESS_MODE_LABELS[r.process_mode]}
+                      </Badge>
+                      {autoProcessing.has(r.id) && (
+                        <Badge variant="outline" className="text-[10px] ml-1 bg-emerald-500/10 text-emerald-400 border-emerald-500/30 gap-0.5">
+                          <Loader2 className="w-2.5 h-2.5 animate-spin" /> Rodando
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm font-medium">{Number(r.percentage).toFixed(1)}%</TableCell>
                     <TableCell className="text-sm">R$ {Number(r.min_loss).toFixed(2)}</TableCell>
-                    <TableCell className="text-sm">{r.max_cashback ? `R$ ${Number(r.max_cashback).toFixed(2)}` : '—'}</TableCell>
                     <TableCell>
                       {r.segment_name ? (
                         <Badge variant="outline" className="text-xs">{r.segment_name}</Badge>
                       ) : (<span className="text-xs text-muted-foreground">—</span>)}
                     </TableCell>
                     <TableCell>
-                      <Select value={r.status} onValueChange={v => updateStatusMutation.mutate({ id: r.id, status: v as CashbackRuleStatus })}>
+                      <Select value={r.status} onValueChange={v => handleStatusChange(r.id, v as CashbackRuleStatus)}>
                         <SelectTrigger className="h-7 text-xs w-[120px]">
                           <Badge className={cn('text-[10px]', CASHBACK_STATUS_COLORS[r.status])}>{r.status}</Badge>
                         </SelectTrigger>
@@ -221,9 +266,19 @@ export default function Cashback() {
                         <Button variant="ghost" size="icon" className="h-7 w-7" title="Ver detalhes" onClick={() => setSelectedRule(r)}>
                           <Eye className="w-3.5 h-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-400" title="Processar" onClick={() => processCashback(r)} disabled={processing || !r.segment_id}>
-                          <Play className="w-3.5 h-3.5" />
-                        </Button>
+                        {r.process_mode === 'manual' ? (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-400" title="Processar manual" onClick={() => processCashback(r)} disabled={processing || !r.segment_id}>
+                            <Play className="w-3.5 h-3.5" />
+                          </Button>
+                        ) : autoProcessing.has(r.id) ? (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" title="Parar auto" onClick={() => stopAutoProcess(r.id)}>
+                            <Square className="w-3.5 h-3.5" />
+                          </Button>
+                        ) : (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-400" title="Iniciar auto" onClick={() => startAutoProcess(r)} disabled={!r.segment_id || r.status !== 'ATIVA'}>
+                            <Loader2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => {
                           if (confirm(`Excluir regra "${r.name}"?`)) deleteMutation.mutate(r.id);
                         }}>

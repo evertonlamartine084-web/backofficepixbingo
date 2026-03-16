@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -7,6 +7,7 @@ import { getSavedCredentials } from '@/hooks/use-proxy';
 export type CashbackGameType = 'bingo' | 'cassino' | 'both';
 export type CashbackPeriod = 'daily' | 'weekly';
 export type CashbackRuleStatus = 'RASCUNHO' | 'ATIVA' | 'PAUSADA' | 'ENCERRADA';
+export type CashbackProcessMode = 'manual' | 'auto';
 
 export const GAME_TYPE_LABELS: Record<CashbackGameType, string> = {
   bingo: 'Bingo',
@@ -17,6 +18,11 @@ export const GAME_TYPE_LABELS: Record<CashbackGameType, string> = {
 export const PERIOD_LABELS: Record<CashbackPeriod, string> = {
   daily: 'Diário',
   weekly: 'Semanal',
+};
+
+export const PROCESS_MODE_LABELS: Record<CashbackProcessMode, string> = {
+  manual: 'Manual',
+  auto: 'Automático',
 };
 
 export const CASHBACK_STATUS_COLORS: Record<CashbackRuleStatus, string> = {
@@ -45,6 +51,7 @@ export interface CashbackRule {
   wallet_type: 'REAL' | 'BONUS';
   segment_id: string | null;
   status: CashbackRuleStatus;
+  process_mode: CashbackProcessMode;
   created_at: string;
   updated_at: string;
   segment_name?: string;
@@ -114,7 +121,7 @@ export function useCashbackRules() {
     mutationFn: async (form: {
       name: string; game_type: CashbackGameType; period: CashbackPeriod;
       percentage: string; min_loss: string; max_cashback: string;
-      wallet_type: 'REAL' | 'BONUS'; segment_id: string;
+      wallet_type: 'REAL' | 'BONUS'; segment_id: string; process_mode: CashbackProcessMode;
     }) => {
       if (!form.name || !form.percentage) throw new Error('Preencha os campos obrigatórios');
       const { error } = await supabase.from('cashback_rules').insert({
@@ -126,6 +133,7 @@ export function useCashbackRules() {
         max_cashback: form.max_cashback ? Number(form.max_cashback) : null,
         wallet_type: form.wallet_type,
         segment_id: form.segment_id || null,
+        process_mode: form.process_mode,
       } as any);
       if (error) throw error;
     },
@@ -207,8 +215,10 @@ export function useCashbackItems(executionId: string | undefined) {
   return { items, refetchItems: refetch };
 }
 
-export function useCashbackProcessing() {
+export function useCashbackProcessing(rules: CashbackRule[]) {
   const [processing, setProcessing] = useState(false);
+  const [autoProcessing, setAutoProcessing] = useState<Set<string>>(new Set());
+  const autoProcessRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const queryClient = useQueryClient();
 
   const processCashback = async (rule: CashbackRule, periodStart?: string, periodEnd?: string) => {
@@ -248,5 +258,87 @@ export function useCashbackProcessing() {
     }
   };
 
-  return { processing, processCashback };
+  const startAutoProcess = useCallback((rule: CashbackRule, silent = false) => {
+    const creds = getSavedCredentials();
+    if (!creds.username || !creds.password) {
+      if (!silent) toast.error('Configure as credenciais da plataforma primeiro (barra superior)');
+      return;
+    }
+    if (!rule.segment_id) {
+      if (!silent) toast.error('Regra sem segmento vinculado');
+      return;
+    }
+    if (autoProcessRef.current.has(rule.id)) return;
+
+    if (!silent) toast.info(`Processamento automático iniciado para "${rule.name}"`);
+    setAutoProcessing(prev => new Set(prev).add(rule.id));
+
+    const runIteration = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('process-cashback', {
+          body: { rule_id: rule.id, username: creds.username, password: creds.password },
+        });
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || 'Erro');
+
+        queryClient.invalidateQueries({ queryKey: ['cashback-executions'] });
+        queryClient.invalidateQueries({ queryKey: ['cashback-items'] });
+
+        // Check if rule is still ATIVA
+        const { data: ruleData } = await supabase
+          .from('cashback_rules').select('status').eq('id', rule.id).single();
+
+        if (ruleData?.status !== 'ATIVA') {
+          stopAutoProcess(rule.id);
+          return;
+        }
+
+        // For daily: check again in 1 hour; for weekly: check again in 6 hours
+        const interval = rule.period === 'daily' ? 60 * 60 * 1000 : 6 * 60 * 60 * 1000;
+        const timer = setTimeout(runIteration, interval);
+        autoProcessRef.current.set(rule.id, timer);
+      } catch (e: any) {
+        console.error('Erro no cashback automático:', e.message);
+        // Retry in 5 minutes on error
+        const timer = setTimeout(runIteration, 5 * 60 * 1000);
+        autoProcessRef.current.set(rule.id, timer);
+      }
+    };
+
+    runIteration();
+  }, []);
+
+  const stopAutoProcess = useCallback((ruleId: string) => {
+    const timer = autoProcessRef.current.get(ruleId);
+    if (timer) clearTimeout(timer);
+    autoProcessRef.current.delete(ruleId);
+    setAutoProcessing(prev => {
+      const next = new Set(prev);
+      next.delete(ruleId);
+      return next;
+    });
+  }, []);
+
+  // Auto-resume for ATIVA + auto rules on load
+  useEffect(() => {
+    const creds = getSavedCredentials();
+    if (!creds.username || !creds.password) return;
+
+    const autoRules = rules.filter(r => r.status === 'ATIVA' && r.process_mode === 'auto' && r.segment_id);
+    for (const rule of autoRules) {
+      if (!autoProcessRef.current.has(rule.id)) {
+        startAutoProcess(rule, true);
+      }
+    }
+  }, [rules, startAutoProcess]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      autoProcessRef.current.forEach(timer => clearTimeout(timer));
+      autoProcessRef.current.clear();
+    };
+  }, []);
+
+  return { processing, autoProcessing, startAutoProcess, stopAutoProcess, processCashback };
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { ChevronLeft, Play, Loader2, Download, Clock, ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronLeft, Play, Loader2, Download, Clock, ChevronDown, ChevronRight, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,20 +8,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import {
-  CashbackRule, CashbackExecution, GAME_TYPE_LABELS, PERIOD_LABELS, ITEM_STATUS_COLORS,
+  CashbackRule, GAME_TYPE_LABELS, PERIOD_LABELS, PROCESS_MODE_LABELS, ITEM_STATUS_COLORS,
   useCashbackExecutions, useCashbackItems, useCashbackProcessing,
 } from '@/hooks/use-cashback';
 
 interface Props {
   rule: CashbackRule;
+  rules: CashbackRule[];
   onBack: () => void;
 }
 
-export function CashbackDetail({ rule, onBack }: Props) {
+export function CashbackDetail({ rule, rules, onBack }: Props) {
   const [selectedExecution, setSelectedExecution] = useState<string | null>(null);
   const { executions, refetchExecutions } = useCashbackExecutions(rule.id);
   const { items } = useCashbackItems(selectedExecution || undefined);
-  const { processing, processCashback } = useCashbackProcessing();
+  const { processing, autoProcessing, startAutoProcess, stopAutoProcess, processCashback } =
+    useCashbackProcessing(rules);
 
   const handleProcess = async () => {
     await processCashback(rule);
@@ -51,9 +53,6 @@ export function CashbackDetail({ rule, onBack }: Props) {
     URL.revokeObjectURL(url);
   };
 
-  const selectedExecData = executions.find(e => e.id === selectedExecution);
-
-  // Stats for selected execution items
   const itemStats = {
     total: items.length,
     semPerda: items.filter(i => i.status === 'SEM_PERDA').length,
@@ -73,22 +72,50 @@ export function CashbackDetail({ rule, onBack }: Props) {
           <p className="text-sm text-muted-foreground">
             {GAME_TYPE_LABELS[rule.game_type]} • {PERIOD_LABELS[rule.period]} • {Number(rule.percentage).toFixed(1)}%
             {rule.segment_name && ` • ${rule.segment_name}`}
+            {' • '}
+            <Badge variant="outline" className={cn('text-[10px]', rule.process_mode === 'auto' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : '')}>
+              {PROCESS_MODE_LABELS[rule.process_mode]}
+            </Badge>
           </p>
         </div>
-        <Button onClick={handleProcess} disabled={processing || !rule.segment_id} className="gap-2" size="sm">
-          {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-          {processing ? 'Processando...' : 'Processar Cashback'}
-        </Button>
+        <div className="flex items-center gap-2">
+          {autoProcessing.has(rule.id) && (
+            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-xs gap-1">
+              <Loader2 className="w-3 h-3 animate-spin" /> Rodando automaticamente
+            </Badge>
+          )}
+          {rule.process_mode === 'auto' && (
+            autoProcessing.has(rule.id) ? (
+              <Button onClick={() => stopAutoProcess(rule.id)} variant="outline" size="sm" className="gap-2 text-red-400 border-red-500/30">
+                <Square className="w-4 h-4" /> Parar Auto
+              </Button>
+            ) : (
+              <Button onClick={() => startAutoProcess(rule)} disabled={!rule.segment_id || rule.status !== 'ATIVA'} className="gap-2" variant="outline" size="sm">
+                <Loader2 className="w-4 h-4" /> Iniciar Auto
+              </Button>
+            )
+          )}
+          <Button onClick={handleProcess} disabled={processing || !rule.segment_id} className="gap-2" size="sm">
+            {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            {processing ? 'Processando...' : 'Processar 1x'}
+          </Button>
+          {items.length > 0 && (
+            <Button onClick={exportCSV} variant="outline" size="sm" className="gap-2">
+              <Download className="w-4 h-4" /> CSV
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Rule summary */}
       <Card className="border-border">
-        <CardContent className="p-4 grid grid-cols-5 gap-4 text-sm">
+        <CardContent className="p-4 grid grid-cols-6 gap-4 text-sm">
           <div><span className="text-muted-foreground text-xs block">Cashback</span>{Number(rule.percentage).toFixed(1)}%</div>
           <div><span className="text-muted-foreground text-xs block">Perda Mínima</span>R$ {Number(rule.min_loss).toFixed(2)}</div>
           <div><span className="text-muted-foreground text-xs block">Max Cashback</span>{rule.max_cashback ? `R$ ${Number(rule.max_cashback).toFixed(2)}` : 'Sem limite'}</div>
           <div><span className="text-muted-foreground text-xs block">Carteira</span><Badge variant="outline" className="text-xs">{rule.wallet_type}</Badge></div>
           <div><span className="text-muted-foreground text-xs block">Tipo de Jogo</span><Badge variant="outline" className="text-xs">{GAME_TYPE_LABELS[rule.game_type]}</Badge></div>
+          <div><span className="text-muted-foreground text-xs block">Processamento</span><Badge variant="outline" className={cn('text-xs', rule.process_mode === 'auto' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : '')}>{PROCESS_MODE_LABELS[rule.process_mode]}</Badge></div>
         </CardContent>
       </Card>
 
@@ -99,7 +126,7 @@ export function CashbackDetail({ rule, onBack }: Props) {
           <Card className="border-border">
             <CardContent className="p-8 text-center text-muted-foreground">
               <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              <p className="text-sm">Nenhuma execução ainda. Clique em "Processar Cashback" para iniciar.</p>
+              <p className="text-sm">Nenhuma execução ainda. Clique em "Processar 1x" para iniciar.</p>
             </CardContent>
           </Card>
         ) : (
@@ -171,7 +198,6 @@ export function CashbackDetail({ rule, onBack }: Props) {
             )}
           </div>
 
-          {/* Execution stats */}
           <div className="grid grid-cols-5 gap-3 mb-4">
             {[
               { label: 'Total', value: itemStats.total, color: 'text-foreground' },
