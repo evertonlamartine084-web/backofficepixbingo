@@ -238,19 +238,19 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
   const [autoProcessing, setAutoProcessing] = useState<Set<string>>(new Set());
   const autoProcessRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  const startAutoProcess = useCallback((campaign: Campaign) => {
+  const startAutoProcess = useCallback((campaign: Campaign, silent = false) => {
     const creds = getSavedCredentials();
     if (!creds.username || !creds.password) {
-      toast.error('Configure as credenciais da plataforma primeiro (barra superior)');
+      if (!silent) toast.error('Configure as credenciais da plataforma primeiro (barra superior)');
       return;
     }
     if (!campaign.segment_id) {
-      toast.error('Campanha sem segmento vinculado');
+      if (!silent) toast.error('Campanha sem segmento vinculado');
       return;
     }
     if (autoProcessRef.current.has(campaign.id)) return;
 
-    toast.info(`Processamento automático iniciado para "${campaign.name}"`);
+    if (!silent) toast.info(`Processamento automático iniciado para "${campaign.name}"`);
     setAutoProcessing(prev => new Set(prev).add(campaign.id));
 
     const runIteration = async () => {
@@ -321,6 +321,19 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
       setProcessing(false);
     }
   };
+
+  // Auto-resume processing for all ATIVA campaigns on page load
+  useEffect(() => {
+    const creds = getSavedCredentials();
+    if (!creds.username || !creds.password) return;
+
+    const activeCampaigns = campaigns.filter(c => c.status === 'ATIVA' && c.segment_id);
+    for (const campaign of activeCampaigns) {
+      if (!autoProcessRef.current.has(campaign.id)) {
+        startAutoProcess(campaign, true);
+      }
+    }
+  }, [campaigns, startAutoProcess]);
 
   useEffect(() => {
     return () => {
