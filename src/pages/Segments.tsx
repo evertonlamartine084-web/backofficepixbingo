@@ -18,6 +18,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, DialogDescription,
 } from '@/components/ui/dialog';
 import { maskCPF, formatCPF, formatDateTime, parseCPFList } from '@/lib/formatters';
+import { logAudit } from '@/hooks/use-audit';
 
 const ALL_USERS_ID = '__all_users__';
 
@@ -184,6 +185,7 @@ export default function Segments() {
       qc.invalidateQueries({ queryKey: ['segments'] });
       setNewName(''); setNewDesc(''); setCreateOpen(false);
       toast.success('Segmento criado!');
+      logAudit({ action: 'CRIAR', resource_type: 'segmento', resource_name: newName });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -194,10 +196,12 @@ export default function Segments() {
       const { error } = await supabase.from('segments').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      const seg = segments?.find((s: any) => s.id === id);
       qc.invalidateQueries({ queryKey: ['segments'] });
       if (selectedSegment) setSelectedSegment(null);
       toast.success('Segmento excluído!');
+      logAudit({ action: 'EXCLUIR', resource_type: 'segmento', resource_id: id, resource_name: seg?.name });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -224,6 +228,8 @@ export default function Segments() {
       qc.invalidateQueries({ queryKey: ['segments'] });
       setCpfInput(''); setAddCpfOpen(false);
       toast.success(`${count} CPF(s) adicionado(s)!`);
+      const seg = segments?.find((s: any) => s.id === selectedSegment);
+      logAudit({ action: 'EDITAR', resource_type: 'segmento', resource_id: selectedSegment || undefined, resource_name: seg?.name, details: { cpfs_added: count } });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -313,6 +319,8 @@ export default function Segments() {
         toast.warning(`${result.errors} erros durante o processamento`);
       }
 
+      const seg = segments?.find((s: any) => s.id === selectedSegment);
+      logAudit({ action: 'CREDITAR', resource_type: 'batch', resource_name: seg?.name, details: { segment_id: selectedSegment, amount: creditAmount, total: effectiveItems.length, credited: result?.credited || 0, errors: result?.errors || 0 } });
       qc.invalidateQueries({ queryKey: ['batches'] });
     } catch (err: any) {
       if (!creditCancelRef.current) {

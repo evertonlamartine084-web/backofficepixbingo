@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { logAudit } from '@/hooks/use-audit';
 
 export default function Login() {
   const { session, loading } = useAuth();
@@ -34,6 +35,9 @@ export default function Login() {
         toast.error(result.error.message === 'Invalid login credentials'
           ? 'Email ou senha inválidos'
           : result.error.message);
+        logAudit({ action: 'LOGIN_FALHA', resource_type: 'auth', details: { email } });
+      } else {
+        logAudit({ action: 'LOGIN', resource_type: 'auth', details: { email } });
       }
     } catch (err: any) {
       toast.error(err?.message === 'timeout'

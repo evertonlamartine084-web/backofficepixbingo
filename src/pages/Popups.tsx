@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { logAudit } from '@/hooks/use-audit';
 
 interface Popup {
   id: string;
@@ -514,6 +515,7 @@ export default function Popups() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['popups'] });
       toast.success('Popup criado');
+      logAudit({ action: 'CRIAR', resource_type: 'popup', resource_name: form.name });
       setOpen(false);
       resetForm();
     },
@@ -544,6 +546,7 @@ export default function Popups() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['popups'] });
       toast.success('Popup atualizado');
+      logAudit({ action: 'EDITAR', resource_type: 'popup', resource_id: editingPopup?.id, resource_name: form.name });
       setOpen(false);
       setEditingPopup(null);
       resetForm();
@@ -555,21 +558,27 @@ export default function Popups() {
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
       const { error } = await supabase.from('popups').update({ active } as any).eq('id', id);
       if (error) throw error;
+      return { id, active };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['popups'] });
       toast.success('Status atualizado');
+      const p = popups?.find((p: any) => p.id === result.id);
+      logAudit({ action: 'STATUS', resource_type: 'popup', resource_id: result.id, resource_name: p?.name, details: { active: result.active } });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      const p = popups?.find((p: any) => p.id === id);
       const { error } = await supabase.from('popups').delete().eq('id', id);
       if (error) throw error;
+      return p;
     },
-    onSuccess: () => {
+    onSuccess: (p) => {
       queryClient.invalidateQueries({ queryKey: ['popups'] });
       toast.success('Popup excluído');
+      logAudit({ action: 'EXCLUIR', resource_type: 'popup', resource_id: p?.id, resource_name: p?.name });
     },
   });
 

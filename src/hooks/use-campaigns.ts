@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getSavedCredentials } from '@/hooks/use-proxy';
+import { logAudit } from '@/hooks/use-audit';
 
 export type CampaignType = 'aposte_e_ganhe' | 'deposite_e_ganhe' | 'ganhou_no_keno';
 export type CampaignStatus = 'RASCUNHO' | 'ATIVA' | 'PAUSADA' | 'ENCERRADA';
@@ -166,35 +167,42 @@ export function useCampaigns() {
       } as any);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, form) => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       toast.success('Campanha criada com sucesso');
+      logAudit({ action: 'CRIAR', resource_type: 'campanha', resource_name: form.name, details: { type: form.type, segment_id: form.segment_id, min_value: form.min_value, prize_value: form.prize_value, wallet_type: form.wallet_type } });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      const camp = campaigns.find(c => c.id === id);
       const { error } = await supabase.from('campaigns').delete().eq('id', id);
       if (error) throw error;
+      return camp;
     },
-    onSuccess: () => {
+    onSuccess: (camp) => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       toast.success('Campanha excluída');
+      logAudit({ action: 'EXCLUIR', resource_type: 'campanha', resource_id: camp?.id, resource_name: camp?.name });
     },
   });
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: CampaignStatus }) => {
+      const camp = campaigns.find(c => c.id === id);
+      const oldStatus = camp?.status;
       const updateData: any = { status };
       if (status === 'ATIVA') updateData.activated_at = new Date().toISOString();
       const { error } = await supabase.from('campaigns').update(updateData).eq('id', id);
       if (error) throw error;
-      return { id, status };
+      return { id, status, oldStatus, name: camp?.name };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       toast.success('Status atualizado');
+      logAudit({ action: 'STATUS', resource_type: 'campanha', resource_id: result.id, resource_name: result.name, details: { from: result.oldStatus, to: result.status } });
     },
   });
 

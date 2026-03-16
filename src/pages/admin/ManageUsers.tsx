@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { logAudit } from '@/hooks/use-audit';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -83,6 +84,7 @@ export default function AdminUsers() {
     try {
       await callManageUsers({ action: 'create', email: newEmail, password: newPassword, role: newRole });
       toast.success('Usuário criado com sucesso');
+      logAudit({ action: 'CRIAR', resource_type: 'usuario', resource_name: newEmail, details: { role: newRole } });
       setCreateOpen(false);
       setNewEmail('');
       setNewPassword('');
@@ -100,6 +102,7 @@ export default function AdminUsers() {
     try {
       await callManageUsers({ action: 'delete', user_id: user.id });
       toast.success('Usuário excluído');
+      logAudit({ action: 'EXCLUIR', resource_type: 'usuario', resource_id: user.id, resource_name: user.email });
       loadUsers();
     } catch (err: any) {
       toast.error(err.message);
@@ -110,6 +113,8 @@ export default function AdminUsers() {
     try {
       await callManageUsers({ action: 'update_role', user_id: userId, role });
       toast.success('Role atualizada');
+      const u = users.find(u => u.id === userId);
+      logAudit({ action: 'EDITAR', resource_type: 'usuario', resource_id: userId, resource_name: u?.email, details: { field: 'role', value: role } });
       loadUsers();
     } catch (err: any) {
       toast.error(err.message);
@@ -122,6 +127,7 @@ export default function AdminUsers() {
     try {
       await callManageUsers({ action: 'reset_password', user_id: resetUserId, new_password: resetPassword });
       toast.success('Senha resetada com sucesso');
+      logAudit({ action: 'SENHA', resource_type: 'usuario', resource_id: resetUserId, resource_name: resetEmail });
       setResetOpen(false);
       setResetPassword('');
     } catch (err: any) {
@@ -166,6 +172,7 @@ export default function AdminUsers() {
       const allowed_pages = permAllAccess ? null : Array.from(permPages);
       await callManageUsers({ action: 'update_permissions', user_id: permUser.id, allowed_pages });
       toast.success('Permissões atualizadas');
+      logAudit({ action: 'EDITAR', resource_type: 'usuario', resource_id: permUser.id, resource_name: permUser.email, details: { field: 'permissions', allowed_pages: permAllAccess ? 'all' : Array.from(permPages) } });
       setPermOpen(false);
       loadUsers();
     } catch (err: any) {

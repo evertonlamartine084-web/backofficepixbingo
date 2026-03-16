@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Code,
   LogOut, ChevronRight, ChevronDown, Zap, UserSearch,
   ArrowUpDown, ListFilter, ShieldCheck, Megaphone, Gamepad2,
-  MessageSquare, Package, User, RotateCcw
+  MessageSquare, Package, User, RotateCcw, ScrollText
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
@@ -34,6 +34,7 @@ const assetsItems = [
 
 const adminItems = [
   { to: '/admin/manage-users', icon: ShieldCheck, label: 'Gestão de Usuários' },
+  { to: '/admin/audit', icon: ScrollText, label: 'Log de Auditoria' },
 ];
 
 const profileQuickLinks = [

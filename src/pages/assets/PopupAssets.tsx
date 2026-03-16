@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { format } from 'date-fns';
+import { logAudit } from '@/hooks/use-audit';
 
 interface PopupAsset {
   id: string;
@@ -59,6 +60,7 @@ export default function PopupAssets() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['popup_assets'] });
       toast.success(editing ? 'Asset atualizado' : 'Asset criado');
+      logAudit({ action: editing ? 'EDITAR' : 'CRIAR', resource_type: 'popup_asset', resource_id: editing?.id, resource_name: form.name });
       closeDialog();
     },
     onError: (err: any) => toast.error(err.message),
@@ -66,12 +68,15 @@ export default function PopupAssets() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      const asset = assets.find(a => a.id === id);
       const { error } = await supabase.from('popup_assets').delete().eq('id', id);
       if (error) throw error;
+      return asset;
     },
-    onSuccess: () => {
+    onSuccess: (asset) => {
       queryClient.invalidateQueries({ queryKey: ['popup_assets'] });
       toast.success('Asset excluído');
+      logAudit({ action: 'EXCLUIR', resource_type: 'popup_asset', resource_id: asset?.id, resource_name: asset?.name });
     },
     onError: (err: any) => toast.error(err.message),
   });

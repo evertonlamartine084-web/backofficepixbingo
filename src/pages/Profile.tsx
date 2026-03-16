@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { logAudit } from '@/hooks/use-audit';
 import { User, Mail, Calendar, Shield, KeyRound, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,7 @@ export default function Profile() {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       toast.success('Senha alterada com sucesso');
+      logAudit({ action: 'SENHA', resource_type: 'auth', details: { email } });
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {

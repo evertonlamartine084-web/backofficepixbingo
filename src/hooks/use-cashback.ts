@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getSavedCredentials } from '@/hooks/use-proxy';
+import { logAudit } from '@/hooks/use-audit';
 
 export type CashbackGameType = 'bingo' | 'cassino' | 'both';
 export type CashbackPeriod = 'daily' | 'weekly';
@@ -145,32 +146,40 @@ export function useCashbackRules() {
       } as any);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, form) => {
       queryClient.invalidateQueries({ queryKey: ['cashback-rules'] });
       toast.success('Regra de cashback criada com sucesso');
+      logAudit({ action: 'CRIAR', resource_type: 'cashback', resource_name: form.name, details: { game_type: form.game_type, period: form.period, percentage: form.percentage, process_mode: form.process_mode, wallet_type: form.wallet_type } });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      const rule = rules.find(r => r.id === id);
       const { error } = await supabase.from('cashback_rules').delete().eq('id', id);
       if (error) throw error;
+      return rule;
     },
-    onSuccess: () => {
+    onSuccess: (rule) => {
       queryClient.invalidateQueries({ queryKey: ['cashback-rules'] });
       toast.success('Regra excluída');
+      logAudit({ action: 'EXCLUIR', resource_type: 'cashback', resource_id: rule?.id, resource_name: rule?.name });
     },
   });
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: CashbackRuleStatus }) => {
+      const rule = rules.find(r => r.id === id);
+      const oldStatus = rule?.status;
       const { error } = await supabase.from('cashback_rules').update({ status } as any).eq('id', id);
       if (error) throw error;
+      return { id, status, oldStatus, name: rule?.name };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['cashback-rules'] });
       toast.success('Status atualizado');
+      logAudit({ action: 'STATUS', resource_type: 'cashback', resource_id: result.id, resource_name: result.name, details: { from: result.oldStatus, to: result.status } });
     },
   });
 
@@ -261,10 +270,12 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
         toast.success(
           `Cálculo concluído: ${result.eligible} elegíveis | R$ ${Number(result.estimated_total).toFixed(2)} estimado. Revise e aprove para creditar.`
         );
+        logAudit({ action: 'CALCULAR', resource_type: 'cashback', resource_id: rule.id, resource_name: rule.name, details: { eligible: result.eligible, estimated_total: result.estimated_total, execution_id: result.execution_id } });
       } else {
         toast.success(
           `Cashback processado: ${result.eligible} elegíveis | ${result.credited} creditados | R$ ${Number(result.total_credited).toFixed(2)} total`
         );
+        logAudit({ action: 'PROCESSAR', resource_type: 'cashback', resource_id: rule.id, resource_name: rule.name, details: { eligible: result.eligible, credited: result.credited, total_credited: result.total_credited, execution_id: result.execution_id } });
       }
       queryClient.invalidateQueries({ queryKey: ['cashback-executions'] });
       queryClient.invalidateQueries({ queryKey: ['cashback-items'] });
@@ -297,6 +308,7 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
       if (!data?.success) throw new Error(data?.error || 'Erro ao creditar cashback');
       const result = data.data;
       toast.success(`Cashback creditado: ${result.credited} jogadores | R$ ${Number(result.total_credited).toFixed(2)} total`);
+      logAudit({ action: 'APROVAR', resource_type: 'cashback', resource_id: rule.id, resource_name: rule.name, details: { credited: result.credited, total_credited: result.total_credited, execution_id: executionId } });
       queryClient.invalidateQueries({ queryKey: ['cashback-executions'] });
       queryClient.invalidateQueries({ queryKey: ['cashback-items'] });
     } catch (e: any) {
