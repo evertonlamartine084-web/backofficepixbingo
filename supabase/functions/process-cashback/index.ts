@@ -204,13 +204,15 @@ Deno.serve(async (req) => {
       pStart = period_start;
       pEnd = period_end;
     } else if (rule.period === 'daily') {
-      // Today in Fortaleza timezone
-      const todayStart = new Date(now);
-      todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date(now);
-      todayEnd.setHours(23, 59, 59, 999);
-      pStart = todayStart.toISOString();
-      pEnd = todayEnd.toISOString();
+      // Yesterday (cashback always processes the previous day)
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const yStart = new Date(yesterday);
+      yStart.setHours(0, 0, 0, 0);
+      const yEnd = new Date(yesterday);
+      yEnd.setHours(23, 59, 59, 999);
+      pStart = yStart.toISOString();
+      pEnd = yEnd.toISOString();
     } else {
       // Weekly: last Monday to last Sunday
       const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon...
