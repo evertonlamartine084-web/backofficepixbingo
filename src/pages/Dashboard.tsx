@@ -1,16 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { format } from 'date-fns';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Loader2, RefreshCw, Activity, ArrowDownToLine, ArrowUpFromLine,
   Dices, Trophy, TrendingUp, BarChart3, Wallet, DollarSign, CalendarIcon,
-  Users, UserCheck, LogIn, ShieldCheck, Gift, CreditCard, Landmark,
-  ArrowUpDown, CircleDollarSign, Percent, Zap, Clock, XCircle, CheckCircle,
-  AlertTriangle, Shield, Package
+  Users, CircleDollarSign, AlertTriangle,
 } from 'lucide-react';
 import { DashboardInfoCard } from '@/components/DashboardInfoCard';
-import { StatsCard } from '@/components/StatsCard';
-import { BatchStatusBadge } from '@/components/StatusBadge';
-import { Link } from 'react-router-dom';
 import { useDashboardStats, useBatches } from '@/hooks/use-supabase-data';
 import { ApiCredentialsBar } from '@/components/ApiCredentialsBar';
 import { useProxy } from '@/hooks/use-proxy';
@@ -19,42 +15,30 @@ import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import type { BatchStatus } from '@/types';
+import { formatBRL, formatDateAPI } from '@/lib/formatters';
 
 type PeriodFilter = 'today' | 'yesterday' | '7d' | '30d' | 'custom';
-
-const fmtDate = (d: Date) => {
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yyyy = d.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
-};
 
 function getDateRange(period: PeriodFilter, customStart?: Date, customEnd?: Date) {
   const now = new Date();
   switch (period) {
     case 'today':
-      return { start: fmtDate(now), end: fmtDate(now) };
+      return { start: formatDateAPI(now), end: formatDateAPI(now) };
     case 'yesterday': {
       const y = new Date(now); y.setDate(y.getDate() - 1);
-      return { start: fmtDate(y), end: fmtDate(y) };
+      return { start: formatDateAPI(y), end: formatDateAPI(y) };
     }
     case '7d': {
       const d = new Date(now); d.setDate(d.getDate() - 7);
-      return { start: fmtDate(d), end: fmtDate(now) };
+      return { start: formatDateAPI(d), end: formatDateAPI(now) };
     }
     case '30d': {
       const d = new Date(now); d.setDate(d.getDate() - 30);
-      return { start: fmtDate(d), end: fmtDate(now) };
+      return { start: formatDateAPI(d), end: formatDateAPI(now) };
     }
     case 'custom':
-      return { start: fmtDate(customStart || now), end: fmtDate(customEnd || now) };
+      return { start: formatDateAPI(customStart || now), end: formatDateAPI(customEnd || now) };
   }
-}
-
-function formatBRL(val: number | null | undefined): string {
-  if (val === null || val === undefined || typeof val !== 'number' || isNaN(val)) return 'R$ 0,00';
-  return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 interface ProductTotals {
@@ -93,15 +77,14 @@ export default function Dashboard() {
   const [period, setPeriod] = useState<PeriodFilter>('today');
   const [customStart, setCustomStart] = useState<Date>(new Date());
   const [customEnd, setCustomEnd] = useState<Date>(new Date());
-  const [financials, setFinancials] = useState<FinancialData | null>(null);
-  const [loadingFinancials, setLoadingFinancials] = useState(false);
   const { callProxy } = useProxy();
+  const queryClient = useQueryClient();
 
-  const fetchFinancials = useCallback(async () => {
-    if (!creds.username) return;
-    setLoadingFinancials(true);
-    try {
-      const range = getDateRange(period, customStart, customEnd);
+  const range = getDateRange(period, customStart, customEnd);
+  const { data: financials, isLoading: loadingFinancials, refetch: refetchFinancials } = useQuery({
+    queryKey: ['financials', creds.username, range.start, range.end],
+    enabled: !!creds.username,
+    queryFn: async () => {
       const res = await callProxy('financeiro', creds, {
         busca_data_inicio: range.start,
         busca_data_fim: range.end,
@@ -111,16 +94,14 @@ export default function Dashboard() {
       const apiErrorCode = Number(res?.data?.code ?? res?.data?._status ?? 0);
       const apiErrorMessage = res?.data?.Msg || res?.data?._raw;
       if (apiErrorCode >= 400 || apiErrorMessage) {
-        toast.error('Erro na API financeira: ' + String(apiErrorMessage || `Erro HTTP ${apiErrorCode || 'desconhecido'}`));
-        setFinancials(null);
-        return;
+        throw new Error(String(apiErrorMessage || `Erro HTTP ${apiErrorCode || 'desconhecido'}`));
       }
 
       const d = res?.data;
       const fonte = d?.fonte || '';
       const zeroProduct: ProductTotals = { apostas: 0, premios: 0, turnover: 0, ggr: 0, bonusTurnover: 0, bonusGgr: 0, margin: 0 };
 
-      setFinancials({
+      return {
         depositos: Number(d.depositos || 0),
         saques: Number(d.saques || 0),
         qtdDeposito: Number(d.qtdDeposito || 0),
@@ -137,19 +118,10 @@ export default function Dashboard() {
         adjustments: d.adjustments || null,
         totalTransactions: Number(d.totalTransactions || 0),
         isFallback: fonte.includes('fallback'),
-      });
-
-      toast.success('Financeiro atualizado!');
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setLoadingFinancials(false);
-    }
-  }, [creds, period, customStart, customEnd, callProxy]);
-
-  useEffect(() => {
-    if (creds.username) fetchFinancials();
-  }, [creds.username, period, customStart, customEnd]); // eslint-disable-line react-hooks/exhaustive-deps
+      } as FinancialData;
+    },
+    meta: { onError: (err: Error) => toast.error(err.message) },
+  });
 
   if (loadingStats || loadingBatches) {
     return (
@@ -257,7 +229,7 @@ export default function Dashboard() {
               </div>
             </PopoverContent>
           </Popover>
-          <Button onClick={fetchFinancials} disabled={loadingFinancials || !creds.username} variant="outline" size="sm" className="border-border">
+          <Button onClick={() => refetchFinancials()} disabled={loadingFinancials || !creds.username} variant="outline" size="sm" className="border-border">
             {loadingFinancials ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           </Button>
         </div>

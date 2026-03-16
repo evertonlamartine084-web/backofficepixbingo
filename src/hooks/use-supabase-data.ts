@@ -3,14 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 import type { BatchStatus, ItemStatus } from '@/types';
 
 // ── Batches ──
-export function useBatches() {
+export function useBatches(limit = 100) {
   return useQuery({
-    queryKey: ['batches'],
+    queryKey: ['batches', limit],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('batches')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(limit);
       if (error) throw error;
       return data as Array<{
         id: string; name: string; flow_id: string | null; flow_name: string | null;
@@ -39,16 +40,17 @@ export function useBatch(id: string | undefined) {
 }
 
 // ── Batch Items ──
-export function useBatchItems(batchId?: string) {
+export function useBatchItems(batchId?: string, limit = 500) {
   return useQuery({
-    queryKey: ['batch_items', batchId],
+    queryKey: ['batch_items', batchId, limit],
     enabled: !!batchId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('batch_items')
         .select('*')
         .eq('batch_id', batchId!)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .limit(limit);
       if (error) throw error;
       return data as Array<{
         id: string; batch_id: string; cpf: string; cpf_masked: string; uuid: string | null;
@@ -60,15 +62,16 @@ export function useBatchItems(batchId?: string) {
   });
 }
 
-export function useDuplicates() {
+export function useDuplicates(limit = 200) {
   return useQuery({
-    queryKey: ['duplicates'],
+    queryKey: ['duplicates', limit],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('batch_items')
         .select('*')
         .eq('status', 'BONUS_2X+')
-        .order('updated_at', { ascending: false });
+        .order('updated_at', { ascending: false })
+        .limit(limit);
       if (error) throw error;
       return data as Array<{
         id: string; batch_id: string; cpf: string; cpf_masked: string; uuid: string | null;

@@ -31,13 +31,10 @@ interface Partida {
   premio_cartela_pago: string | number;
 }
 
-function parseValor(v: string | number): number {
-  if (typeof v === 'number') return v;
-  return parseFloat(String(v).replace(/\./g, '').replace(',', '.')) || 0;
-}
+import { formatBRL, parseBRL } from '@/lib/formatters';
 
-function formatBRL(v: number): string {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+function parseValor(v: string | number): number {
+  return parseBRL(v);
 }
 
 function getStatusInfo(p: Partida) {

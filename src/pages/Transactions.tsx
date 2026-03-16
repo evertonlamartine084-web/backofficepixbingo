@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { format } from 'date-fns';
 import {
+
   Search, Loader2, RefreshCw, ArrowDownToLine, ArrowUpFromLine,
   ChevronLeft, ChevronRight, CalendarIcon, Filter, X
 } from 'lucide-react';
@@ -12,6 +13,7 @@ import { ApiCredentialsBar } from '@/components/ApiCredentialsBar';
 import { useProxy } from '@/hooks/use-proxy';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { formatBRL, parseBRL, formatDateTime, maskCPF, formatDateAPI } from '@/lib/formatters';
 
 const PAGE_SIZE = 50;
 
@@ -30,47 +32,6 @@ const tipoStyles: Record<string, string> = {
   BONUS: 'bg-primary/15 text-primary',
   CREDITO: 'bg-success/15 text-success',
   DEBITO: 'bg-destructive/15 text-destructive',
-};
-
-function parseCurrency(val: any): number {
-  if (typeof val === 'number') return val;
-  if (typeof val === 'string') {
-    // If it looks like standard decimal (e.g. "10.00", "130.00"), parse directly
-    if (/^\d+\.\d{1,2}$/.test(val.trim())) return parseFloat(val);
-    // Otherwise treat as BRL format (e.g. "1.000,50")
-    return parseFloat(val.replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
-  }
-  return 0;
-}
-
-function formatBRL(val: number): string {
-  return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-function formatDate(val: string): string {
-  if (!val) return '—';
-  try {
-    const d = new Date(val);
-    if (isNaN(d.getTime())) return val;
-    return format(d, 'dd/MM/yyyy HH:mm');
-  } catch {
-    return val;
-  }
-}
-
-function maskCPF(cpf: string): string {
-  if (!cpf) return '—';
-  const clean = cpf.replace(/\D/g, '');
-  if (clean.length === 11) {
-    return `${clean.slice(0, 3)}.***.***.${clean.slice(9)}`;
-  }
-  return cpf;
-}
-
-const fmtApiDate = (d: Date) => {
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `${dd}/${mm}/${d.getFullYear()}`;
 };
 
 export default function Transactions() {
@@ -93,8 +54,8 @@ export default function Transactions() {
         length: PAGE_SIZE,
       };
       if (searchCpf) extra.busca_cpf = searchCpf;
-      if (dateStart) extra.busca_data_inicio = fmtApiDate(dateStart);
-      if (dateEnd) extra.busca_data_fim = fmtApiDate(dateEnd);
+      if (dateStart) extra.busca_data_inicio = formatDateAPI(dateStart);
+      if (dateEnd) extra.busca_data_fim = formatDateAPI(dateEnd);
 
       const res = await callWithLoading('list_transactions', creds, extra);
       const data = res?.data;
@@ -283,12 +244,12 @@ export default function Transactions() {
                   <tbody>
                     {items.map((item: any, i: number) => {
                       const tipo = String(item.tipo_transacao || item.tipo || '').toUpperCase();
-                      const valor = parseCurrency(item.valor);
+                      const valor = parseBRL(item.valor);
                       const isPositive = tipo.includes('DEPOSITO') || tipo.includes('CREDITO') || tipo.includes('CRÉDITO') || tipo.includes('BONUS');
 
                       return (
                         <tr key={item.id || i} className="border-b border-border/30 hover:bg-secondary/20 transition-colors group">
-                          <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">{formatDate(item.updated_at || item.created_at)}</td>
+                          <td className="p-3 text-xs text-muted-foreground whitespace-nowrap">{formatDateTime(item.updated_at || item.created_at)}</td>
                           <td className="p-3">
                             <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold', tipoStyles[tipo] || 'bg-secondary text-muted-foreground')}>
                               {isPositive ? <ArrowDownToLine className="w-3 h-3" /> : <ArrowUpFromLine className="w-3 h-3" />}

@@ -17,31 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, DialogDescription,
 } from '@/components/ui/dialog';
-
-const maskCPF = (cpf: string) => {
-  const clean = cpf.replace(/\D/g, '');
-  if (clean.length === 11) return `${clean.slice(0, 3)}.***.*${clean.slice(8, 9)}*-${clean.slice(9)}`;
-  return cpf;
-};
-
-const fmtCPF = (cpf: string) => {
-  const s = cpf.replace(/\D/g, '');
-  if (s.length === 11) return `${s.slice(0, 3)}.${s.slice(3, 6)}.${s.slice(6, 9)}-${s.slice(9)}`;
-  return cpf;
-};
-
-const fmtDate = (d: string) => new Date(d).toLocaleDateString('pt-BR', {
-  day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-});
-
-// Parse CPF list from text (comma, newline, semicolon, space separated)
-const parseCPFs = (text: string): string[] => {
-  return text
-    .split(/[\n,;\s]+/)
-    .map(s => s.replace(/\D/g, ''))
-    .filter(s => s.length >= 11)
-    .map(s => s.slice(0, 11));
-};
+import { maskCPF, formatCPF, formatDateTime, parseCPFList } from '@/lib/formatters';
 
 const ALL_USERS_ID = '__all_users__';
 
@@ -229,7 +205,7 @@ export default function Segments() {
   // Add CPFs to segment
   const addCpfsMut = useMutation({
     mutationFn: async () => {
-      const cpfs = parseCPFs(cpfInput);
+      const cpfs = parseCPFList(cpfInput);
       if (cpfs.length === 0) throw new Error('Nenhum CPF válido encontrado');
       const rows = cpfs.map(cpf => ({
         segment_id: selectedSegment!,
@@ -569,7 +545,7 @@ export default function Segments() {
                           </Badge>
                           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {fmtDate(seg.created_at)}
+                            {formatDateTime(seg.created_at)}
                           </span>
                         </div>
                       </div>
@@ -626,18 +602,18 @@ export default function Segments() {
                           className="bg-secondary border-border font-mono text-sm"
                         />
                         <p className="text-xs text-muted-foreground">
-                          {parseCPFs(cpfInput).length} CPF(s) válido(s) detectado(s)
+                          {parseCPFList(cpfInput).length} CPF(s) válido(s) detectado(s)
                         </p>
                       </div>
                       <DialogFooter>
                         <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
                         <Button
                           onClick={() => addCpfsMut.mutate()}
-                          disabled={parseCPFs(cpfInput).length === 0 || addCpfsMut.isPending}
+                          disabled={parseCPFList(cpfInput).length === 0 || addCpfsMut.isPending}
                           className="gradient-primary border-0"
                         >
                           {addCpfsMut.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                          Adicionar {parseCPFs(cpfInput).length} CPFs
+                          Adicionar {parseCPFList(cpfInput).length} CPFs
                         </Button>
                       </DialogFooter>
                     </DialogContent>
@@ -891,10 +867,10 @@ export default function Segments() {
                         const vr = verifyResults[item.cpf];
                         return (
                           <TableRow key={item.id} className={`hover:bg-secondary/30 ${vr?.hasBonus ? 'bg-destructive/5' : ''}`}>
-                            <TableCell className="font-mono text-sm">{fmtCPF(item.cpf)}</TableCell>
+                            <TableCell className="font-mono text-sm">{formatCPF(item.cpf)}</TableCell>
                             <TableCell className="font-mono text-sm text-muted-foreground">{item.cpf_masked}</TableCell>
                             {isAllUsers && <TableCell className="text-sm">{item.username || '—'}</TableCell>}
-                            <TableCell className="text-xs text-muted-foreground">{item.created_at ? fmtDate(item.created_at) : '—'}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{item.created_at ? formatDateTime(item.created_at) : '—'}</TableCell>
                             {Object.keys(verifyResults).length > 0 && (
                               <TableCell>
                                 {vr ? (
@@ -905,7 +881,7 @@ export default function Segments() {
                                         {vr.bonusCount}x bônus
                                         {vr.lastBonusDate && (
                                           <span className="text-muted-foreground font-normal ml-1">
-                                            ({fmtDate(vr.lastBonusDate)})
+                                            ({formatDateTime(vr.lastBonusDate)})
                                           </span>
                                         )}
                                       </span>

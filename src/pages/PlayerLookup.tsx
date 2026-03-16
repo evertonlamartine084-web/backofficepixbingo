@@ -10,56 +10,22 @@ import { useSearchParams } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { PaginatedTable } from '@/components/PaginatedTable';
-
-// Format currency
-const parseBRL = (v: any): number => {
-  if (typeof v === 'number') return v;
-  if (typeof v !== 'string') return NaN;
-  // Remove currency symbol and spaces, then handle Brazilian format: 3.380,71 → 3380.71
-  const cleaned = v.replace(/[R$\s]/g, '').trim();
-  // If has both dot and comma, dot is thousands sep, comma is decimal
-  if (cleaned.includes('.') && cleaned.includes(',')) {
-    return parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
-  }
-  // If only comma, it's decimal separator
-  if (cleaned.includes(',')) {
-    return parseFloat(cleaned.replace(',', '.'));
-  }
-  return parseFloat(cleaned);
-};
+import { formatBRL, parseBRL, formatDateTime, formatCPF } from '@/lib/formatters';
 
 const fmtBRL = (v: any) => {
   const n = parseBRL(v);
-  if (isNaN(n)) return v ?? '—';
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-};
-
-// Format date
-const fmtDate = (v: any) => {
-  if (!v) return '—';
-  try {
-    const d = new Date(v);
-    if (isNaN(d.getTime())) return String(v);
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  } catch { return String(v); }
-};
-
-// Mask CPF
-const fmtCPF = (v: any) => {
-  if (!v) return '—';
-  const s = String(v).replace(/\D/g, '');
-  if (s.length === 11) return `${s.slice(0, 3)}.${s.slice(3, 6)}.${s.slice(6, 9)}-${s.slice(9)}`;
-  return v;
+  if (n === 0 && v !== 0 && v !== '0') return v ?? '—';
+  return formatBRL(n);
 };
 
 // Player info field config
 const playerFields = [
   { key: 'username', label: 'Usuário', icon: User },
-  { key: 'cpf', label: 'CPF', icon: Hash, format: fmtCPF },
+  { key: 'cpf', label: 'CPF', icon: Hash, format: formatCPF },
   { key: 'celular', label: 'Celular', icon: Phone },
   { key: 'email', label: 'E-mail', icon: Mail },
-  { key: 'created_at', label: 'Cadastro', icon: Calendar, format: fmtDate },
-  { key: 'ultimo_login', label: 'Último Login', icon: Calendar, format: fmtDate },
+  { key: 'created_at', label: 'Cadastro', icon: Calendar, format: formatDateTime },
+  { key: 'ultimo_login', label: 'Último Login', icon: Calendar, format: formatDateTime },
   { key: 'situacao', label: 'Situação', icon: Shield },
   { key: 'uuid', label: 'UUID', icon: Hash },
 ];
@@ -268,9 +234,9 @@ export default function PlayerLookup() {
       if (!isNaN(n)) return fmtBRL(n);
     }
     if (kl.includes('data') || kl.includes('date') || kl.includes('created') || kl.includes('updated') || kl === 'ultimo_login') {
-      return fmtDate(val);
+      return formatDateTime(val);
     }
-    if (kl === 'cpf') return fmtCPF(val);
+    if (kl === 'cpf') return formatCPF(val);
     if (typeof val === 'object') return JSON.stringify(val);
     return String(val);
   };
