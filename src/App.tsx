@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,17 +9,19 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
-import PlayerLookup from "@/pages/PlayerLookup";
-import Transactions from "@/pages/Transactions";
-import Endpoints from "@/pages/admin/Endpoints";
-import Discovery from "@/pages/admin/Discovery";
-import Segments from "@/pages/Segments";
-import Campaigns from "@/pages/Campaigns";
-import Popups from "@/pages/Popups";
-import Partidas from "@/pages/Partidas";
-import ManageUsers from "@/pages/admin/ManageUsers";
-import NotFound from "./pages/NotFound";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+
+const PlayerLookup = lazy(() => import("@/pages/PlayerLookup"));
+const Transactions = lazy(() => import("@/pages/Transactions"));
+const Endpoints = lazy(() => import("@/pages/admin/Endpoints"));
+const Discovery = lazy(() => import("@/pages/admin/Discovery"));
+const Segments = lazy(() => import("@/pages/Segments"));
+const Campaigns = lazy(() => import("@/pages/Campaigns"));
+const Popups = lazy(() => import("@/pages/Popups"));
+const Partidas = lazy(() => import("@/pages/Partidas"));
+const ManageUsers = lazy(() => import("@/pages/admin/ManageUsers"));
+const Profile = lazy(() => import("@/pages/Profile"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,7 +29,7 @@ const queryClient = new QueryClient({
       retry: 1,
       retryDelay: 1000,
       refetchOnWindowFocus: false,
-      staleTime: 30_000,
+      staleTime: 5 * 60_000,
       networkMode: 'always',
     },
   },
@@ -40,6 +43,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
@@ -53,11 +57,12 @@ const App = () => (
               <Route path="/admin/endpoints" element={<Endpoints />} />
               <Route path="/admin/discovery" element={<Discovery />} />
               <Route path="/admin/manage-users" element={<ManageUsers />} />
-              {/* Redirect old /popups route */}
+              <Route path="/profile" element={<Profile />} />
               <Route path="/popups" element={<Popups />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

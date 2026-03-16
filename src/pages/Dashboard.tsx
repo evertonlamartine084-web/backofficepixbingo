@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   Loader2, RefreshCw, Activity, ArrowDownToLine, ArrowUpFromLine,
   Dices, Trophy, TrendingUp, BarChart3, Wallet, DollarSign, CalendarIcon,
-  Users, CircleDollarSign, AlertTriangle,
+  Users, CircleDollarSign,
 } from 'lucide-react';
 import { DashboardInfoCard } from '@/components/DashboardInfoCard';
-import { useDashboardStats, useBatches } from '@/hooks/use-supabase-data';
 import { ApiCredentialsBar } from '@/components/ApiCredentialsBar';
 import { useProxy } from '@/hooks/use-proxy';
 import { Button } from '@/components/ui/button';
@@ -71,14 +70,12 @@ interface FinancialData {
 }
 
 export default function Dashboard() {
-  const { data: s, isLoading: loadingStats, isError: errorStats } = useDashboardStats();
-  const { data: batches, isLoading: loadingBatches, isError: errorBatches } = useBatches();
   const [creds, setCreds] = useState({ username: '', password: '' });
   const [period, setPeriod] = useState<PeriodFilter>('today');
   const [customStart, setCustomStart] = useState<Date>(new Date());
   const [customEnd, setCustomEnd] = useState<Date>(new Date());
   const { callProxy } = useProxy();
-  const queryClient = useQueryClient();
+
 
   const range = getDateRange(period, customStart, customEnd);
   const { data: financials, isLoading: loadingFinancials, refetch: refetchFinancials } = useQuery({
@@ -122,28 +119,6 @@ export default function Dashboard() {
     },
     meta: { onError: (err: Error) => toast.error(err.message) },
   });
-
-  if (loadingStats || loadingBatches) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  if (errorStats || errorBatches) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center space-y-2">
-          <AlertTriangle className="w-8 h-8 text-destructive mx-auto" />
-          <p className="text-sm text-muted-foreground">Erro ao carregar dados do dashboard</p>
-        </div>
-      </div>
-    );
-  }
-
-  const stats = s || { total_batches: 0, total_items: 0, pendente: 0, processando: 0, sem_bonus: 0, bonus_1x: 0, bonus_2x_plus: 0, erro: 0 };
-  const recentBatches = (batches || []).slice(0, 5);
 
   const quickFilters: { key: PeriodFilter; label: string }[] = [
     { key: 'today', label: 'Hoje' },

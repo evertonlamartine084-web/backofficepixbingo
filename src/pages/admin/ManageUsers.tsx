@@ -56,7 +56,21 @@ export default function AdminUsers() {
 
   const callManageUsers = useCallback(async (body: Record<string, any>) => {
     const { data, error } = await supabase.functions.invoke('manage-users', { body });
-    if (error) throw error;
+
+    // When edge function returns non-2xx, supabase-js puts body in error.context.body
+    if (error) {
+      let msg = error.message || 'Erro ao chamar edge function';
+      try {
+        // Try to read JSON from the error context
+        const ctx = (error as any)?.context;
+        if (ctx instanceof Response) {
+          const errBody = await ctx.json();
+          if (errBody?.error) msg = errBody.error;
+        }
+      } catch {}
+      console.error('manage-users error:', msg);
+      throw new Error(msg);
+    }
 
     const payload = typeof data === 'string' ? JSON.parse(data) : data;
     if (payload?.error) throw new Error(payload.error);

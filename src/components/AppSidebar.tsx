@@ -38,7 +38,7 @@ const adminItems = [
 ];
 
 const profileQuickLinks = [
-  { to: '/transactions', icon: FileText, label: 'Extrato' },
+  { to: '/profile', icon: User, label: 'Meu Perfil' },
 ];
 
 export function AppSidebar() {
