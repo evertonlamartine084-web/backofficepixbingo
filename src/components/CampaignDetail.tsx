@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { ChevronLeft, Play, Loader2, MousePointer, Eye } from 'lucide-react';
+import { ChevronLeft, Play, Loader2, MousePointer, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,6 +21,27 @@ export function CampaignDetail({ campaign, campaigns, onBack }: Props) {
   const { participants, refetchParticipants } = useCampaignParticipants(campaign.id);
   const { processing, autoProcessing, startAutoProcess, stopAutoProcess, processCampaign } =
     useCampaignProcessing(campaigns);
+
+  const exportCSV = () => {
+    if (participants.length === 0) return;
+    const headers = ['CPF', 'UUID', 'Total Transacionado', 'Status', 'Creditado', 'Resultado'];
+    const rows = participants.map(p => [
+      p.cpf_masked,
+      p.uuid || '',
+      Number(p.total_value).toFixed(2),
+      p.status,
+      p.prize_credited ? 'Sim' : 'Não',
+      p.credit_result || '',
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `campanha-${campaign.name.replace(/\s+/g, '_')}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const stats = {
     total: participants.length,
@@ -76,6 +97,11 @@ export function CampaignDetail({ campaign, campaigns, onBack }: Props) {
             {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
             {processing ? 'Processando...' : 'Processar 1x'}
           </Button>
+          {participants.length > 0 && (
+            <Button onClick={exportCSV} variant="outline" size="sm" className="gap-2">
+              <Download className="w-4 h-4" /> CSV
+            </Button>
+          )}
         </div>
       </div>
 

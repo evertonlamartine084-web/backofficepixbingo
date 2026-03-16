@@ -325,6 +325,7 @@ export default function Popups() {
             if (p.image_url) {
               var img = document.createElement('img');
               img.src = p.image_url;
+              img.loading = 'lazy';
               img.setAttribute('style', 'width:100%;border-radius:8px;margin-bottom:16px;');
               box.appendChild(img);
             }
@@ -864,7 +865,7 @@ export default function Popups() {
           ) : (
             <div className="text-center space-y-4 py-2">
               {previewPopup?.image_url && (
-                <img src={previewPopup.image_url} alt="" className="w-full max-h-48 object-cover rounded-lg" />
+                <img src={previewPopup.image_url} alt="" loading="lazy" className="w-full max-h-48 object-cover rounded-lg" />
               )}
               <h2 className="text-lg font-bold">{previewPopup?.title}</h2>
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{previewPopup?.message}</p>

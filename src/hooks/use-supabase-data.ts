@@ -159,17 +159,3 @@ export function useFlows() {
   });
 }
 
-// ── Bonus Rules ──
-export function useBonusRules() {
-  return useQuery({
-    queryKey: ['bonus_rules'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('bonus_rules')
-        .select('*')
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      return data;
-    },
-  });
-}
