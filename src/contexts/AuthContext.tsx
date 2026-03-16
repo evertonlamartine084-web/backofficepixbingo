@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { clearCredentials } from '@/hooks/use-proxy';
 
 // All available page keys (exported for ManageUsers)
 export const ALL_PAGES = [
@@ -62,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    clearCredentials();
     await supabase.auth.signOut();
   };
 

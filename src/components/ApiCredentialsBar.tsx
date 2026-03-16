@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Lock, Unlock } from 'lucide-react';
-import { getSavedCredentials, saveCredentials } from '@/hooks/use-proxy';
+import { getSavedCredentials, saveCredentials, clearCredentials } from '@/hooks/use-proxy';
 
 interface Props {
   onCredentials: (creds: { username: string; password: string }) => void;
@@ -37,7 +37,7 @@ export function ApiCredentialsBar({ onCredentials }: Props) {
           variant="ghost"
           size="sm"
           className="ml-auto text-xs text-muted-foreground"
-          onClick={() => { setConnected(false); }}
+          onClick={() => { clearCredentials(); setConnected(false); }}
         >
           Alterar
         </Button>

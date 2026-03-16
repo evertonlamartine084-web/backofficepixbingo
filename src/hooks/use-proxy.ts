@@ -1,23 +1,71 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
 const DEFAULT_SITE = 'https://pixbingobr.concurso.club';
 const DEFAULT_LOGIN = 'https://pixbingobr.concurso.club/login';
 
-// Persist credentials in sessionStorage so user doesn't retype every page
-const CRED_KEY = 'pixbingo_creds';
+const CRED_KEY = 'pixbingo_creds_enc';
+const CRED_TTL = 1000 * 60 * 60; // 1 hour expiry
 
-export function getSavedCredentials() {
+// Simple XOR-based obfuscation using session token as key
+// Not cryptographically strong, but prevents plain-text exposure in DevTools
+function deriveKey(): string {
   try {
-    const raw = sessionStorage.getItem(CRED_KEY);
-    if (raw) return JSON.parse(raw) as { username: string; password: string };
+    const raw = localStorage.getItem('sb-urxbuiuwasvxwxuythzc-auth-token');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return parsed?.access_token?.slice(0, 32) || 'fallback-key-pixbingo-2024';
+    }
   } catch {}
-  return { username: '', password: '' };
+  return 'fallback-key-pixbingo-2024';
+}
+
+function xorEncode(text: string, key: string): string {
+  const encoded = Array.from(text).map((char, i) =>
+    String.fromCharCode(char.charCodeAt(0) ^ key.charCodeAt(i % key.length))
+  ).join('');
+  return btoa(encoded);
+}
+
+function xorDecode(encoded: string, key: string): string {
+  const decoded = atob(encoded);
+  return Array.from(decoded).map((char, i) =>
+    String.fromCharCode(char.charCodeAt(0) ^ key.charCodeAt(i % key.length))
+  ).join('');
+}
+
+export function getSavedCredentials(): { username: string; password: string } {
+  try {
+    // Clean up old unencrypted key if it exists
+    sessionStorage.removeItem('pixbingo_creds');
+
+    const raw = sessionStorage.getItem(CRED_KEY);
+    if (!raw) return { username: '', password: '' };
+
+    const key = deriveKey();
+    const decrypted = JSON.parse(xorDecode(raw, key));
+
+    // Check expiry
+    if (decrypted.exp && Date.now() > decrypted.exp) {
+      sessionStorage.removeItem(CRED_KEY);
+      return { username: '', password: '' };
+    }
+
+    return { username: decrypted.u || '', password: decrypted.p || '' };
+  } catch {
+    sessionStorage.removeItem(CRED_KEY);
+    return { username: '', password: '' };
+  }
 }
 
 export function saveCredentials(username: string, password: string) {
-  sessionStorage.setItem(CRED_KEY, JSON.stringify({ username, password }));
+  const key = deriveKey();
+  const payload = JSON.stringify({ u: username, p: password, exp: Date.now() + CRED_TTL });
+  sessionStorage.setItem(CRED_KEY, xorEncode(payload, key));
+}
+
+export function clearCredentials() {
+  sessionStorage.removeItem(CRED_KEY);
 }
 
 export function useProxy() {
