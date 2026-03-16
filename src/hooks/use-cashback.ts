@@ -36,7 +36,15 @@ export const ITEM_STATUS_COLORS: Record<string, string> = {
   PENDENTE: 'bg-muted text-muted-foreground',
   PROCESSANDO: 'bg-blue-500/15 text-blue-400',
   SEM_PERDA: 'bg-amber-500/15 text-amber-400',
+  AGUARDANDO: 'bg-purple-500/15 text-purple-400',
   CREDITADO: 'bg-emerald-500/15 text-emerald-400',
+  ERRO: 'bg-red-500/15 text-red-400',
+};
+
+export const EXEC_STATUS_COLORS: Record<string, string> = {
+  PROCESSANDO: 'bg-blue-500/15 text-blue-400',
+  AGUARDANDO_APROVACAO: 'bg-purple-500/15 text-purple-400',
+  CONCLUIDO: 'bg-emerald-500/15 text-emerald-400',
   ERRO: 'bg-red-500/15 text-red-400',
 };
 
@@ -232,6 +240,8 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
       return;
     }
 
+    const isManual = rule.process_mode === 'manual';
+
     setProcessing(true);
     try {
       const { data, error } = await supabase.functions.invoke('process-cashback', {
@@ -241,18 +251,56 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
           password: creds.password,
           period_start: periodStart,
           period_end: periodEnd,
+          action: isManual ? 'calculate' : undefined,
         },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Erro ao processar cashback');
       const result = data.data;
-      toast.success(
-        `Cashback processado: ${result.total_players} jogadores | ${result.eligible} elegíveis | ${result.credited} creditados | R$ ${Number(result.total_credited).toFixed(2)} total`
-      );
+      if (result.awaiting_approval) {
+        toast.success(
+          `Cálculo concluído: ${result.eligible} elegíveis | R$ ${Number(result.estimated_total).toFixed(2)} estimado. Revise e aprove para creditar.`
+        );
+      } else {
+        toast.success(
+          `Cashback processado: ${result.eligible} elegíveis | ${result.credited} creditados | R$ ${Number(result.total_credited).toFixed(2)} total`
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ['cashback-executions'] });
       queryClient.invalidateQueries({ queryKey: ['cashback-items'] });
     } catch (e: any) {
       toast.error(e.message || 'Erro ao processar cashback');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const approveCashback = async (rule: CashbackRule, executionId: string) => {
+    const creds = getSavedCredentials();
+    if (!creds.username || !creds.password) {
+      toast.error('Configure as credenciais da plataforma primeiro (barra superior)');
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('process-cashback', {
+        body: {
+          rule_id: rule.id,
+          username: creds.username,
+          password: creds.password,
+          action: 'credit',
+          execution_id: executionId,
+        },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Erro ao creditar cashback');
+      const result = data.data;
+      toast.success(`Cashback creditado: ${result.credited} jogadores | R$ ${Number(result.total_credited).toFixed(2)} total`);
+      queryClient.invalidateQueries({ queryKey: ['cashback-executions'] });
+      queryClient.invalidateQueries({ queryKey: ['cashback-items'] });
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao creditar');
     } finally {
       setProcessing(false);
     }
@@ -340,5 +388,5 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
     };
   }, []);
 
-  return { processing, autoProcessing, startAutoProcess, stopAutoProcess, processCashback };
+  return { processing, autoProcessing, startAutoProcess, stopAutoProcess, processCashback, approveCashback };
 }

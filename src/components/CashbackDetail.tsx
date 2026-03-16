@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { ChevronLeft, Play, Loader2, Download, Clock, ChevronDown, ChevronRight, Square } from 'lucide-react';
+import { ChevronLeft, Play, Loader2, Download, Clock, ChevronDown, ChevronRight, Square, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import {
-  CashbackRule, GAME_TYPE_LABELS, PERIOD_LABELS, PROCESS_MODE_LABELS, ITEM_STATUS_COLORS,
+  CashbackRule, GAME_TYPE_LABELS, PERIOD_LABELS, PROCESS_MODE_LABELS, ITEM_STATUS_COLORS, EXEC_STATUS_COLORS,
   useCashbackExecutions, useCashbackItems, useCashbackProcessing,
 } from '@/hooks/use-cashback';
 
@@ -22,7 +22,7 @@ export function CashbackDetail({ rule, rules, onBack }: Props) {
   const [selectedExecution, setSelectedExecution] = useState<string | null>(null);
   const { executions, refetchExecutions } = useCashbackExecutions(rule.id);
   const { items } = useCashbackItems(selectedExecution || undefined);
-  const { processing, autoProcessing, startAutoProcess, stopAutoProcess, processCashback } =
+  const { processing, autoProcessing, startAutoProcess, stopAutoProcess, processCashback, approveCashback } =
     useCashbackProcessing(rules);
 
   const handleProcess = async () => {
@@ -97,7 +97,7 @@ export function CashbackDetail({ rule, rules, onBack }: Props) {
           )}
           <Button onClick={handleProcess} disabled={processing || !rule.segment_id} className="gap-2" size="sm">
             {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-            {processing ? 'Processando...' : 'Processar 1x'}
+            {processing ? 'Processando...' : rule.process_mode === 'manual' ? 'Calcular Perdas' : 'Processar 1x'}
           </Button>
           {items.length > 0 && (
             <Button onClick={exportCSV} variant="outline" size="sm" className="gap-2">
@@ -174,9 +174,25 @@ export function CashbackDetail({ rule, rules, onBack }: Props) {
                         <p className="text-xs text-muted-foreground">Erros</p>
                         <p className="font-medium text-red-400">{exec.errors}</p>
                       </div>
-                      <Badge className={cn('text-[10px]', exec.status === 'CONCLUIDO' ? 'bg-emerald-500/15 text-emerald-400' : exec.status === 'ERRO' ? 'bg-red-500/15 text-red-400' : 'bg-blue-500/15 text-blue-400')}>
-                        {exec.status}
+                      <Badge className={cn('text-[10px]', EXEC_STATUS_COLORS[exec.status] || 'bg-muted')}>
+                        {exec.status === 'AGUARDANDO_APROVACAO' ? 'AGUARDANDO' : exec.status}
                       </Badge>
+                      {exec.status === 'AGUARDANDO_APROVACAO' && (
+                        <Button
+                          size="sm"
+                          className="gap-1 h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
+                          disabled={processing}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Aprovar e creditar R$ ${items.filter(i => i.status === 'AGUARDANDO').reduce((s, i) => s + Number(i.cashback_value), 0).toFixed(2)} para ${items.filter(i => i.status === 'AGUARDANDO').length} jogadores?`)) {
+                              approveCashback(rule, exec.id);
+                            }
+                          }}
+                        >
+                          {processing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                          Aprovar e Creditar
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>

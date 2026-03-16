@@ -156,7 +156,8 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { rule_id, username, password, period_start, period_end } = body;
+    const { rule_id, username, password, period_start, period_end, action, execution_id } = body;
+    // action: 'calculate' (only calculate, don't credit) | 'credit' (credit an existing execution) | undefined (full process for auto mode)
 
     if (!rule_id || !username || !password) {
       return new Response(JSON.stringify({ success: false, error: 'Parâmetros obrigatórios: rule_id, username, password' }),
@@ -188,6 +189,77 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // === ACTION: CREDIT - approve and credit an existing execution ===
+    if (action === 'credit' && execution_id) {
+      const auth = await doLogin(username, password);
+      if (!auth.success) {
+        return new Response(JSON.stringify({ success: false, error: 'Login na plataforma falhou' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      const headers = buildHeaders(auth.cookies);
+
+      // Get items waiting for approval
+      const { data: pendingItems, error: itemsErr } = await supabase
+        .from('cashback_items').select('*')
+        .eq('execution_id', execution_id)
+        .eq('status', 'AGUARDANDO');
+
+      if (itemsErr || !pendingItems?.length) {
+        return new Response(JSON.stringify({ success: false, error: 'Nenhum item aguardando aprovação' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      let credited = 0, errors = 0;
+      let totalCredited = 0;
+
+      for (const item of pendingItems) {
+        try {
+          const creditBody = {
+            uuid: item.uuid,
+            carteira: rule.wallet_type === 'BONUS' ? 'BONUS' : 'CREDITO',
+            valor: String(item.cashback_value),
+            senha: password,
+          };
+          const creditResult = await fetchJSON(`${DEFAULT_SITE}/usuarios/creditos`, headers, 'POST', creditBody);
+
+          if (creditResult.status === true || creditResult.msg?.includes('sucesso')) {
+            await supabase.from('cashback_items').update({
+              status: 'CREDITADO',
+              credit_result: JSON.stringify(creditResult).slice(0, 200),
+            }).eq('id', item.id);
+            credited++;
+            totalCredited += Number(item.cashback_value);
+          } else {
+            await supabase.from('cashback_items').update({
+              status: 'ERRO',
+              credit_result: JSON.stringify(creditResult).slice(0, 200),
+            }).eq('id', item.id);
+            errors++;
+          }
+        } catch (e) {
+          await supabase.from('cashback_items').update({
+            status: 'ERRO', credit_result: (e as Error).message,
+          }).eq('id', item.id);
+          errors++;
+        }
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      await supabase.from('cashback_executions').update({
+        total_credited: totalCredited,
+        errors,
+        status: 'CONCLUIDO',
+      }).eq('id', execution_id);
+
+      return new Response(JSON.stringify({
+        success: true,
+        data: { execution_id, credited, errors, total_credited: totalCredited },
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // === CALCULATE or FULL PROCESS ===
+    const isCalculateOnly = action === 'calculate';
+
     // Login to platform
     const auth = await doLogin(username, password);
     if (!auth.success) {
@@ -204,7 +276,6 @@ Deno.serve(async (req) => {
       pStart = period_start;
       pEnd = period_end;
     } else if (rule.period === 'daily') {
-      // Yesterday (cashback always processes the previous day)
       const yesterday = new Date(now);
       yesterday.setDate(now.getDate() - 1);
       const yStart = new Date(yesterday);
@@ -214,8 +285,7 @@ Deno.serve(async (req) => {
       pStart = yStart.toISOString();
       pEnd = yEnd.toISOString();
     } else {
-      // Weekly: last Monday to last Sunday
-      const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon...
+      const dayOfWeek = now.getDay();
       const lastSunday = new Date(now);
       lastSunday.setDate(now.getDate() - (dayOfWeek === 0 ? 7 : dayOfWeek));
       lastSunday.setHours(23, 59, 59, 999);
@@ -258,7 +328,6 @@ Deno.serve(async (req) => {
 
     for (const player of segmentItems) {
       try {
-        // Resolve UUID
         const uuid = await resolveUuid(player.cpf, headers);
 
         if (!uuid) {
@@ -270,11 +339,9 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Get bets and wins in a single API call
         const { bets, wins } = await getPlayerBetsAndWins(uuid, headers, startDt, endDt, gameFilter);
         const netLoss = bets - wins;
 
-        // Check if player has losses
         if (netLoss <= 0 || netLoss < minLoss) {
           await supabase.from('cashback_items').insert({
             execution_id: executionId, rule_id, cpf: player.cpf, cpf_masked: player.cpf_masked,
@@ -286,39 +353,48 @@ Deno.serve(async (req) => {
 
         eligible++;
 
-        // Calculate cashback
         let cashbackValue = netLoss * (percentage / 100);
         if (maxCashback && cashbackValue > maxCashback) {
           cashbackValue = maxCashback;
         }
         cashbackValue = Math.round(cashbackValue * 100) / 100;
 
-        // Credit cashback
-        const creditBody = {
-          uuid,
-          carteira: rule.wallet_type === 'BONUS' ? 'BONUS' : 'CREDITO',
-          valor: String(cashbackValue),
-          senha: password,
-        };
-        const creditResult = await fetchJSON(`${DEFAULT_SITE}/usuarios/creditos`, headers, 'POST', creditBody);
-
-        if (creditResult.status === true || creditResult.msg?.includes('sucesso')) {
+        if (isCalculateOnly) {
+          // Manual mode: only calculate, save as AGUARDANDO for review
           await supabase.from('cashback_items').insert({
             execution_id: executionId, rule_id, cpf: player.cpf, cpf_masked: player.cpf_masked,
             uuid, total_bets: bets, total_wins: wins, net_loss: netLoss,
-            cashback_value: cashbackValue, status: 'CREDITADO',
-            credit_result: JSON.stringify(creditResult).slice(0, 200),
+            cashback_value: cashbackValue, status: 'AGUARDANDO',
           });
-          credited++;
           totalCredited += cashbackValue;
         } else {
-          await supabase.from('cashback_items').insert({
-            execution_id: executionId, rule_id, cpf: player.cpf, cpf_masked: player.cpf_masked,
-            uuid, total_bets: bets, total_wins: wins, net_loss: netLoss,
-            cashback_value: cashbackValue, status: 'ERRO',
-            credit_result: JSON.stringify(creditResult).slice(0, 200),
-          });
-          errors++;
+          // Auto mode: calculate and credit immediately
+          const creditBody = {
+            uuid,
+            carteira: rule.wallet_type === 'BONUS' ? 'BONUS' : 'CREDITO',
+            valor: String(cashbackValue),
+            senha: password,
+          };
+          const creditResult = await fetchJSON(`${DEFAULT_SITE}/usuarios/creditos`, headers, 'POST', creditBody);
+
+          if (creditResult.status === true || creditResult.msg?.includes('sucesso')) {
+            await supabase.from('cashback_items').insert({
+              execution_id: executionId, rule_id, cpf: player.cpf, cpf_masked: player.cpf_masked,
+              uuid, total_bets: bets, total_wins: wins, net_loss: netLoss,
+              cashback_value: cashbackValue, status: 'CREDITADO',
+              credit_result: JSON.stringify(creditResult).slice(0, 200),
+            });
+            credited++;
+            totalCredited += cashbackValue;
+          } else {
+            await supabase.from('cashback_items').insert({
+              execution_id: executionId, rule_id, cpf: player.cpf, cpf_masked: player.cpf_masked,
+              uuid, total_bets: bets, total_wins: wins, net_loss: netLoss,
+              cashback_value: cashbackValue, status: 'ERRO',
+              credit_result: JSON.stringify(creditResult).slice(0, 200),
+            });
+            errors++;
+          }
         }
       } catch (e) {
         await supabase.from('cashback_items').insert({
@@ -328,16 +404,16 @@ Deno.serve(async (req) => {
         errors++;
       }
 
-      // Small delay to avoid rate limiting
       await new Promise(r => setTimeout(r, 300));
     }
 
-    // Update execution
+    // Update execution status
+    const finalStatus = isCalculateOnly ? 'AGUARDANDO_APROVACAO' : 'CONCLUIDO';
     await supabase.from('cashback_executions').update({
       eligible_players: eligible,
-      total_credited: totalCredited,
+      total_credited: isCalculateOnly ? 0 : totalCredited,
       errors,
-      status: 'CONCLUIDO',
+      status: finalStatus,
     }).eq('id', executionId);
 
     return new Response(JSON.stringify({
@@ -348,7 +424,9 @@ Deno.serve(async (req) => {
         eligible,
         credited,
         errors,
-        total_credited: totalCredited,
+        total_credited: isCalculateOnly ? 0 : totalCredited,
+        estimated_total: isCalculateOnly ? totalCredited : undefined,
+        awaiting_approval: isCalculateOnly,
         period: { start: pStart, end: pEnd },
       },
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
