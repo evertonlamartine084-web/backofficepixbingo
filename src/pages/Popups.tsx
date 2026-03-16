@@ -430,6 +430,15 @@ export default function Popups() {
     },
   });
 
+  const { data: assets = [] } = useQuery({
+    queryKey: ['popup_assets'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('popup_assets').select('id, name, html').order('name');
+      if (error) throw error;
+      return data as { id: string; name: string; html: string }[];
+    },
+  });
+
   // Fetch event counts per popup
   const { data: eventCounts = {} } = useQuery({
     queryKey: ['popup-event-counts'],
@@ -755,16 +764,38 @@ export default function Popups() {
                 </div>
               </>
             ) : (
-              <div>
-                <Label className="text-xs">HTML / CSS / JS customizado</Label>
-                <Textarea
-                  value={form.custom_html}
-                  onChange={e => setForm(f => ({ ...f, custom_html: e.target.value }))}
-                  placeholder={'<div style="text-align:center; padding:20px;">\n  <h2>🎉 Promoção!</h2>\n  <p>Deposite agora e ganhe bônus</p>\n  <button onclick="window.location=\'/deposito\'">Depositar</button>\n</div>'}
-                  rows={10}
-                  className="mt-1 font-mono text-xs"
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">Cole aqui o HTML completo do popup. Pode incluir &lt;style&gt; e &lt;script&gt;.</p>
+              <div className="space-y-3">
+                {assets.length > 0 && (
+                  <div>
+                    <Label className="text-xs">Usar Asset HTML</Label>
+                    <Select
+                      value=""
+                      onValueChange={(assetId) => {
+                        const asset = assets.find(a => a.id === assetId);
+                        if (asset) setForm(f => ({ ...f, custom_html: asset.html }));
+                      }}
+                    >
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Selecionar um asset..." /></SelectTrigger>
+                      <SelectContent>
+                        {assets.map(a => (
+                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground mt-1">Ao selecionar, o HTML do asset será carregado abaixo</p>
+                  </div>
+                )}
+                <div>
+                  <Label className="text-xs">HTML / CSS / JS customizado</Label>
+                  <Textarea
+                    value={form.custom_html}
+                    onChange={e => setForm(f => ({ ...f, custom_html: e.target.value }))}
+                    placeholder={'<div style="text-align:center; padding:20px;">\n  <h2>🎉 Promoção!</h2>\n  <p>Deposite agora e ganhe bônus</p>\n  <button onclick="window.location=\'/deposito\'">Depositar</button>\n</div>'}
+                    rows={10}
+                    className="mt-1 font-mono text-xs"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">Cole aqui o HTML completo do popup. Pode incluir &lt;style&gt; e &lt;script&gt;.</p>
+                </div>
               </div>
             )}
             <div>

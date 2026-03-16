@@ -12,8 +12,6 @@ export const ALL_PAGES = [
   { key: 'campaigns', label: 'Campanhas', path: '/campaigns' },
   { key: 'partidas', label: 'Partidas', path: '/partidas' },
   { key: 'popups', label: 'Popups GTM', path: '/assets/popups' },
-  { key: 'endpoints', label: 'Endpoints', path: '/admin/endpoints' },
-  { key: 'discovery', label: 'Auto-Discovery', path: '/admin/discovery' },
   { key: 'manage_users', label: 'Gestão de Usuários', path: '/admin/manage-users' },
 ] as const;
 

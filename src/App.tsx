@@ -13,11 +13,10 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const PlayerLookup = lazy(() => import("@/pages/PlayerLookup"));
 const Transactions = lazy(() => import("@/pages/Transactions"));
-const Endpoints = lazy(() => import("@/pages/admin/Endpoints"));
-const Discovery = lazy(() => import("@/pages/admin/Discovery"));
 const Segments = lazy(() => import("@/pages/Segments"));
 const Campaigns = lazy(() => import("@/pages/Campaigns"));
 const Popups = lazy(() => import("@/pages/Popups"));
+const PopupAssets = lazy(() => import("@/pages/assets/PopupAssets"));
 const Partidas = lazy(() => import("@/pages/Partidas"));
 const ManageUsers = lazy(() => import("@/pages/admin/ManageUsers"));
 const Profile = lazy(() => import("@/pages/Profile"));
@@ -51,11 +50,10 @@ const App = () => (
               <Route path="/segments" element={<Segments />} />
               <Route path="/campaigns" element={<Campaigns />} />
               <Route path="/assets/popups" element={<Popups />} />
+              <Route path="/assets/html" element={<PopupAssets />} />
               <Route path="/partidas" element={<Partidas />} />
               <Route path="/player" element={<PlayerLookup />} />
               <Route path="/transactions" element={<Transactions />} />
-              <Route path="/admin/endpoints" element={<Endpoints />} />
-              <Route path="/admin/discovery" element={<Discovery />} />
               <Route path="/admin/manage-users" element={<ManageUsers />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/popups" element={<Popups />} />

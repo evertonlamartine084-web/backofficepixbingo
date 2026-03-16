@@ -1,10 +1,9 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Globe,
-  LogOut, ChevronRight, ChevronDown, Zap, Radar, UserSearch,
+  LayoutDashboard, Code,
+  LogOut, ChevronRight, ChevronDown, Zap, UserSearch,
   ArrowUpDown, ListFilter, ShieldCheck, Megaphone, Gamepad2,
-  MessageSquare, Mail, Bell, Trophy, ShoppingBag, Package,
-  User, CreditCard, Wallet, FileText, Settings
+  MessageSquare, Package, User
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
@@ -28,12 +27,11 @@ const navItems = [
 ];
 
 const assetsItems = [
+  { to: '/assets/html', icon: Code, label: 'Assets HTML' },
   { to: '/assets/popups', icon: MessageSquare, label: 'Popups GTM' },
 ];
 
 const adminItems = [
-  { to: '/admin/endpoints', icon: Globe, label: 'Endpoints' },
-  { to: '/admin/discovery', icon: Radar, label: 'Auto-Discovery' },
   { to: '/admin/manage-users', icon: ShieldCheck, label: 'Gestão de Usuários' },
 ];
 
