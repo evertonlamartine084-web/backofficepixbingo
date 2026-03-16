@@ -11,7 +11,7 @@ const CRED_TTL = 1000 * 60 * 60; // 1 hour expiry
 // Not cryptographically strong, but prevents plain-text exposure in DevTools
 function deriveKey(): string {
   try {
-    const raw = localStorage.getItem('sb-urxbuiuwasvxwxuythzc-auth-token');
+    const raw = localStorage.getItem('sb-nehmmvtpagncmldivnxn-auth-token');
     if (raw) {
       const parsed = JSON.parse(raw);
       return parsed?.access_token?.slice(0, 32) || 'fallback-key-pixbingo-2024';

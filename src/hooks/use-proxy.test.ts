@@ -71,7 +71,7 @@ describe('Credential Storage', () => {
   });
 
   it('funciona com chave derivada do Supabase token', () => {
-    localStorage.setItem('sb-urxbuiuwasvxwxuythzc-auth-token', JSON.stringify({
+    localStorage.setItem('sb-nehmmvtpagncmldivnxn-auth-token', JSON.stringify({
       access_token: 'abcdefghijklmnopqrstuvwxyz123456789',
     }));
 
