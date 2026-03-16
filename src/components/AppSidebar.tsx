@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Code,
   LogOut, ChevronRight, ChevronDown, Zap, UserSearch,
   ArrowUpDown, ListFilter, ShieldCheck, Megaphone, Gamepad2,
-  MessageSquare, Package, User
+  MessageSquare, Package, User, RotateCcw
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
@@ -23,6 +23,7 @@ const navItems = [
   { to: '/transactions', icon: ArrowUpDown, label: 'Transações' },
   { to: '/segments', icon: ListFilter, label: 'Segmentos' },
   { to: '/campaigns', icon: Megaphone, label: 'Campanhas' },
+  { to: '/cashback', icon: RotateCcw, label: 'Cashback' },
   { to: '/partidas', icon: Gamepad2, label: 'Partidas' },
 ];
 

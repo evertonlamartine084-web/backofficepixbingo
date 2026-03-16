@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.popup-event]
 verify_jwt = false
+
+[functions.process-cashback]
+verify_jwt = false

@@ -17,6 +17,7 @@ const Segments = lazy(() => import("@/pages/Segments"));
 const Campaigns = lazy(() => import("@/pages/Campaigns"));
 const Popups = lazy(() => import("@/pages/Popups"));
 const PopupAssets = lazy(() => import("@/pages/assets/PopupAssets"));
+const Cashback = lazy(() => import("@/pages/Cashback"));
 const Partidas = lazy(() => import("@/pages/Partidas"));
 const ManageUsers = lazy(() => import("@/pages/admin/ManageUsers"));
 const Profile = lazy(() => import("@/pages/Profile"));
@@ -51,6 +52,7 @@ const App = () => (
               <Route path="/campaigns" element={<Campaigns />} />
               <Route path="/assets/popups" element={<Popups />} />
               <Route path="/assets/html" element={<PopupAssets />} />
+              <Route path="/cashback" element={<Cashback />} />
               <Route path="/partidas" element={<Partidas />} />
               <Route path="/player" element={<PlayerLookup />} />
               <Route path="/transactions" element={<Transactions />} />
