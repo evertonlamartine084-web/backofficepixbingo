@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { format } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatBRL, formatDateAPI } from '@/lib/formatters';
+const DashboardCharts = lazy(() => import('@/components/DashboardCharts').then(m => ({ default: m.DashboardCharts })));
 
 type PeriodFilter = 'today' | 'yesterday' | '7d' | '30d' | 'custom';
 
@@ -329,6 +330,11 @@ export default function Dashboard() {
 
         </div>
       ) : null}
+
+      {/* Evolution Charts */}
+      <Suspense fallback={<div className="flex items-center justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>}>
+        <DashboardCharts callProxy={callProxy} creds={creds} />
+      </Suspense>
     </div>
   );
 }
