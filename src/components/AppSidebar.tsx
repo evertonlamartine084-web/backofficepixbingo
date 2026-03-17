@@ -1,6 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Code,
+  LayoutDashboard, Code, Code2,
   LogOut, ChevronRight, ChevronDown, Zap, UserSearch,
   ArrowUpDown, ListFilter, ShieldCheck, Megaphone, Gamepad2,
   MessageSquare, Package, User, RotateCcw, ScrollText,
@@ -43,6 +43,7 @@ const gamificationItems = [
   { to: '/gamification/missions', icon: Target, label: 'Missões' },
   { to: '/gamification/tournaments', icon: Swords, label: 'Torneios' },
   { to: '/gamification/wheel', icon: RotateCw, label: 'Roleta Diária' },
+  { to: '/gamification/widget', icon: Code2, label: 'Widget Embed' },
 ];
 
 const adminItems = [
