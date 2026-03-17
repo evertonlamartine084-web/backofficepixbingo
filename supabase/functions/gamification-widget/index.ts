@@ -21,13 +21,13 @@ Deno.serve(async (req: Request) => {
       const now = new Date().toISOString();
 
       const [achievements, missions, tournaments, wheelPrizes] = await Promise.all([
-        supabase.from('achievements').select('id, name, description, icon_url, category, condition_type, condition_value, reward_type, reward_value')
+        supabase.from('achievements').select('id, name, description, icon_url, category, condition_type, condition_value, reward_type, reward_value, segment_id, segments(name)')
           .eq('active', true).order('category').order('condition_value'),
-        supabase.from('missions').select('id, name, description, icon_url, type, condition_type, condition_value, reward_type, reward_value')
+        supabase.from('missions').select('id, name, description, icon_url, type, condition_type, condition_value, reward_type, reward_value, segment_id, segments(name)')
           .eq('active', true).order('type').order('condition_value'),
-        supabase.from('tournaments').select('id, name, description, image_url, start_date, end_date, metric, game_filter, min_bet, prizes, status')
+        supabase.from('tournaments').select('id, name, description, image_url, start_date, end_date, metric, game_filter, min_bet, prizes, status, segment_id, segments(name)')
           .eq('status', 'ATIVO').lte('start_date', now).gte('end_date', now).order('end_date'),
-        supabase.from('daily_wheel_prizes').select('id, label, value, type, probability, color, icon_url')
+        supabase.from('daily_wheel_prizes').select('id, label, value, type, probability, color, icon_url, segment_id, segments(name)')
           .eq('active', true).order('probability', { ascending: false }),
       ]);
 

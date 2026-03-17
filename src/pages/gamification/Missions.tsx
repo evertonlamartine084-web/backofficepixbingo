@@ -37,7 +37,7 @@ const REWARD_TYPES = [
 const emptyForm = {
   name: '', description: '', icon_url: '', type: 'daily',
   condition_type: 'deposit', condition_value: '1',
-  reward_type: 'bonus', reward_value: '5',
+  reward_type: 'bonus', reward_value: '5', segment_id: '',
 };
 
 export default function Missions() {
@@ -45,6 +45,15 @@ export default function Missions() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+
+  const { data: segments = [] } = useQuery({
+    queryKey: ['segments'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('segments').select('id, name').order('name');
+      if (error) throw error;
+      return data as any[];
+    },
+  });
 
   const { data: missions = [], isLoading } = useQuery({
     queryKey: ['missions'],
@@ -67,6 +76,7 @@ export default function Missions() {
         condition_value: parseFloat(form.condition_value) || 1,
         reward_type: form.reward_type,
         reward_value: parseFloat(form.reward_value) || 0,
+        segment_id: form.segment_id || null,
       };
       if (editId) {
         const { error } = await supabase.from('missions').update(payload as any).eq('id', editId);
@@ -117,7 +127,7 @@ export default function Missions() {
       name: m.name, description: m.description || '', icon_url: m.icon_url || '',
       type: m.type, condition_type: m.condition_type,
       condition_value: String(m.condition_value), reward_type: m.reward_type,
-      reward_value: String(m.reward_value),
+      reward_value: String(m.reward_value), segment_id: m.segment_id || '',
     });
     setOpen(true);
   };
@@ -147,6 +157,7 @@ export default function Missions() {
                 <TableHead className="text-xs font-semibold uppercase tracking-wider">Missão</TableHead>
                 <TableHead className="text-xs font-semibold uppercase tracking-wider">Condição</TableHead>
                 <TableHead className="text-xs font-semibold uppercase tracking-wider">Recompensa</TableHead>
+                <TableHead className="text-xs font-semibold uppercase tracking-wider">Segmento</TableHead>
                 <TableHead className="text-xs font-semibold uppercase tracking-wider">Ativo</TableHead>
                 <TableHead className="text-xs font-semibold uppercase tracking-wider w-20"></TableHead>
               </TableRow>
@@ -181,6 +192,13 @@ export default function Missions() {
                     <span className="font-mono text-sm font-semibold text-emerald-400">
                       {m.reward_type === 'bonus' ? `R$ ${Number(m.reward_value).toLocaleString('pt-BR')}` : `${m.reward_value} ${rewLabel(m.reward_type)}`}
                     </span>
+                  </TableCell>
+                  <TableCell>
+                    {m.segment_id ? (
+                      <Badge variant="outline" className="text-xs">{segments.find(s => s.id === m.segment_id)?.name || 'Segmento'}</Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Todos</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Switch checked={m.active} onCheckedChange={(v) => toggleMutation.mutate({ id: m.id, active: v })} />
@@ -286,6 +304,16 @@ export default function Missions() {
                 <Label>Valor</Label>
                 <Input type="number" value={form.reward_value} onChange={e => setForm(f => ({ ...f, reward_value: e.target.value }))} className="bg-secondary border-border font-mono mt-1" />
               </div>
+            </div>
+            <div>
+              <Label>Segmento (opcional)</Label>
+              <Select value={form.segment_id || '_all'} onValueChange={v => setForm(f => ({ ...f, segment_id: v === '_all' ? '' : v }))}>
+                <SelectTrigger className="bg-secondary border-border mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">Todos os jogadores</SelectItem>
+                  {segments.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

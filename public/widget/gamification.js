@@ -326,6 +326,17 @@
     }
     .pbg-empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
     .pbg-empty-text { font-size: 13px; }
+    .pbg-segment-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 600;
+      background: rgba(139,92,246,0.12);
+      color: #a78bfa;
+    }
 
     .pbg-section-title {
       font-size: 11px;
@@ -388,6 +399,12 @@
     const cls = { bonus: 'pbg-badge-bonus', coins: 'pbg-badge-coins', xp: 'pbg-badge-xp', nothing: 'pbg-badge-nothing' }[type] || 'pbg-badge-bonus';
     const label = type === 'bonus' ? fmt(value) : type === 'nothing' ? 'Nada' : `${value} ${type.toUpperCase()}`;
     return `<span class="pbg-badge ${cls}">${label}</span>`;
+  };
+
+  const segmentBadge = (item) => {
+    const name = item.segments?.name;
+    if (!name) return '';
+    return `<span class="pbg-segment-badge">👥 ${name}</span>`;
   };
 
   const conditionText = (type, value) => {
@@ -474,7 +491,7 @@
       html += '<div class="pbg-section-title">⚡ Missões Diárias</div>';
       html += daily.map(m => `
         <div class="pbg-card">
-          <div class="pbg-card-title">${m.name} <span class="pbg-badge pbg-badge-daily">Diária</span></div>
+          <div class="pbg-card-title">${m.name} <span class="pbg-badge pbg-badge-daily">Diária</span> ${segmentBadge(m)}</div>
           ${m.description ? `<p class="pbg-card-desc">${m.description}</p>` : ''}
           <div class="pbg-condition">📋 ${conditionText(m.condition_type, m.condition_value)}</div>
           <div class="pbg-reward">
@@ -489,7 +506,7 @@
       html += '<div class="pbg-section-title" style="margin-top:16px">📅 Missões Semanais</div>';
       html += weekly.map(m => `
         <div class="pbg-card">
-          <div class="pbg-card-title">${m.name} <span class="pbg-badge pbg-badge-weekly">Semanal</span></div>
+          <div class="pbg-card-title">${m.name} <span class="pbg-badge pbg-badge-weekly">Semanal</span> ${segmentBadge(m)}</div>
           ${m.description ? `<p class="pbg-card-desc">${m.description}</p>` : ''}
           <div class="pbg-condition">📋 ${conditionText(m.condition_type, m.condition_value)}</div>
           <div class="pbg-reward">
@@ -517,7 +534,7 @@
           <div class="pbg-card">
             <div class="pbg-card-title">
               ${a.icon_url ? `<img src="${a.icon_url}" width="20" height="20" style="border-radius:4px">` : '🏆'}
-              ${a.name}
+              ${a.name} ${segmentBadge(a)}
             </div>
             ${a.description ? `<p class="pbg-card-desc">${a.description}</p>` : ''}
             <div class="pbg-condition">🎯 ${conditionText(a.condition_type, a.condition_value)}</div>
@@ -542,7 +559,7 @@
       const pool = prizes.reduce((s, p) => s + Number(p.value || 0), 0);
       return `
         <div class="pbg-card">
-          <div class="pbg-card-title">🏆 ${t.name}</div>
+          <div class="pbg-card-title">🏆 ${t.name} ${segmentBadge(t)}</div>
           ${t.description ? `<p class="pbg-card-desc">${t.description}</p>` : ''}
           <div class="pbg-tournament-meta">
             <div class="pbg-tournament-stat">

@@ -21,7 +21,7 @@ const PRIZE_TYPES = [
 ];
 
 const emptyForm = {
-  label: '', value: '0', type: 'bonus', probability: '1', color: '#6366f1', icon_url: '',
+  label: '', value: '0', type: 'bonus', probability: '1', color: '#6366f1', icon_url: '', segment_id: '',
 };
 
 export default function DailyWheel() {
@@ -29,6 +29,15 @@ export default function DailyWheel() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+
+  const { data: segments = [] } = useQuery({
+    queryKey: ['segments'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('segments').select('id, name').order('name');
+      if (error) throw error;
+      return data as any[];
+    },
+  });
 
   const { data: prizes = [], isLoading } = useQuery({
     queryKey: ['daily_wheel_prizes'],
@@ -49,6 +58,7 @@ export default function DailyWheel() {
         probability: parseInt(form.probability) || 1,
         color: form.color,
         icon_url: form.icon_url || null,
+        segment_id: form.segment_id || null,
       };
       if (editId) {
         const { error } = await supabase.from('daily_wheel_prizes').update(payload as any).eq('id', editId);
@@ -97,7 +107,7 @@ export default function DailyWheel() {
     setEditId(p.id);
     setForm({
       label: p.label, value: String(p.value), type: p.type,
-      probability: String(p.probability), color: p.color, icon_url: p.icon_url || '',
+      probability: String(p.probability), color: p.color, icon_url: p.icon_url || '', segment_id: p.segment_id || '',
     });
     setOpen(true);
   };
@@ -246,6 +256,16 @@ export default function DailyWheel() {
             <div>
               <Label>URL do Ícone (opcional)</Label>
               <Input value={form.icon_url} onChange={e => setForm(f => ({ ...f, icon_url: e.target.value }))} placeholder="https://..." className="bg-secondary border-border mt-1" />
+            </div>
+            <div>
+              <Label>Segmento (opcional)</Label>
+              <Select value={form.segment_id || '_all'} onValueChange={v => setForm(f => ({ ...f, segment_id: v === '_all' ? '' : v }))}>
+                <SelectTrigger className="bg-secondary border-border mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">Todos os jogadores</SelectItem>
+                  {segments.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

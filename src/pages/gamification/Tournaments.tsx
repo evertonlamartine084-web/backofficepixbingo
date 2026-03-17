@@ -39,6 +39,7 @@ const emptyForm = {
   name: '', description: '', image_url: '', start_date: '', end_date: '',
   metric: 'total_bet', game_filter: 'all', min_bet: '0', status: 'RASCUNHO',
   prizes: [{ rank: 1, value: 500, description: '1º lugar' }, { rank: 2, value: 200, description: '2º lugar' }, { rank: 3, value: 100, description: '3º lugar' }] as Prize[],
+  segment_id: '',
 };
 
 export default function Tournaments() {
@@ -46,6 +47,15 @@ export default function Tournaments() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+
+  const { data: segments = [] } = useQuery({
+    queryKey: ['segments'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('segments').select('id, name').order('name');
+      if (error) throw error;
+      return data as any[];
+    },
+  });
 
   const { data: tournaments = [], isLoading } = useQuery({
     queryKey: ['tournaments'],
@@ -73,6 +83,7 @@ export default function Tournaments() {
         min_bet: parseFloat(form.min_bet) || 0,
         status: form.status,
         prizes: validPrizes,
+        segment_id: form.segment_id || null,
       };
       if (editId) {
         const { error } = await supabase.from('tournaments').update(payload as any).eq('id', editId);
@@ -124,7 +135,7 @@ export default function Tournaments() {
       name: t.name, description: t.description || '', image_url: t.image_url || '',
       start_date: t.start_date?.slice(0, 16) || '', end_date: t.end_date?.slice(0, 16) || '',
       metric: t.metric, game_filter: t.game_filter, min_bet: String(t.min_bet || 0),
-      status: t.status, prizes: prizes.length > 0 ? prizes : emptyForm.prizes,
+      status: t.status, prizes: prizes.length > 0 ? prizes : emptyForm.prizes, segment_id: t.segment_id || '',
     });
     setOpen(true);
   };
@@ -296,6 +307,16 @@ export default function Tournaments() {
                 <Label>Aposta Mín. (R$)</Label>
                 <Input type="number" value={form.min_bet} onChange={e => setForm(f => ({ ...f, min_bet: e.target.value }))} className="bg-secondary border-border font-mono mt-1" />
               </div>
+            </div>
+            <div>
+              <Label>Segmento (opcional)</Label>
+              <Select value={form.segment_id || '_all'} onValueChange={v => setForm(f => ({ ...f, segment_id: v === '_all' ? '' : v }))}>
+                <SelectTrigger className="bg-secondary border-border mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">Todos os jogadores</SelectItem>
+                  {segments.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Prizes */}
