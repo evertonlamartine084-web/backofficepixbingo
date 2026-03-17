@@ -3,7 +3,9 @@ import {
   LayoutDashboard, Code,
   LogOut, ChevronRight, ChevronDown, Zap, UserSearch,
   ArrowUpDown, ListFilter, ShieldCheck, Megaphone, Gamepad2,
-  MessageSquare, Package, User, RotateCcw, ScrollText
+  MessageSquare, Package, User, RotateCcw, ScrollText,
+  Award, Target, Swords, RotateCw, Star, ShoppingBag,
+  Bell, Inbox, Trophy,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
@@ -30,6 +32,17 @@ const navItems = [
 const assetsItems = [
   { to: '/assets/html', icon: Code, label: 'Assets HTML' },
   { to: '/assets/popups', icon: MessageSquare, label: 'Popups GTM' },
+  { to: '/assets/levels', icon: Star, label: 'Níveis' },
+  { to: '/assets/store', icon: ShoppingBag, label: 'Loja' },
+  { to: '/assets/push', icon: Bell, label: 'Push Notifications' },
+  { to: '/assets/inbox', icon: Inbox, label: 'Inbox' },
+];
+
+const gamificationItems = [
+  { to: '/gamification/achievements', icon: Award, label: 'Conquistas' },
+  { to: '/gamification/missions', icon: Target, label: 'Missões' },
+  { to: '/gamification/tournaments', icon: Swords, label: 'Torneios' },
+  { to: '/gamification/wheel', icon: RotateCw, label: 'Roleta Diária' },
 ];
 
 const adminItems = [
@@ -47,7 +60,9 @@ export function AppSidebar() {
   const { signOut, user } = useAuth();
 
   const isAssetsRoute = location.pathname.startsWith('/assets');
+  const isGamificationRoute = location.pathname.startsWith('/gamification');
   const [assetsOpen, setAssetsOpen] = useState(isAssetsRoute);
+  const [gamificationOpen, setGamificationOpen] = useState(isGamificationRoute);
 
   const handleLogout = async () => {
     await signOut();
@@ -123,6 +138,36 @@ export function AppSidebar() {
           {assetsOpen && (
             <div className="ml-3 pl-3 border-l border-border space-y-0.5 mt-1">
               {assetsItems.map((item) => (
+                <NavLink key={item.to} to={item.to} className={subLinkClass(item.to)}>
+                  <item.icon className="w-3.5 h-3.5" />
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Gamification collapsible group */}
+        <div className="pt-1">
+          <button
+            onClick={() => setGamificationOpen(o => !o)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full ${
+              isGamificationRoute
+                ? 'bg-primary/10 text-primary'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+            }`}
+          >
+            <Trophy className="w-4 h-4" />
+            Gamificação
+            {gamificationOpen ? (
+              <ChevronDown className="w-3 h-3 ml-auto" />
+            ) : (
+              <ChevronRight className="w-3 h-3 ml-auto" />
+            )}
+          </button>
+          {gamificationOpen && (
+            <div className="ml-3 pl-3 border-l border-border space-y-0.5 mt-1">
+              {gamificationItems.map((item) => (
                 <NavLink key={item.to} to={item.to} className={subLinkClass(item.to)}>
                   <item.icon className="w-3.5 h-3.5" />
                   {item.label}
