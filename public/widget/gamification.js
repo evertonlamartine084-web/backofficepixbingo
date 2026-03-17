@@ -59,8 +59,7 @@
       transform: translate(-50%, -50%) scale(0.95);
       width: 400px;
       max-width: 95vw;
-      height: 85vh;
-      max-height: 700px;
+      height: 100vh;
       background: #0c0a1a;
       border: 1px solid rgba(139, 92, 246, 0.2);
       border-radius: 20px;
@@ -364,7 +363,7 @@
     .pbg-store-price { font-size: 11px; color: #fbbf24; font-weight: 600; margin-top: 4px; }
 
     @media (max-width: 420px) {
-      #pbg-widget-panel { width: 95vw; height: 90vh; max-height: 90vh; border-radius: 16px; }
+      #pbg-widget-panel { width: 100vw; height: 100vh; border-radius: 0; }
       #pbg-widget-fab { bottom: 16px; right: 16px; width: 52px; height: 52px; }
       .pbg-header { border-radius: 16px 16px 0 0; }
       .pbg-wheel-wrapper, .pbg-wheel-canvas { width: 240px; height: 240px; }
