@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { PaginatedTable } from '@/components/PaginatedTable';
 import { formatBRL, parseBRL, formatDateTime, formatCPF } from '@/lib/formatters';
+import { logAudit } from '@/hooks/use-audit';
 
 const fmtBRL = (v: any) => {
   const n = parseBRL(v);
@@ -137,6 +138,7 @@ export default function PlayerLookup() {
         toast.error(msg);
       } else if (res?.data) {
         toast.success(msg || 'Bônus creditado com sucesso!');
+        logAudit({ action: 'CREDITAR', resource_type: 'bonus_manual', resource_name: query, details: { cpf: query, uuid: playerUuid, valor: parseFloat(bonusAmount), carteira: 'BONUS' } });
         handleSearch();
       } else {
         toast.error('Falha ao creditar bônus');

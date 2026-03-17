@@ -81,13 +81,13 @@ export function useDashboardCharts(days: number = 7) {
     refetchOnWindowFocus: true,
   });
 
-  // Audit log activity
+  // Audit log activity + manual credits
   const { data: auditData } = useQuery({
     queryKey: ['chart-audit-activity', startDate],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('audit_log')
-        .select('created_at, action')
+        .select('created_at, action, resource_type, details')
         .gte('created_at', `${startDate}T00:00:00`);
       if (error) throw error;
       return data || [];
@@ -103,6 +103,10 @@ export function useDashboardCharts(days: number = 7) {
     const inDay = (d: string) => d >= dayStart && d <= dayEnd;
 
     const batchCredits = (batchData || []).filter(b => inDay(b.created_at)).length;
+    // Count manual credits from audit_log (bonus_manual)
+    const manualCredits = (auditData || []).filter(a =>
+      inDay(a.created_at) && a.action === 'CREDITAR' && a.resource_type === 'bonus_manual'
+    ).length;
     const cashbackCredits = (cashbackData || []).filter(c => inDay(c.created_at))
       .reduce((sum, c) => sum + Number(c.cashback_value || 0), 0);
     const campaignCredits = (campaignData || []).filter(c => inDay(c.created_at))
@@ -114,7 +118,7 @@ export function useDashboardCharts(days: number = 7) {
       depositos: 0,
       saques: 0,
       ggr: 0,
-      bonus_creditado: batchCredits,
+      bonus_creditado: batchCredits + manualCredits,
       cashback_creditado: cashbackCredits,
       campanhas_creditado: campaignCredits,
       novos_usuarios: 0,
@@ -134,8 +138,9 @@ export function useDashboardCharts(days: number = 7) {
   });
 
   // Summary totals for the period
+  const manualCreditTotal = (auditData || []).filter(a => a.action === 'CREDITAR' && a.resource_type === 'bonus_manual').length;
   const totals = {
-    bonus_creditados: (batchData || []).length,
+    bonus_creditados: (batchData || []).length + manualCreditTotal,
     cashback_total: (cashbackData || []).reduce((s, c) => s + Number(c.cashback_value || 0), 0),
     campanhas_total: (campaignData || []).reduce((s, c) => s + Number(c.total_value || 0), 0),
     acoes_total: (auditData || []).length,
