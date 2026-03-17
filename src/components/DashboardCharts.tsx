@@ -90,7 +90,7 @@ export function DashboardCharts({ callProxy, creds }: DashboardChartsProps) {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MiniStat label="Bônus Creditados" value={totals.bonus_creditados.toLocaleString()} color="text-emerald-400" />
+        <MiniStat label="Bônus Creditados" value={formatBRL(totals.bonus_creditados)} color="text-emerald-400" />
         <MiniStat label="Cashback Total" value={formatBRL(totals.cashback_total)} color="text-purple-400" />
         <MiniStat label="Campanhas Total" value={formatBRL(totals.campanhas_total)} color="text-amber-400" />
         <MiniStat label="Ações no Sistema" value={totals.acoes_total.toLocaleString()} color="text-blue-400" />
@@ -181,9 +181,9 @@ export function DashboardCharts({ callProxy, creds }: DashboardChartsProps) {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
                   <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
                   <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip formatter={formatBRL} />} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="bonus_creditado" name="Bônus" fill={CHART_COLORS.emerald} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="bonus_creditado" name="Bônus (R$)" fill={CHART_COLORS.emerald} radius={[4, 4, 0, 0]} />
                   <Bar dataKey="cashback_creditado" name="Cashback (R$)" fill={CHART_COLORS.primary} radius={[4, 4, 0, 0]} />
                   <Bar dataKey="campanhas_creditado" name="Campanhas (R$)" fill={CHART_COLORS.amber} radius={[4, 4, 0, 0]} />
                 </BarChart>

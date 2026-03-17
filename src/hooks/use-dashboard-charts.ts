@@ -33,17 +33,20 @@ export function useDashboardCharts(days: number = 7) {
   const daysArray = getDaysArray(days);
   const startDate = daysArray[0].dateISO;
 
-  // Bonus credited from batch_items
+  // Bonus credited from batch_items (join with batches to get bonus_valor)
   const { data: batchData } = useQuery({
     queryKey: ['chart-batch-credits', startDate],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('batch_items')
-        .select('created_at, status')
+        .select('created_at, status, batch_id, batches!inner(bonus_valor)')
         .gte('created_at', `${startDate}T00:00:00`)
         .in('status', ['BONUS_1X', 'BONUS_2X+']);
       if (error) throw error;
-      return data || [];
+      return (data || []).map((item: any) => ({
+        created_at: item.created_at,
+        valor: Number(item.batches?.bonus_valor || 0),
+      }));
     },
     staleTime: 30_000,
     refetchOnWindowFocus: true,
@@ -102,11 +105,12 @@ export function useDashboardCharts(days: number = 7) {
     const dayEnd = `${dateISO}T23:59:59`;
     const inDay = (d: string) => d >= dayStart && d <= dayEnd;
 
-    const batchCredits = (batchData || []).filter(b => inDay(b.created_at)).length;
-    // Count manual credits from audit_log (bonus_manual)
+    const batchCredits = (batchData || []).filter(b => inDay(b.created_at))
+      .reduce((sum, b) => sum + (b.valor || 0), 0);
+    // Sum manual credits from audit_log (bonus_manual)
     const manualCredits = (auditData || []).filter(a =>
       inDay(a.created_at) && a.action === 'CREDITAR' && a.resource_type === 'bonus_manual'
-    ).length;
+    ).reduce((sum, a) => sum + Number(a.details?.valor || 0), 0);
     const cashbackCredits = (cashbackData || []).filter(c => inDay(c.created_at))
       .reduce((sum, c) => sum + Number(c.cashback_value || 0), 0);
     const campaignCredits = (campaignData || []).filter(c => inDay(c.created_at))
@@ -138,9 +142,11 @@ export function useDashboardCharts(days: number = 7) {
   });
 
   // Summary totals for the period
-  const manualCreditTotal = (auditData || []).filter(a => a.action === 'CREDITAR' && a.resource_type === 'bonus_manual').length;
+  const manualCreditTotal = (auditData || []).filter(a => a.action === 'CREDITAR' && a.resource_type === 'bonus_manual')
+    .reduce((sum, a) => sum + Number(a.details?.valor || 0), 0);
+  const batchCreditTotal = (batchData || []).reduce((sum, b) => sum + (b.valor || 0), 0);
   const totals = {
-    bonus_creditados: (batchData || []).length + manualCreditTotal,
+    bonus_creditados: batchCreditTotal + manualCreditTotal,
     cashback_total: (cashbackData || []).reduce((s, c) => s + Number(c.cashback_value || 0), 0),
     campanhas_total: (campaignData || []).reduce((s, c) => s + Number(c.total_value || 0), 0),
     acoes_total: (auditData || []).length,
