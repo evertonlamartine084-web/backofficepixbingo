@@ -32,10 +32,6 @@ const navItems = [
 const assetsItems = [
   { to: '/assets/html', icon: Code, label: 'Assets HTML' },
   { to: '/assets/popups', icon: MessageSquare, label: 'Popups GTM' },
-  { to: '/assets/levels', icon: Star, label: 'Níveis' },
-  { to: '/assets/store', icon: ShoppingBag, label: 'Loja' },
-  { to: '/assets/push', icon: Bell, label: 'Push Notifications' },
-  { to: '/assets/inbox', icon: Inbox, label: 'Inbox' },
 ];
 
 const gamificationItems = [
@@ -43,6 +39,10 @@ const gamificationItems = [
   { to: '/gamification/missions', icon: Target, label: 'Missões' },
   { to: '/gamification/tournaments', icon: Swords, label: 'Torneios' },
   { to: '/gamification/wheel', icon: RotateCw, label: 'Roleta Diária' },
+  { to: '/assets/levels', icon: Star, label: 'Níveis' },
+  { to: '/assets/store', icon: ShoppingBag, label: 'Loja' },
+  { to: '/assets/push', icon: Bell, label: 'Push Notifications' },
+  { to: '/assets/inbox', icon: Inbox, label: 'Inbox' },
   { to: '/gamification/widget', icon: Code2, label: 'Widget Embed' },
 ];
 
