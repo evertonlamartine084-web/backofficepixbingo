@@ -27,7 +27,8 @@
     #pbg-widget-fab {
       position: fixed;
       bottom: 24px;
-      right: 24px;
+      left: 50%;
+      transform: translateX(-50%);
       width: 60px;
       height: 60px;
       border-radius: 50%;
@@ -43,7 +44,7 @@
       animation: pbg-pulse 2s infinite;
     }
     #pbg-widget-fab:hover {
-      transform: scale(1.1);
+      transform: translateX(-50%) scale(1.1);
       box-shadow: 0 6px 32px rgba(139, 92, 246, 0.6);
     }
     @keyframes pbg-pulse {
@@ -54,25 +55,35 @@
 
     #pbg-widget-panel {
       position: fixed;
-      top: 0;
-      right: -400px;
-      width: 380px;
-      max-width: 100vw;
-      height: 100vh;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.95);
+      width: 400px;
+      max-width: 95vw;
+      height: 85vh;
+      max-height: 700px;
       background: #0c0a1a;
-      border-left: 1px solid rgba(139, 92, 246, 0.2);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      border-radius: 20px;
       z-index: 999998;
-      transition: right 0.3s ease;
+      transition: transform 0.3s ease, opacity 0.3s ease;
       font-family: 'Space Grotesk', system-ui, sans-serif;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.5), 0 0 40px rgba(139, 92, 246, 0.15);
     }
-    #pbg-widget-panel.open { right: 0; }
+    #pbg-widget-panel.open {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+      pointer-events: auto;
+    }
     #pbg-widget-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.5);
+      background: rgba(0,0,0,0.6);
       z-index: 999997;
       opacity: 0;
       pointer-events: none;
@@ -84,6 +95,7 @@
       padding: 16px 20px;
       background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(6,182,212,0.1));
       border-bottom: 1px solid rgba(255,255,255,0.06);
+      border-radius: 20px 20px 0 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -353,8 +365,9 @@
     .pbg-store-price { font-size: 11px; color: #fbbf24; font-weight: 600; margin-top: 4px; }
 
     @media (max-width: 420px) {
-      #pbg-widget-panel { width: 100vw; }
-      #pbg-widget-fab { bottom: 16px; right: 16px; width: 52px; height: 52px; }
+      #pbg-widget-panel { width: 95vw; height: 90vh; max-height: 90vh; border-radius: 16px; }
+      #pbg-widget-fab { bottom: 16px; width: 52px; height: 52px; }
+      .pbg-header { border-radius: 16px 16px 0 0; }
       .pbg-wheel-wrapper, .pbg-wheel-canvas { width: 240px; height: 240px; }
     }
   `;
