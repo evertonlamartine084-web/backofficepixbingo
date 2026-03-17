@@ -3,15 +3,11 @@ import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface DailyMetric {
-  date: string;       // "dd/MM"
-  dateISO: string;    // "2026-03-16"
-  depositos: number;
-  saques: number;
-  ggr: number;
+  date: string;
+  dateISO: string;
   bonus_creditado: number;
   cashback_creditado: number;
   campanhas_creditado: number;
-  novos_usuarios: number;
 }
 
 function getDaysArray(days: number): { dateISO: string; label: string }[] {
@@ -84,14 +80,16 @@ export function useDashboardCharts(days: number = 7) {
     refetchOnWindowFocus: true,
   });
 
-  // Audit log activity + manual credits
+  // Manual credits from audit_log
   const { data: auditData } = useQuery({
-    queryKey: ['chart-audit-activity', startDate],
+    queryKey: ['chart-manual-credits', startDate],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('audit_log')
         .select('created_at, action, resource_type, details')
-        .gte('created_at', `${startDate}T00:00:00`);
+        .gte('created_at', `${startDate}T00:00:00`)
+        .eq('action', 'CREDITAR')
+        .eq('resource_type', 'bonus_manual');
       if (error) throw error;
       return data || [];
     },
@@ -107,10 +105,8 @@ export function useDashboardCharts(days: number = 7) {
 
     const batchCredits = (batchData || []).filter(b => inDay(b.created_at))
       .reduce((sum, b) => sum + (b.valor || 0), 0);
-    // Sum manual credits from audit_log (bonus_manual)
-    const manualCredits = (auditData || []).filter(a =>
-      inDay(a.created_at) && a.action === 'CREDITAR' && a.resource_type === 'bonus_manual'
-    ).reduce((sum, a) => sum + Number(a.details?.valor || 0), 0);
+    const manualCredits = (auditData || []).filter(a => inDay(a.created_at))
+      .reduce((sum, a) => sum + Number(a.details?.valor || 0), 0);
     const cashbackCredits = (cashbackData || []).filter(c => inDay(c.created_at))
       .reduce((sum, c) => sum + Number(c.cashback_value || 0), 0);
     const campaignCredits = (campaignData || []).filter(c => inDay(c.created_at))
@@ -119,50 +115,33 @@ export function useDashboardCharts(days: number = 7) {
     return {
       date: label,
       dateISO,
-      depositos: 0,
-      saques: 0,
-      ggr: 0,
       bonus_creditado: batchCredits + manualCredits,
       cashback_creditado: cashbackCredits,
       campanhas_creditado: campaignCredits,
-      novos_usuarios: 0,
     };
   });
 
-  // Activity by day for the activity chart
-  const activityByDay = daysArray.map(({ dateISO, label }) => {
-    const dayStart = `${dateISO}T00:00:00`;
-    const dayEnd = `${dateISO}T23:59:59`;
-    const dayActions = (auditData || []).filter(a => a.created_at >= dayStart && a.created_at <= dayEnd);
-
-    const logins = dayActions.filter(a => a.action === 'LOGIN').length;
-    const operations = dayActions.filter(a => !['LOGIN', 'LOGOUT', 'LOGIN_FALHA'].includes(a.action)).length;
-
-    return { date: label, logins, operacoes: operations };
-  });
-
-  // Summary totals for the period
-  const manualCreditTotal = (auditData || []).filter(a => a.action === 'CREDITAR' && a.resource_type === 'bonus_manual')
+  // Summary totals
+  const manualCreditTotal = (auditData || [])
     .reduce((sum, a) => sum + Number(a.details?.valor || 0), 0);
   const batchCreditTotal = (batchData || []).reduce((sum, b) => sum + (b.valor || 0), 0);
   const totals = {
     bonus_creditados: batchCreditTotal + manualCreditTotal,
     cashback_total: (cashbackData || []).reduce((s, c) => s + Number(c.cashback_value || 0), 0),
     campanhas_total: (campaignData || []).reduce((s, c) => s + Number(c.total_value || 0), 0),
-    acoes_total: (auditData || []).length,
   };
 
   const refreshCharts = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['chart-batch-credits'] });
     queryClient.invalidateQueries({ queryKey: ['chart-cashback-credits'] });
     queryClient.invalidateQueries({ queryKey: ['chart-campaign-credits'] });
-    queryClient.invalidateQueries({ queryKey: ['chart-audit-activity'] });
+    queryClient.invalidateQueries({ queryKey: ['chart-manual-credits'] });
   }, [queryClient]);
 
-  return { metrics, activityByDay, totals, days: daysArray, refreshCharts };
+  return { metrics, totals, days: daysArray, refreshCharts };
 }
 
-// Financial evolution - calls API for each day in the period
+// Financial evolution - calls API for each day (only for newUsers chart now)
 export function useFinancialEvolution(
   days: number,
   callProxy: (action: string, creds: any, params?: any) => Promise<any>,
