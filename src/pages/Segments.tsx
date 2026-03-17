@@ -125,46 +125,79 @@ export default function Segments() {
     staleTime: 10 * 60 * 1000, // cache 10 min
   });
 
-  // Fetch ALL items for selected segment (paginated to bypass 1000-row limit)
-  const { data: items, isLoading: itemsLoading } = useQuery({
-    queryKey: ['segment_items', selectedSegment],
+  // Pagination state
+  const [tablePage, setTablePage] = useState(0);
+  const [tablePageSize, setTablePageSize] = useState(25);
+
+  // Server-side paginated query for segment items (table display only)
+  const { data: itemsPage, isLoading: itemsLoading } = useQuery({
+    queryKey: ['segment_items', selectedSegment, tablePage, tablePageSize],
     enabled: !!selectedSegment && selectedSegment !== ALL_USERS_ID,
     queryFn: async () => {
-      const allItems: any[] = [];
-      const batchSize = 1000;
-      let offset = 0;
-      let hasMore = true;
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('segment_items')
-          .select('*')
-          .eq('segment_id', selectedSegment!)
-          .order('created_at', { ascending: false })
-          .range(offset, offset + batchSize - 1);
-        if (error) throw error;
-        if (data && data.length > 0) {
-          allItems.push(...data);
-          offset += batchSize;
-          hasMore = data.length === batchSize;
-        } else {
-          hasMore = false;
-        }
-      }
-      return allItems;
+      const from = tablePage * tablePageSize;
+      const to = from + tablePageSize - 1;
+      const { data, error } = await supabase
+        .from('segment_items')
+        .select('*')
+        .eq('segment_id', selectedSegment!)
+        .order('created_at', { ascending: false })
+        .range(from, to);
+      if (error) throw error;
+      return data || [];
     },
   });
 
-  // Effective items based on selected segment
-  const effectiveItems = selectedSegment === ALL_USERS_ID ? allUsersItems : items;
-  const effectiveItemsLoading = selectedSegment === ALL_USERS_ID ? (allUsersQueryLoading || allUsersLoading) : itemsLoading;
-  const isAllUsers = selectedSegment === ALL_USERS_ID;
+  // Count total items for pagination
+  const { data: itemsTotalCount = 0 } = useQuery({
+    queryKey: ['segment_items_count', selectedSegment],
+    enabled: !!selectedSegment && selectedSegment !== ALL_USERS_ID,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('segment_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('segment_id', selectedSegment!);
+      if (error) throw error;
+      return count || 0;
+    },
+  });
 
-  // Pagination for the items table
-  const [tablePage, setTablePage] = useState(0);
-  const [tablePageSize, setTablePageSize] = useState(25);
-  const tableTotalPages = Math.max(1, Math.ceil((effectiveItems?.length || 0) / tablePageSize));
+  // Fetch ALL items on-demand (for mass credit / verify operations only)
+  const fetchAllSegmentItems = async () => {
+    if (!selectedSegment || selectedSegment === ALL_USERS_ID) return [];
+    const allItems: any[] = [];
+    const batchSize = 1000;
+    let offset = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('segment_items')
+        .select('*')
+        .eq('segment_id', selectedSegment)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + batchSize - 1);
+      if (error) throw error;
+      if (data && data.length > 0) {
+        allItems.push(...data);
+        offset += batchSize;
+        hasMore = data.length === batchSize;
+      } else {
+        hasMore = false;
+      }
+    }
+    return allItems;
+  };
+
+  // Effective items for table display
+  const isAllUsers = selectedSegment === ALL_USERS_ID;
+  const effectiveItemsLoading = isAllUsers ? (allUsersQueryLoading || allUsersLoading) : itemsLoading;
+
+  // For table: use server-side paginated data for segments, client-side for allUsers
+  const effectiveItemsCount = isAllUsers ? (allUsersItems?.length || 0) : itemsTotalCount;
+  const tableTotalPages = Math.max(1, Math.ceil(effectiveItemsCount / tablePageSize));
   const tableStart = tablePage * tablePageSize;
-  const pagedItems = effectiveItems?.slice(tableStart, tableStart + tablePageSize) || [];
+  const pagedItems = isAllUsers
+    ? (allUsersItems?.slice(tableStart, tableStart + tablePageSize) || [])
+    : (itemsPage || []);
 
   // Reset page when segment changes
   const prevSegRef = useRef(selectedSegment);
@@ -225,6 +258,7 @@ export default function Segments() {
     },
     onSuccess: (count) => {
       qc.invalidateQueries({ queryKey: ['segment_items', selectedSegment] });
+      qc.invalidateQueries({ queryKey: ['segment_items_count', selectedSegment] });
       qc.invalidateQueries({ queryKey: ['segments'] });
       setCpfInput(''); setAddCpfOpen(false);
       toast.success(`${count} CPF(s) adicionado(s)!`);
@@ -242,6 +276,7 @@ export default function Segments() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['segment_items', selectedSegment] });
+      qc.invalidateQueries({ queryKey: ['segment_items_count', selectedSegment] });
       qc.invalidateQueries({ queryKey: ['segments'] });
       toast.success('CPF removido');
     },
@@ -254,14 +289,23 @@ export default function Segments() {
       toast.error('Conecte-se primeiro com suas credenciais');
       return;
     }
-    if (!selectedSegment || !effectiveItems || effectiveItems.length === 0) {
+    if (!selectedSegment || effectiveItemsCount === 0) {
       toast.error('Segmento sem CPFs');
       return;
     }
 
     setCreditLoading(true);
     creditCancelRef.current = false;
-    setCreditProgress({ current: 0, total: effectiveItems.length, credited: 0, errors: 0 });
+
+    // Fetch all items on-demand for mass credit
+    const allItems = isAllUsers ? (allUsersItems || []) : await fetchAllSegmentItems();
+    if (allItems.length === 0) {
+      toast.error('Segmento sem CPFs');
+      setCreditLoading(false);
+      return;
+    }
+
+    setCreditProgress({ current: 0, total: allItems.length, credited: 0, errors: 0 });
 
     try {
       // 1. Create a batch from segment
@@ -269,7 +313,7 @@ export default function Segments() {
       const { data: batch, error: batchErr } = await supabase.from('batches').insert({
         name: batchName,
         bonus_valor: parseFloat(creditAmount) || 0,
-        total_items: effectiveItems.length,
+        total_items: allItems.length,
         status: 'EM_ANDAMENTO',
       }).select().single();
 
@@ -282,7 +326,7 @@ export default function Segments() {
       }
 
       // 2. Insert batch_items from segment CPFs
-      const batchItems = effectiveItems.map((item: any) => ({
+      const batchItems = allItems.map((item: any) => ({
         batch_id: batch.id,
         cpf: item.cpf,
         cpf_masked: item.cpf_masked,
@@ -306,8 +350,8 @@ export default function Segments() {
 
       const result = res?.data;
       setCreditProgress({
-        current: effectiveItems.length,
-        total: effectiveItems.length,
+        current: allItems.length,
+        total: allItems.length,
         credited: result?.credited || 0,
         errors: result?.errors || 0,
       });
@@ -320,7 +364,7 @@ export default function Segments() {
       }
 
       const seg = segments?.find((s: any) => s.id === selectedSegment);
-      logAudit({ action: 'CREDITAR', resource_type: 'batch', resource_name: seg?.name, details: { segment_id: selectedSegment, amount: creditAmount, total: effectiveItems.length, credited: result?.credited || 0, errors: result?.errors || 0 } });
+      logAudit({ action: 'CREDITAR', resource_type: 'batch', resource_name: seg?.name, details: { segment_id: selectedSegment, amount: creditAmount, total: allItems.length, credited: result?.credited || 0, errors: result?.errors || 0 } });
       qc.invalidateQueries({ queryKey: ['batches'] });
     } catch (err: any) {
       if (!creditCancelRef.current) {
@@ -337,7 +381,7 @@ export default function Segments() {
       toast.error('Conecte-se primeiro com suas credenciais');
       return;
     }
-    if (!effectiveItems || effectiveItems.length === 0) return;
+    if (effectiveItemsCount === 0) return;
 
     const days = parseInt(verifyDays) || 7;
     const cutoffDate = new Date();
@@ -346,8 +390,11 @@ export default function Segments() {
     setVerifyLoading(true);
     setVerifyDone(false);
     setVerifyResults({});
-    setVerifyProgress({ current: 0, total: effectiveItems.length });
     verifyCancelRef.current = false;
+
+    // Fetch all items on-demand for verification
+    const allItems = isAllUsers ? (allUsersItems || []) : await fetchAllSegmentItems();
+    setVerifyProgress({ current: 0, total: allItems.length });
 
     const concurrency = Math.max(1, Math.min(20, parseInt(verifyConcurrency) || 5));
     const results: Record<string, { hasBonus: boolean; lastBonusDate?: string; bonusCount: number }> = {};
@@ -393,20 +440,20 @@ export default function Segments() {
         results[item.cpf] = { hasBonus: false, bonusCount: 0 };
       }
       processed++;
-      setVerifyProgress({ current: processed, total: effectiveItems.length });
+      setVerifyProgress({ current: processed, total: allItems.length });
       // Update results periodically (every batch) to avoid too many re-renders
-      if (processed % concurrency === 0 || processed === effectiveItems.length) {
+      if (processed % concurrency === 0 || processed === allItems.length) {
         setVerifyResults({ ...results });
       }
     };
 
     // Process in concurrent batches
-    for (let i = 0; i < effectiveItems.length; i += concurrency) {
+    for (let i = 0; i < allItems.length; i += concurrency) {
       if (verifyCancelRef.current) {
         toast.info('Verificação cancelada');
         break;
       }
-      const batch = effectiveItems.slice(i, i + concurrency);
+      const batch = allItems.slice(i, i + concurrency);
       await Promise.all(batch.map(verifySingleCPF));
     }
 
@@ -424,26 +471,41 @@ export default function Segments() {
 
   // Remove all CPFs that have bonus
   const handleRemoveWithBonus = async () => {
-    if (!effectiveItems) return;
-    const cpfsWithBonus = effectiveItems.filter((item: any) => verifyResults[item.cpf]?.hasBonus);
+    const cpfsWithBonus = Object.entries(verifyResults)
+      .filter(([, r]) => r.hasBonus)
+      .map(([cpf]) => cpf);
     if (cpfsWithBonus.length === 0) {
       toast.info('Nenhum CPF com bônus para remover');
       return;
     }
 
-    const ids = cpfsWithBonus.map((item: any) => item.id);
-    const { error } = await supabase.from('segment_items').delete().in('id', ids);
-    if (error) {
-      toast.error(error.message);
+    // Delete by CPF + segment_id (works for both allUsers and regular segments)
+    if (isAllUsers) {
+      toast.info('Remoção não disponível para "All Users"');
       return;
+    }
+
+    // Delete in batches of 100 to avoid query limits
+    for (let i = 0; i < cpfsWithBonus.length; i += 100) {
+      const batch = cpfsWithBonus.slice(i, i + 100);
+      const { error } = await supabase
+        .from('segment_items')
+        .delete()
+        .eq('segment_id', selectedSegment!)
+        .in('cpf', batch);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
     }
 
     // Clear results for removed items
     const newResults = { ...verifyResults };
-    cpfsWithBonus.forEach((item: any) => delete newResults[item.cpf]);
+    cpfsWithBonus.forEach(cpf => delete newResults[cpf]);
     setVerifyResults(newResults);
 
     qc.invalidateQueries({ queryKey: ['segment_items', selectedSegment] });
+    qc.invalidateQueries({ queryKey: ['segment_items_count', selectedSegment] });
     qc.invalidateQueries({ queryKey: ['segments'] });
     toast.success(`${cpfsWithBonus.length} CPF(s) removidos do segmento!`);
   };
@@ -630,7 +692,7 @@ export default function Segments() {
                   {/* Mass Credit Button */}
                   <Dialog open={creditOpen} onOpenChange={setCreditOpen}>
                     <DialogTrigger asChild>
-                      <Button className="gradient-success border-0 text-success-foreground" size="sm" disabled={!effectiveItems || effectiveItems.length === 0}>
+                      <Button className="gradient-success border-0 text-success-foreground" size="sm" disabled={effectiveItemsCount === 0}>
                         <CreditCard className="w-4 h-4 mr-2" /> Creditar Segmento
                       </Button>
                     </DialogTrigger>
@@ -638,7 +700,7 @@ export default function Segments() {
                       <DialogHeader>
                         <DialogTitle>Creditação em Massa</DialogTitle>
                         <DialogDescription>
-                          Creditar bônus para todos os {effectiveItems?.length || 0} CPFs do segmento "{selectedSeg?.name}"
+                          Creditar bônus para todos os {effectiveItemsCount} CPFs do segmento "{selectedSeg?.name}"
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
@@ -660,7 +722,7 @@ export default function Segments() {
                         <div className="p-3 rounded-lg bg-secondary/50 text-sm space-y-1">
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">CPFs no segmento</span>
-                            <span className="font-semibold text-foreground">{effectiveItems?.length || 0}</span>
+                            <span className="font-semibold text-foreground">{effectiveItemsCount}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Valor por jogador</span>
@@ -669,7 +731,7 @@ export default function Segments() {
                           <div className="flex justify-between border-t border-border pt-1 mt-1">
                             <span className="text-muted-foreground font-semibold">Total estimado</span>
                             <span className="font-mono font-bold text-foreground">
-                              R$ {((effectiveItems?.length || 0) * (parseFloat(creditAmount) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              R$ {(effectiveItemsCount * (parseFloat(creditAmount) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </span>
                           </div>
                         </div>
@@ -709,7 +771,7 @@ export default function Segments() {
                         ) : (
                           <Button
                             onClick={handleMassCredit}
-                            disabled={!creds.username || !effectiveItems?.length}
+                            disabled={!creds.username || effectiveItemsCount === 0}
                             className="gradient-success border-0 text-success-foreground"
                           >
                             <DollarSign className="w-4 h-4 mr-2" />
@@ -723,7 +785,7 @@ export default function Segments() {
                   {/* Verify Bonus Button */}
                   <Dialog open={verifyOpen} onOpenChange={(o) => { setVerifyOpen(o); if (!o) { setVerifyDone(false); } }}>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="border-border" disabled={!effectiveItems || effectiveItems.length === 0}>
+                      <Button variant="outline" size="sm" className="border-border" disabled={effectiveItemsCount === 0}>
                         <SearchCheck className="w-4 h-4 mr-2" /> Verificar Bônus
                       </Button>
                     </DialogTrigger>
@@ -823,7 +885,7 @@ export default function Segments() {
                           ) : (
                             <Button
                               onClick={handleVerifyBonus}
-                              disabled={!creds.username || !effectiveItems?.length}
+                              disabled={!creds.username || effectiveItemsCount === 0}
                               className="gradient-primary border-0"
                             >
                               <SearchCheck className="w-4 h-4 mr-2" />
@@ -854,7 +916,7 @@ export default function Segments() {
                   <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground">Conecte-se à API para carregar todos os jogadores</p>
                 </div>
-              ) : effectiveItems && effectiveItems.length > 0 ? (
+              ) : effectiveItemsCount > 0 ? (
                 <>
                 <div className="overflow-x-auto rounded-lg border border-border">
                   <Table>
@@ -925,7 +987,7 @@ export default function Segments() {
                 </div>
 
                 {/* Pagination controls */}
-                {effectiveItems && effectiveItems.length > 0 && (
+                {effectiveItemsCount > 0 && (
                   <div className="flex items-center justify-between gap-4 pt-3 px-1 flex-wrap">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>Linhas por página:</span>
@@ -939,7 +1001,7 @@ export default function Segments() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <span className="ml-2">{(tableStart + 1).toLocaleString('pt-BR')}-{Math.min(tableStart + tablePageSize, effectiveItems.length).toLocaleString('pt-BR')} de {effectiveItems.length.toLocaleString('pt-BR')}</span>
+                      <span className="ml-2">{(tableStart + 1).toLocaleString('pt-BR')}-{Math.min(tableStart + tablePageSize, effectiveItemsCount).toLocaleString('pt-BR')} de {effectiveItemsCount.toLocaleString('pt-BR')}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" disabled={tablePage === 0} onClick={() => setTablePage(p => p - 1)}>
