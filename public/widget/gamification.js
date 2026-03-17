@@ -27,8 +27,7 @@
     #pbg-widget-fab {
       position: fixed;
       bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
+      right: 24px;
       width: 60px;
       height: 60px;
       border-radius: 50%;
@@ -44,7 +43,7 @@
       animation: pbg-pulse 2s infinite;
     }
     #pbg-widget-fab:hover {
-      transform: translateX(-50%) scale(1.1);
+      transform: scale(1.1);
       box-shadow: 0 6px 32px rgba(139, 92, 246, 0.6);
     }
     @keyframes pbg-pulse {
@@ -366,7 +365,7 @@
 
     @media (max-width: 420px) {
       #pbg-widget-panel { width: 95vw; height: 90vh; max-height: 90vh; border-radius: 16px; }
-      #pbg-widget-fab { bottom: 16px; width: 52px; height: 52px; }
+      #pbg-widget-fab { bottom: 16px; right: 16px; width: 52px; height: 52px; }
       .pbg-header { border-radius: 16px 16px 0 0; }
       .pbg-wheel-wrapper, .pbg-wheel-canvas { width: 240px; height: 240px; }
     }
