@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, Check, ExternalLink, Code2, Eye } from 'lucide-react';
+import { Copy, Check, Code2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
@@ -13,16 +13,6 @@ export default function WidgetPreview() {
 
   const embedCodeGTM = `<!-- PixBingoBR Gamification Widget -->
 <script src="${window.location.origin}/widget/gamification.js"></script>`;
-
-  const embedCodeDirect = `<!-- PixBingoBR Gamification Widget (Direct) -->
-<script>
-(function(){
-  var s = document.createElement('script');
-  s.src = '${window.location.origin}/widget/gamification.js';
-  s.async = true;
-  document.body.appendChild(s);
-})();
-</script>`;
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -49,54 +39,36 @@ export default function WidgetPreview() {
         </Button>
       </div>
 
-      {/* Embed codes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="glass-card border-border">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">Via GTM (Tag HTML)</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => copyToClipboard(embedCodeGTM, 'gtm')}
-                className="text-xs"
-              >
-                {copied === 'gtm' ? <Check className="w-3.5 h-3.5 mr-1 text-success" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
-                Copiar
-              </Button>
-            </div>
-            <pre className="bg-secondary/50 rounded-lg p-3 text-xs font-mono text-muted-foreground overflow-x-auto whitespace-pre-wrap break-all">
-              {embedCodeGTM}
-            </pre>
-            <p className="text-[10px] text-muted-foreground">
-              Cole no GTM como Tag HTML personalizada. Trigger: All Pages.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card border-border">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">Direto no HTML</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => copyToClipboard(embedCodeDirect, 'direct')}
-                className="text-xs"
-              >
-                {copied === 'direct' ? <Check className="w-3.5 h-3.5 mr-1 text-success" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
-                Copiar
-              </Button>
-            </div>
-            <pre className="bg-secondary/50 rounded-lg p-3 text-xs font-mono text-muted-foreground overflow-x-auto whitespace-pre-wrap break-all">
-              {embedCodeDirect}
-            </pre>
-            <p className="text-[10px] text-muted-foreground">
-              Cole antes do {'</body>'} no HTML do site.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Embed code - GTM only */}
+      <Card className="glass-card border-border">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Código GTM — Tag HTML Personalizada</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyToClipboard(embedCodeGTM, 'gtm')}
+              className="text-xs"
+            >
+              {copied === 'gtm' ? <Check className="w-3.5 h-3.5 mr-1 text-success" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+              Copiar
+            </Button>
+          </div>
+          <pre className="bg-secondary/50 rounded-lg p-3 text-xs font-mono text-muted-foreground overflow-x-auto whitespace-pre-wrap break-all">
+            {embedCodeGTM}
+          </pre>
+          <div className="bg-primary/5 border border-primary/10 rounded-lg p-3 text-xs text-muted-foreground space-y-1.5">
+            <p className="font-semibold text-foreground">Como configurar no GTM:</p>
+            <ol className="list-decimal list-inside space-y-1">
+              <li>Acesse o <span className="text-foreground font-medium">Google Tag Manager</span></li>
+              <li>Crie uma nova <span className="text-foreground font-medium">Tag</span> → tipo <span className="text-foreground font-medium">HTML Personalizado</span></li>
+              <li>Cole o código acima</li>
+              <li>Em Acionamento (Trigger), selecione <span className="text-foreground font-medium">All Pages</span></li>
+              <li>Salve e <span className="text-foreground font-medium">Publique</span> o contêiner</li>
+            </ol>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Info */}
       <Card className="glass-card border-border">
@@ -109,7 +81,7 @@ export default function WidgetPreview() {
             </div>
             <div className="bg-secondary/30 rounded-lg p-3">
               <p className="font-semibold text-foreground mb-1">2. Incorpore o Widget</p>
-              <p className="text-xs text-muted-foreground">Cole o código no GTM ou diretamente no HTML do site do PixBingoBR.</p>
+              <p className="text-xs text-muted-foreground">Cole o código no GTM como Tag HTML Personalizada com trigger All Pages.</p>
             </div>
             <div className="bg-secondary/30 rounded-lg p-3">
               <p className="font-semibold text-foreground mb-1">3. Jogadores Interagem</p>
