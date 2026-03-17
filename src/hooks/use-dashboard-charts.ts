@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface DailyMetric {
@@ -28,6 +29,7 @@ function getDaysArray(days: number): { dateISO: string; label: string }[] {
 
 // Aggregate Supabase data by day for charts
 export function useDashboardCharts(days: number = 7) {
+  const queryClient = useQueryClient();
   const daysArray = getDaysArray(days);
   const startDate = daysArray[0].dateISO;
 
@@ -43,7 +45,8 @@ export function useDashboardCharts(days: number = 7) {
       if (error) throw error;
       return data || [];
     },
-    staleTime: 5 * 60_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   // Cashback credited
@@ -58,7 +61,8 @@ export function useDashboardCharts(days: number = 7) {
       if (error) throw error;
       return data || [];
     },
-    staleTime: 5 * 60_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   // Campaign participants credited
@@ -73,7 +77,8 @@ export function useDashboardCharts(days: number = 7) {
       if (error) throw error;
       return data || [];
     },
-    staleTime: 5 * 60_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   // Audit log activity
@@ -87,7 +92,8 @@ export function useDashboardCharts(days: number = 7) {
       if (error) throw error;
       return data || [];
     },
-    staleTime: 5 * 60_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   // Build daily metrics
@@ -135,7 +141,14 @@ export function useDashboardCharts(days: number = 7) {
     acoes_total: (auditData || []).length,
   };
 
-  return { metrics, activityByDay, totals, days: daysArray };
+  const refreshCharts = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['chart-batch-credits'] });
+    queryClient.invalidateQueries({ queryKey: ['chart-cashback-credits'] });
+    queryClient.invalidateQueries({ queryKey: ['chart-campaign-credits'] });
+    queryClient.invalidateQueries({ queryKey: ['chart-audit-activity'] });
+  }, [queryClient]);
+
+  return { metrics, activityByDay, totals, days: daysArray, refreshCharts };
 }
 
 // Financial evolution - calls API for each day in the period
@@ -144,6 +157,7 @@ export function useFinancialEvolution(
   callProxy: (action: string, creds: any, params?: any) => Promise<any>,
   creds: { username: string; password: string },
 ) {
+  const queryClient = useQueryClient();
   const daysArray = getDaysArray(days);
 
   const { data: financialDaily = [], isLoading } = useQuery({
@@ -151,7 +165,6 @@ export function useFinancialEvolution(
     enabled: !!creds.username && !!creds.password,
     staleTime: 10 * 60_000,
     queryFn: async () => {
-      // Fetch each day in parallel (max 5 concurrent)
       const results: { date: string; depositos: number; saques: number; ggr: number; newUsers: number }[] = [];
       const CONCURRENCY = 5;
 
@@ -184,5 +197,9 @@ export function useFinancialEvolution(
     },
   });
 
-  return { financialDaily, isLoading };
+  const refreshFinancial = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['chart-financial-daily'] });
+  }, [queryClient]);
+
+  return { financialDaily, isLoading, refreshFinancial };
 }

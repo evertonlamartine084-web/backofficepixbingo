@@ -3,8 +3,9 @@ import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
-import { TrendingUp, BarChart3, Activity, Wallet, ChevronDown } from 'lucide-react';
+import { TrendingUp, BarChart3, Activity, Wallet, RefreshCw } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useDashboardCharts, useFinancialEvolution } from '@/hooks/use-dashboard-charts';
 
 const CHART_COLORS = {
@@ -43,8 +44,13 @@ interface DashboardChartsProps {
 
 export function DashboardCharts({ callProxy, creds }: DashboardChartsProps) {
   const [days, setDays] = useState(7);
-  const { metrics, activityByDay, totals } = useDashboardCharts(days);
-  const { financialDaily, isLoading: loadingFinancial } = useFinancialEvolution(days, callProxy, creds);
+  const { metrics, activityByDay, totals, refreshCharts } = useDashboardCharts(days);
+  const { financialDaily, isLoading: loadingFinancial, refreshFinancial } = useFinancialEvolution(days, callProxy, creds);
+
+  const handleRefresh = () => {
+    refreshCharts();
+    if (creds.username) refreshFinancial();
+  };
 
   const hasFinancial = financialDaily.length > 0 && financialDaily.some(d => d.depositos > 0 || d.ggr > 0);
 
@@ -56,6 +62,10 @@ export function DashboardCharts({ callProxy, creds }: DashboardChartsProps) {
           <TrendingUp className="w-5 h-5 text-primary" />
           <h2 className="text-lg font-semibold text-foreground">Evolução</h2>
         </div>
+        <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" className="border-border" onClick={handleRefresh}>
+          <RefreshCw className="w-4 h-4" />
+        </Button>
         <div className="flex rounded-lg border border-border overflow-hidden">
           {[
             { d: 7, label: '7 dias' },
@@ -74,6 +84,7 @@ export function DashboardCharts({ callProxy, creds }: DashboardChartsProps) {
               {opt.label}
             </button>
           ))}
+        </div>
         </div>
       </div>
 
