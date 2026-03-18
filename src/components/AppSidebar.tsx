@@ -39,6 +39,7 @@ const gamificationItems = [
   { to: '/gamification/missions', icon: Target, label: 'Missões' },
   { to: '/gamification/tournaments', icon: Swords, label: 'Torneios' },
   { to: '/gamification/wheel', icon: RotateCw, label: 'Roleta Diária' },
+  { to: '/gamification/mini-games', icon: Gamepad2, label: 'Mini Games' },
   { to: '/assets/levels', icon: Star, label: 'Níveis' },
   { to: '/assets/store', icon: ShoppingBag, label: 'Loja' },
   { to: '/assets/push', icon: Bell, label: 'Push Notifications' },

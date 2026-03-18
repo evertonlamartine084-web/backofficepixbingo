@@ -1,7 +1,11 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Copy, Check, Code2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://nehmmvtpagncmldivnxn.supabase.co';
@@ -10,9 +14,22 @@ const WIDGET_SCRIPT_URL = `${SUPABASE_URL}/functions/v1/gamification-widget`;
 export default function WidgetPreview() {
   const [copied, setCopied] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [selectedSegment, setSelectedSegment] = useState('_all');
 
-  const embedCodeGTM = `<!-- PixBingoBR Gamification Widget -->
-<script src="${window.location.origin}/widget/gamification.js"></script>`;
+  const { data: segments = [] } = useQuery({
+    queryKey: ['segments'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('segments').select('id, name').order('name');
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const segmentParam = selectedSegment !== '_all' ? ` data-segment="${selectedSegment}"` : '';
+  const segmentName = selectedSegment !== '_all' ? segments.find(s => s.id === selectedSegment)?.name : null;
+
+  const embedCodeGTM = `<!-- PixBingoBR Gamification Widget${segmentName ? ` — Segmento: ${segmentName}` : ''} -->
+<script src="${window.location.origin}/widget/gamification.js"${segmentParam} data-require-login="false"></script>`;
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -38,6 +55,29 @@ export default function WidgetPreview() {
           <Eye className="w-4 h-4 mr-2" /> {previewOpen ? 'Fechar Preview' : 'Ver Preview'}
         </Button>
       </div>
+
+      {/* Segment selector */}
+      <Card className="glass-card border-border">
+        <CardContent className="p-4 space-y-3">
+          <Label className="text-sm font-semibold">Segmento alvo do widget</Label>
+          <Select value={selectedSegment} onValueChange={setSelectedSegment}>
+            <SelectTrigger className="bg-secondary border-border w-full sm:w-80">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Todos os jogadores (sem filtro)</SelectItem>
+              {segments.map((s: any) => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground">
+            {selectedSegment === '_all'
+              ? 'O widget mostrará todas as missões, conquistas, torneios e prêmios ativos.'
+              : `O widget filtrará apenas conteúdo direcionado ao segmento "${segmentName}" ou sem segmento definido.`}
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Embed code - GTM only */}
       <Card className="glass-card border-border">
@@ -67,6 +107,15 @@ export default function WidgetPreview() {
               <li>Salve e <span className="text-foreground font-medium">Publique</span> o contêiner</li>
             </ol>
           </div>
+          <div className="bg-amber-500/5 border border-amber-500/10 rounded-lg p-3 text-xs text-muted-foreground space-y-1.5 mt-2">
+            <p className="font-semibold text-foreground">Atributos disponíveis:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li><code className="text-foreground bg-secondary px-1 rounded">data-require-login="true"</code> — Widget só aparece se <code>data-player</code> ou <code>data-auth-selector</code> detectar login. Sem este atributo, o widget aparece para todos</li>
+              <li><code className="text-foreground bg-secondary px-1 rounded">data-auth-selector=".user-menu"</code> — Seletor CSS customizado para detectar login (ex: elemento que só existe quando logado)</li>
+              <li><code className="text-foreground bg-secondary px-1 rounded">data-segment="UUID"</code> — Filtra conteúdo por segmento</li>
+              <li><code className="text-foreground bg-secondary px-1 rounded">data-player="CPF"</code> — CPF do jogador logado (mostra saldo de moedas, XP e nível). Use variável do GTM para preencher dinamicamente</li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
 
@@ -80,12 +129,12 @@ export default function WidgetPreview() {
               <p className="text-xs text-muted-foreground">Crie missões, conquistas, torneios e prêmios da roleta nas páginas de Gamificação.</p>
             </div>
             <div className="bg-secondary/30 rounded-lg p-3">
-              <p className="font-semibold text-foreground mb-1">2. Incorpore o Widget</p>
-              <p className="text-xs text-muted-foreground">Cole o código no GTM como Tag HTML Personalizada com trigger All Pages.</p>
+              <p className="font-semibold text-foreground mb-1">2. Escolha o Segmento</p>
+              <p className="text-xs text-muted-foreground">Selecione o segmento acima para filtrar o conteúdo. Sem segmento = mostra tudo.</p>
             </div>
             <div className="bg-secondary/30 rounded-lg p-3">
-              <p className="font-semibold text-foreground mb-1">3. Jogadores Interagem</p>
-              <p className="text-xs text-muted-foreground">O botão flutuante aparece no canto inferior direito. Ao clicar, abre o painel com todas as recompensas.</p>
+              <p className="font-semibold text-foreground mb-1">3. Incorpore via GTM</p>
+              <p className="text-xs text-muted-foreground">Cole o código no GTM como Tag HTML Personalizada com trigger All Pages.</p>
             </div>
           </div>
         </CardContent>
@@ -98,7 +147,7 @@ export default function WidgetPreview() {
           <div className="space-y-2 text-xs">
             <div className="flex items-center gap-3 bg-secondary/30 rounded-lg p-2.5">
               <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-semibold text-[10px]">GET</span>
-              <code className="font-mono text-muted-foreground flex-1">{WIDGET_SCRIPT_URL}?action=data</code>
+              <code className="font-mono text-muted-foreground flex-1">{WIDGET_SCRIPT_URL}?action=data{selectedSegment !== '_all' ? `&segment=${selectedSegment}` : ''}</code>
               <span className="text-muted-foreground">Dados de gamificação</span>
             </div>
             <div className="flex items-center gap-3 bg-secondary/30 rounded-lg p-2.5">
@@ -117,9 +166,11 @@ export default function WidgetPreview() {
             <h3 className="text-sm font-semibold text-foreground mb-3">Preview ao Vivo</h3>
             <div className="relative bg-[#0c0a1a] rounded-xl overflow-hidden" style={{ height: '600px' }}>
               <iframe
-                src={`data:text/html;charset=utf-8,${encodeURIComponent(`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#0c0a1a;font-family:sans-serif;color:white;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center}.mock{opacity:0.3}.mock h1{font-size:28px}.mock p{font-size:14px;color:#71717a}</style></head><body><div class="mock"><h1>PixBingoBR</h1><p>Simulação do site do jogador</p><p style="margin-top:20px;font-size:12px">👉 Clique no botão roxo no canto inferior direito</p></div><script src="${window.location.origin}/widget/gamification.js"><\/script></body></html>`)}`}
+                srcDoc={`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#0c0a1a;font-family:sans-serif;color:white;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center}.mock{opacity:0.3}.mock h1{font-size:28px}.mock p{font-size:14px;color:#71717a}</style></head><body><div class="mock"><h1>PixBingoBR</h1><p>Simulação do site do jogador</p><p style="margin-top:20px;font-size:12px">👉 Clique no botão roxo no canto inferior direito</p></div><script src="${window.location.origin}/widget/gamification.js"${segmentParam} data-require-login="false"></script></body></html>`}
                 className="w-full h-full border-0 rounded-lg"
                 title="Widget Preview"
+                sandbox="allow-scripts allow-same-origin allow-popups"
+                key={selectedSegment}
               />
             </div>
           </CardContent>
