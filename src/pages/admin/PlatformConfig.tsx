@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const VERCEL_URL = 'https://backofficepixbingobr.vercel.app';
 
 export default function PlatformConfig() {
   const qc = useQueryClient();
@@ -80,12 +80,9 @@ export default function PlatformConfig() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/sync-tournament-scores`, {
+      const res = await fetch(`${VERCEL_URL}/api/sync-tournament-scores`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });
       const data = await res.json();

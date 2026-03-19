@@ -105,8 +105,7 @@ export default function Popups() {
     end_date: undefined as Date | undefined,
   });
 
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const baseUrl = `https://${projectId}.supabase.co/functions/v1`;
+  const baseUrl = `https://backofficepixbingobr.vercel.app/api`;
   const endpointUrl = `${baseUrl}/popup-check?cpf=INSERIR_CPF`;
   const eventEndpointUrl = `${baseUrl}/popup-event`;
 
@@ -116,10 +115,9 @@ export default function Popups() {
   if (window.__pbr_popup_loaded) return;
   window.__pbr_popup_loaded = true;
 
-  var BASE = '${baseUrl}';
+  var BASE = 'https://backofficepixbingobr.vercel.app/api';
   var CHECK_URL = BASE + '/popup-check';
   var EVENT_URL = BASE + '/popup-event';
-  var API_KEY = '${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}';
 
   function getCpf() {
     // Only detect CPF if user is logged in (saldo element only exists after login)
@@ -193,7 +191,7 @@ export default function Popups() {
   function trackEvent(popupId, cpf, type, callback) {
     fetch(EVENT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': API_KEY },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ popup_id: popupId, cpf: cpf, event_type: type }),
       keepalive: true
     })
@@ -242,7 +240,7 @@ export default function Popups() {
     activeCpf = cpf;
     fetch(CHECK_URL + '?cpf=' + cpf, {
       cache: 'no-store',
-      headers: { 'apikey': API_KEY }
+      headers: {}
     })
       .then(function(r) { return r.json(); })
       .then(function(data) {
