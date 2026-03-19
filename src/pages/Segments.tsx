@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Trash2, Users, ChevronRight, ChevronLeft, Loader2, Upload, X, Hash, Calendar, CreditCard, DollarSign, SearchCheck, ShieldCheck, ShieldX, Ban } from 'lucide-react';
+import { Plus, Trash2, Users, ChevronRight, ChevronLeft, Loader2, Upload, X, Hash, Calendar, CreditCard, DollarSign, SearchCheck, ShieldCheck, ShieldX, Ban, Download } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,11 +42,12 @@ export default function Segments() {
   // Verification state
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [verifyDays, setVerifyDays] = useState('7');
-  const [verifyConcurrency, setVerifyConcurrency] = useState('5');
+  const [verifyConcurrency, setVerifyConcurrency] = useState('15');
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyProgress, setVerifyProgress] = useState({ current: 0, total: 0 });
-  const [verifyResults, setVerifyResults] = useState<Record<string, { hasBonus: boolean; lastBonusDate?: string; bonusCount: number }>>({});
+  const [verifyResults, setVerifyResults] = useState<Record<string, { hasBonus: boolean; lastBonusDate?: string; bonusCount: number; bonusBalance?: number }>>({});
   const [verifyDone, setVerifyDone] = useState(false);
+  const [verifyMode, setVerifyMode] = useState<'received' | 'balance'>('received');
 
   // Abort refs
   const verifyCancelRef = useRef(false);
@@ -375,6 +376,58 @@ export default function Segments() {
     }
   };
 
+  // Export verify results as CSV
+  const exportVerifyCSV = (filter?: 'all' | 'with' | 'without') => {
+    const entries = Object.entries(verifyResults);
+    if (entries.length === 0) return;
+
+    let filtered = entries;
+    let filename = 'verificacao';
+
+    // Force CPF as text in Excel: ="00123456789" format + padStart(11)
+    const fmtCpf = (cpf: string) => `="${cpf.replace(/\D/g, '').padStart(11, '0')}"`;
+
+    if (verifyMode === 'balance') {
+      if (filter === 'with') {
+        filtered = entries.filter(([, r]) => (r.bonusBalance || 0) > 0);
+        filename = 'com_saldo_bonus';
+      } else if (filter === 'without') {
+        filtered = entries.filter(([, r]) => (r.bonusBalance || 0) === 0);
+        filename = 'sem_saldo_bonus';
+      } else {
+        filename = 'saldo_bonus_todos';
+      }
+      const header = 'CPF,Saldo Bônus\n';
+      const rows = filtered.map(([cpf, r]) => `${fmtCpf(cpf)},${(r.bonusBalance || 0).toFixed(2)}`).join('\n');
+      downloadCSV(header + rows, filename);
+    } else {
+      if (filter === 'with') {
+        filtered = entries.filter(([, r]) => r.hasBonus);
+        filename = 'com_bonus';
+      } else if (filter === 'without') {
+        filtered = entries.filter(([, r]) => !r.hasBonus);
+        filename = 'sem_bonus';
+      } else {
+        filename = 'bonus_todos';
+      }
+      const header = 'CPF,Tem Bônus,Qtd Bônus,Último Bônus\n';
+      const rows = filtered.map(([cpf, r]) => `${fmtCpf(cpf)},${r.hasBonus ? 'Sim' : 'Não'},${r.bonusCount},${r.lastBonusDate || ''}`).join('\n');
+      downloadCSV(header + rows, filename);
+    }
+  };
+
+  const downloadCSV = (content: string, filename: string) => {
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exportado!');
+  };
+
   // Verify bonus for all CPFs in segment
   const handleVerifyBonus = async () => {
     if (!creds.username || !creds.password) {
@@ -396,52 +449,104 @@ export default function Segments() {
     const allItems = isAllUsers ? (allUsersItems || []) : await fetchAllSegmentItems();
     setVerifyProgress({ current: 0, total: allItems.length });
 
-    const concurrency = Math.max(1, Math.min(20, parseInt(verifyConcurrency) || 5));
-    const results: Record<string, { hasBonus: boolean; lastBonusDate?: string; bonusCount: number }> = {};
+    const concurrency = Math.max(1, Math.min(50, parseInt(verifyConcurrency) || 15));
+    const results: Record<string, { hasBonus: boolean; lastBonusDate?: string; bonusCount: number; bonusBalance?: number }> = {};
     let processed = 0;
+    const uuidCache: Record<string, string> = {};
+
+    const parseBRL = (v: any): number => {
+      if (typeof v === 'number') return v;
+      if (typeof v === 'string') {
+        const clean = v.replace(/[R$\s.]/g, '').replace(',', '.');
+        return parseFloat(clean) || 0;
+      }
+      return 0;
+    };
 
     const verifySingleCPF = async (item: any) => {
       if (verifyCancelRef.current) return;
       try {
-        const searchRes = await callProxy('search_player', creds, { cpf: item.cpf });
-        const foundPlayer = searchRes?.data?.aaData?.[0];
-        const uuid = foundPlayer?.uuid;
+        // Use cached UUID from segment_items or previous lookup
+        let uuid = item.uuid || uuidCache[item.cpf] || null;
 
         if (!uuid) {
-          results[item.cpf] = { hasBonus: false, bonusCount: 0 };
-        } else {
-          const txRes = await callProxy('player_transactions', creds, { uuid, player_id: uuid, cpf: item.cpf });
-          const movimentacoes = txRes?.data?.movimentacoes || txRes?.data?.historico || [];
-          const txList = Array.isArray(movimentacoes) ? movimentacoes : [];
+          const searchRes = await callProxy('search_player', creds, { cpf: item.cpf });
+          const foundPlayer = searchRes?.data?.aaData?.[0];
+          uuid = foundPlayer?.uuid || null;
 
-          let bonusCount = 0;
-          let lastBonusDate: string | undefined;
-
-          for (const tx of txList) {
-            const tipo = (tx.tipo || tx.type || tx.descricao || '').toString().toLowerCase();
-            const isBonus = tipo.includes('bonus') || tipo.includes('bônus') || tipo.includes('credito') || tipo.includes('crédito');
-            if (!isBonus) continue;
-
-            const dateStr = tx.created_at || tx.data || tx.date || '';
-            if (!dateStr) { bonusCount++; continue; }
-
-            const txDate = new Date(dateStr);
-            if (txDate >= cutoffDate) {
-              bonusCount++;
-              if (!lastBonusDate || txDate > new Date(lastBonusDate)) {
-                lastBonusDate = dateStr;
-              }
+          // Cache UUID for future use
+          if (uuid) {
+            uuidCache[item.cpf] = uuid;
+            // Save UUID to segment_items in background (fire-and-forget)
+            if (item.id) {
+              supabase.from('segment_items').update({ uuid } as any).eq('id', item.id).then(() => {});
             }
           }
+        }
 
-          results[item.cpf] = { hasBonus: bonusCount > 0, lastBonusDate, bonusCount };
+        if (!uuid) {
+          results[item.cpf] = { hasBonus: false, bonusCount: 0, bonusBalance: 0 };
+        } else {
+          const txRes = await callProxy('player_transactions', creds, { uuid, player_id: uuid, cpf: item.cpf });
+
+          if (verifyMode === 'balance') {
+            // Mode: check current bonus balance
+            const carteiras = txRes?.data?.carteiras;
+            let bonusBalance = 0;
+
+            if (Array.isArray(carteiras)) {
+              for (const c of carteiras) {
+                const name = (c.nome || c.name || c.tipo || c.carteira || c.descricao || '').toString().toLowerCase();
+                if (name.includes('bonus') || name.includes('bônus')) {
+                  bonusBalance += parseBRL(c.saldo ?? c.valor ?? c.value ?? c.balance ?? 0);
+                }
+              }
+            } else if (carteiras && typeof carteiras === 'object') {
+              for (const [key, val] of Object.entries(carteiras)) {
+                if (key.toLowerCase().includes('bonus') || key.toLowerCase().includes('bônus')) {
+                  bonusBalance += parseBRL(val);
+                }
+              }
+            }
+
+            results[item.cpf] = {
+              hasBonus: bonusBalance > 0,
+              bonusCount: 0,
+              bonusBalance,
+            };
+          } else {
+            // Mode: check if received bonus recently
+            const movimentacoes = txRes?.data?.movimentacoes || txRes?.data?.historico || [];
+            const txList = Array.isArray(movimentacoes) ? movimentacoes : [];
+
+            let bonusCount = 0;
+            let lastBonusDate: string | undefined;
+
+            for (const tx of txList) {
+              const tipo = (tx.tipo || tx.type || tx.descricao || '').toString().toLowerCase();
+              const isBonus = tipo.includes('bonus') || tipo.includes('bônus') || tipo.includes('credito') || tipo.includes('crédito');
+              if (!isBonus) continue;
+
+              const dateStr = tx.created_at || tx.data || tx.date || '';
+              if (!dateStr) { bonusCount++; continue; }
+
+              const txDate = new Date(dateStr);
+              if (txDate >= cutoffDate) {
+                bonusCount++;
+                if (!lastBonusDate || txDate > new Date(lastBonusDate)) {
+                  lastBonusDate = dateStr;
+                }
+              }
+            }
+
+            results[item.cpf] = { hasBonus: bonusCount > 0, lastBonusDate, bonusCount };
+          }
         }
       } catch {
-        results[item.cpf] = { hasBonus: false, bonusCount: 0 };
+        results[item.cpf] = { hasBonus: false, bonusCount: 0, bonusBalance: 0 };
       }
       processed++;
       setVerifyProgress({ current: processed, total: allItems.length });
-      // Update results periodically (every batch) to avoid too many re-renders
       if (processed % concurrency === 0 || processed === allItems.length) {
         setVerifyResults({ ...results });
       }
@@ -461,11 +566,17 @@ export default function Segments() {
     setVerifyLoading(false);
     setVerifyDone(true);
 
-    const withBonus = Object.values(results).filter(r => r.hasBonus).length;
-    if (withBonus > 0) {
-      toast.warning(`${withBonus} jogador(es) já receberam bônus nos últimos ${days} dias`);
+    if (verifyMode === 'balance') {
+      const withBalance = Object.values(results).filter(r => (r.bonusBalance || 0) > 0).length;
+      const usedAll = Object.values(results).filter(r => (r.bonusBalance || 0) === 0).length;
+      toast.info(`${usedAll} já usaram o bônus · ${withBalance} ainda têm saldo`);
     } else {
-      toast.success('Nenhum jogador recebeu bônus no período!');
+      const withBonus = Object.values(results).filter(r => r.hasBonus).length;
+      if (withBonus > 0) {
+        toast.warning(`${withBonus} jogador(es) já receberam bônus nos últimos ${days} dias`);
+      } else {
+        toast.success('Nenhum jogador recebeu bônus no período!');
+      }
     }
   };
 
@@ -793,7 +904,7 @@ export default function Segments() {
                       <DialogHeader>
                         <DialogTitle>Verificar Bônus no Segmento</DialogTitle>
                         <DialogDescription>
-                          Verifica quais jogadores já receberam bônus nos últimos X dias e permite removê-los do segmento.
+                          Verifique bônus recebidos ou saldo de bônus atual dos jogadores.
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
@@ -802,20 +913,51 @@ export default function Segments() {
                             ⚠️ Conecte-se primeiro na barra de credenciais acima
                           </div>
                         )}
+
+                        {/* Mode selector */}
                         <div>
-                          <Label>Período (dias)</Label>
-                          <Input
-                            type="number"
-                            value={verifyDays}
-                            onChange={e => setVerifyDays(e.target.value)}
-                            className="bg-secondary border-border font-mono mt-1"
-                            placeholder="7"
-                            min="1"
-                          />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Jogadores que receberam bônus nos últimos {verifyDays || '0'} dias serão marcados
-                          </p>
+                          <Label>Tipo de verificação</Label>
+                          <div className="grid grid-cols-2 gap-2 mt-1">
+                            <button
+                              onClick={() => setVerifyMode('received')}
+                              className={`p-3 rounded-lg border text-left text-xs transition-colors ${verifyMode === 'received' ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-secondary/50 text-muted-foreground hover:border-primary/50'}`}
+                            >
+                              <p className="font-semibold">Bônus Recebidos</p>
+                              <p className="text-[10px] mt-0.5 opacity-70">Quem recebeu bônus nos últimos X dias</p>
+                            </button>
+                            <button
+                              onClick={() => setVerifyMode('balance')}
+                              className={`p-3 rounded-lg border text-left text-xs transition-colors ${verifyMode === 'balance' ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-secondary/50 text-muted-foreground hover:border-primary/50'}`}
+                            >
+                              <p className="font-semibold">Saldo Bônus Atual</p>
+                              <p className="text-[10px] mt-0.5 opacity-70">Quem já usou vs quem ainda tem saldo</p>
+                            </button>
+                          </div>
                         </div>
+
+                        {verifyMode === 'received' && (
+                          <div>
+                            <Label>Período (dias)</Label>
+                            <Input
+                              type="number"
+                              value={verifyDays}
+                              onChange={e => setVerifyDays(e.target.value)}
+                              className="bg-secondary border-border font-mono mt-1"
+                              placeholder="7"
+                              min="1"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Jogadores que receberam bônus nos últimos {verifyDays || '0'} dias serão marcados
+                            </p>
+                          </div>
+                        )}
+
+                        {verifyMode === 'balance' && (
+                          <div className="p-3 rounded-lg bg-primary/5 border border-primary/10 text-xs text-muted-foreground">
+                            Consulta o saldo atual da carteira bônus de cada jogador. Quem tem saldo R$ 0,00 já usou todo o bônus.
+                          </div>
+                        )}
+
                         <div>
                           <Label>Concorrência</Label>
                           <Input
@@ -823,13 +965,10 @@ export default function Segments() {
                             value={verifyConcurrency}
                             onChange={e => setVerifyConcurrency(e.target.value)}
                             className="bg-secondary border-border font-mono mt-1"
-                            placeholder="5"
+                            placeholder="15"
                             min="1"
-                            max="20"
+                            max="50"
                           />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Quantidade de verificações simultâneas (1-20). Maior = mais rápido, mas pode sobrecarregar.
-                          </p>
                         </div>
 
                         {verifyLoading && (
@@ -841,7 +980,7 @@ export default function Segments() {
                           </div>
                         )}
 
-                        {verifyDone && (
+                        {verifyDone && verifyMode === 'received' && (
                           <div className="space-y-3">
                             <div className="p-3 rounded-lg bg-secondary/50 text-sm space-y-1">
                               <div className="flex justify-between">
@@ -858,6 +997,18 @@ export default function Segments() {
                               </div>
                             </div>
 
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => exportVerifyCSV('all')}>
+                                <Download className="w-3.5 h-3.5 mr-1" /> Todos
+                              </Button>
+                              <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => exportVerifyCSV('with')}>
+                                <Download className="w-3.5 h-3.5 mr-1" /> Com bônus
+                              </Button>
+                              <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => exportVerifyCSV('without')}>
+                                <Download className="w-3.5 h-3.5 mr-1" /> Sem bônus
+                              </Button>
+                            </div>
+
                             {Object.values(verifyResults).filter(r => r.hasBonus).length > 0 && (
                               <Button
                                 onClick={handleRemoveWithBonus}
@@ -870,6 +1021,77 @@ export default function Segments() {
                             )}
                           </div>
                         )}
+
+                        {verifyDone && verifyMode === 'balance' && (() => {
+                          const all = Object.entries(verifyResults);
+                          const withBalance = all.filter(([, r]) => (r.bonusBalance || 0) > 0);
+                          const usedAll = all.filter(([, r]) => (r.bonusBalance || 0) === 0);
+                          const totalBalance = withBalance.reduce((s, [, r]) => s + (r.bonusBalance || 0), 0);
+                          return (
+                            <div className="space-y-3">
+                              <div className="p-3 rounded-lg bg-secondary/50 text-sm space-y-1">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Total verificados</span>
+                                  <span className="font-semibold text-foreground">{all.length}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground flex items-center gap-1"><ShieldCheck className="w-3 h-3 text-success" /> Já usaram (saldo R$ 0)</span>
+                                  <span className="font-semibold text-success">{usedAll.length}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground flex items-center gap-1"><ShieldX className="w-3 h-3 text-amber-400" /> Ainda têm saldo</span>
+                                  <span className="font-semibold text-amber-400">{withBalance.length}</span>
+                                </div>
+                                <div className="flex justify-between border-t border-border pt-1 mt-1">
+                                  <span className="text-muted-foreground font-semibold">Saldo total pendente</span>
+                                  <span className="font-mono font-bold text-amber-400">R$ {totalBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => exportVerifyCSV('all')}>
+                                  <Download className="w-3.5 h-3.5 mr-1" /> Todos
+                                </Button>
+                                <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => exportVerifyCSV('with')}>
+                                  <Download className="w-3.5 h-3.5 mr-1" /> Com saldo
+                                </Button>
+                                <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => exportVerifyCSV('without')}>
+                                  <Download className="w-3.5 h-3.5 mr-1" /> Já usaram
+                                </Button>
+                              </div>
+
+                              {/* All balances list */}
+                              {all.length > 0 && (
+                                <div className="space-y-1">
+                                  <p className="text-xs font-semibold text-muted-foreground">Saldo por jogador:</p>
+                                  <div className="max-h-60 overflow-y-auto space-y-1">
+                                    {all
+                                      .sort((a, b) => (b[1].bonusBalance || 0) - (a[1].bonusBalance || 0))
+                                      .map(([cpf, r]) => (
+                                        <div key={cpf} className="flex justify-between text-xs bg-secondary/30 rounded px-2 py-1">
+                                          <span className="font-mono text-foreground">{cpf}</span>
+                                          <span className={`font-mono font-semibold ${(r.bonusBalance || 0) > 0 ? 'text-amber-400' : 'text-success'}`}>
+                                            R$ {(r.bonusBalance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                          </span>
+                                        </div>
+                                      ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {withBalance.length > 0 && (
+                                <Button
+                                  onClick={handleRemoveWithBonus}
+                                  className="w-full"
+                                  variant="destructive"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Remover {withBalance.length} CPFs com saldo pendente
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <DialogFooter>
                         <DialogClose asChild><Button variant="outline">Fechar</Button></DialogClose>

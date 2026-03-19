@@ -1,9 +1,11 @@
+import { createClient } from '@supabase/supabase-js';
+
+export const config = { runtime: 'edge' };
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // --- Platform login/credit helpers (for store reward delivery) ---
 
@@ -118,12 +120,12 @@ async function creditBonusOnPlatform(baseUrl: string, headers: Record<string, st
   }
 }
 
-Deno.serve(async (req: Request) => {
+export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = process.env.SUPABASE_URL!;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const url = new URL(req.url);
@@ -198,7 +200,6 @@ Deno.serve(async (req: Request) => {
       const wheelPrizes = allResults[3];
       const miniGamesResult = allResults[4];
       const miniGames = miniGamesResult.data || [];
-      const results = allResults; // keep compat reference for player data extraction below
 
       // Get mini game prizes (depends on mini game IDs)
       const miniGameIds = miniGames.map((g: any) => g.id);
@@ -387,7 +388,7 @@ Deno.serve(async (req: Request) => {
           total_spins: (spinRecord?.total_spins || 0) + 1,
         } as any, { onConflict: 'cpf' });
 
-      // Award prize to wallet (direct update, no RPC dependency)
+      // Award prize to wallet
       if (selected.type === 'coins' && selected.value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
         await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + selected.value } as any).eq('cpf', playerCpf);
@@ -395,7 +396,6 @@ Deno.serve(async (req: Request) => {
         const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
         await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + selected.value } as any).eq('cpf', playerCpf);
       } else if (selected.type === 'bonus' && selected.value > 0) {
-        // Bonus: create a pending reward for the player to claim or auto-credit
         try {
           await supabase.from('player_rewards_pending').insert({
             cpf: playerCpf,
@@ -593,7 +593,6 @@ Deno.serve(async (req: Request) => {
 
       // Process reward based on type
       if (['bonus', 'free_bet', 'cartelas'].includes(rewardType)) {
-        // Credit on external platform
         const numericValue = parseFloat(rewardValue.replace(/[^\d.,]/g, '').replace(',', '.'));
         if (numericValue > 0) {
           try {
@@ -629,7 +628,6 @@ Deno.serve(async (req: Request) => {
           deliveryNote = 'Valor inválido para crédito';
         }
       } else if (rewardType === 'coins') {
-        // Give coins back to wallet
         const bonusCoins = parseInt(rewardValue) || 0;
         if (bonusCoins > 0) {
           const newBalance = (coins - (item.price_coins || 0)) + bonusCoins;
@@ -640,7 +638,6 @@ Deno.serve(async (req: Request) => {
           deliveryNote = `+${bonusCoins} moedas adicionadas`;
         }
       } else if (rewardType === 'xp') {
-        // Give XP
         const bonusXp = parseInt(rewardValue) || 0;
         if (bonusXp > 0) {
           const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
@@ -651,7 +648,6 @@ Deno.serve(async (req: Request) => {
           deliveryNote = `+${bonusXp} XP adicionado`;
         }
       } else if (rewardType === 'diamonds') {
-        // Give diamonds
         const bonusDiamonds = parseInt(rewardValue) || 0;
         if (bonusDiamonds > 0) {
           const { data: w } = await supabase.from('player_wallets').select('diamonds, total_diamonds_earned').eq('cpf', playerCpf).maybeSingle();
@@ -665,7 +661,6 @@ Deno.serve(async (req: Request) => {
           deliveryNote = `+${bonusDiamonds} diamantes adicionados`;
         }
       } else if (rewardType === 'physical' || rewardType === 'coupon') {
-        // Manual delivery — create pending reward
         await supabase.from('player_rewards_pending').insert({
           cpf: playerCpf,
           reward_type: rewardType,
@@ -706,7 +701,6 @@ Deno.serve(async (req: Request) => {
           source_id: itemId,
           description: `Comprou: ${item.name}`,
         } as any);
-        // Log reward delivery
         if (deliveryStatus === 'delivered') {
           await supabase.from('player_activity_log').insert({
             cpf: playerCpf,
@@ -1021,25 +1015,20 @@ Deno.serve(async (req: Request) => {
       let gameData: any = {};
       if (game.type === 'scratch_card') {
         const cells: any[] = [];
-        // 3 winning cells
         for (let i = 0; i < 3; i++) cells.push({ prize: selected, winning: true });
-        // 6 random cells from other prizes
         const others = prizes.filter((p: any) => p.id !== selected.id);
         for (let i = 0; i < 6; i++) {
           cells.push({ prize: others[i % Math.max(1, others.length)] || selected, winning: false });
         }
-        // Shuffle
         for (let i = cells.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [cells[i], cells[j]] = [cells[j], cells[i]];
         }
         gameData.cells = cells;
       } else if (game.type === 'gift_box') {
-        // Return boxes: 1 winning + rest losing, shuffled
         const numBoxes = 6;
         const boxes: any[] = [];
         boxes.push({ prize: selected, winning: true });
-        const others = prizes.filter((p: any) => p.id !== selected.id && p.type !== 'nothing');
         const nothing = prizes.find((p: any) => p.type === 'nothing') || { label: 'Tente novamente', type: 'nothing', value: 0 };
         for (let i = 0; i < numBoxes - 1; i++) {
           boxes.push({ prize: nothing, winning: false });
@@ -1074,4 +1063,4 @@ Deno.serve(async (req: Request) => {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}

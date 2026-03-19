@@ -21,6 +21,7 @@ const Cashback = lazy(() => import("@/pages/Cashback"));
 const Partidas = lazy(() => import("@/pages/Partidas"));
 const ManageUsers = lazy(() => import("@/pages/admin/ManageUsers"));
 const AuditLog = lazy(() => import("@/pages/admin/AuditLog"));
+const PlatformConfig = lazy(() => import("@/pages/admin/PlatformConfig"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const Levels = lazy(() => import("@/pages/assets/Levels"));
 const Store = lazy(() => import("@/pages/assets/Store"));
@@ -69,6 +70,7 @@ const App = () => (
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/admin/manage-users" element={<ManageUsers />} />
               <Route path="/admin/audit" element={<AuditLog />} />
+              <Route path="/admin/platform" element={<PlatformConfig />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/popups" element={<Popups />} />
               <Route path="/assets/levels" element={<Levels />} />

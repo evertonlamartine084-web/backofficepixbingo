@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, Loader2, RotateCw, Palette } from 'lucide-react';
+import { Plus, Trash2, Edit2, Loader2, RotateCw, Palette, Settings2, Coins, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { logAudit } from '@/hooks/use-audit';
@@ -17,6 +18,7 @@ const PRIZE_TYPES = [
   { value: 'bonus', label: 'Bônus (R$)' },
   { value: 'coins', label: 'Moedas' },
   { value: 'xp', label: 'XP' },
+  { value: 'spins', label: 'Giros Extras' },
   { value: 'nothing', label: 'Nada (Tente novamente)' },
 ];
 
@@ -48,6 +50,43 @@ export default function DailyWheel() {
     },
   });
 
+  // Wheel config
+  const { data: wheelConfig } = useQuery({
+    queryKey: ['wheel_config'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('wheel_config').select('*').limit(1).maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+  });
+
+  const [configForm, setConfigForm] = useState<any>(null);
+
+  const saveConfigMutation = useMutation({
+    mutationFn: async () => {
+      const cfg = configForm || wheelConfig;
+      if (!cfg) return;
+      const payload = {
+        max_spins_per_day: parseInt(cfg.max_spins_per_day) || 3,
+        spin_cost_coins: parseInt(cfg.spin_cost_coins) || 0,
+        free_spins_per_day: parseInt(cfg.free_spins_per_day) || 1,
+      };
+      if (cfg.id) {
+        const { error } = await supabase.from('wheel_config').update(payload as any).eq('id', cfg.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('wheel_config').insert(payload as any);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['wheel_config'] });
+      toast.success('Configuração salva');
+      setConfigForm(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!form.label) throw new Error('Preencha o rótulo');
@@ -55,7 +94,7 @@ export default function DailyWheel() {
         label: form.label,
         value: parseFloat(form.value) || 0,
         type: form.type,
-        probability: parseInt(form.probability) || 1,
+        probability: isNaN(parseInt(form.probability)) ? 0 : parseInt(form.probability),
         color: form.color,
         icon_url: form.icon_url || null,
         segment_id: form.segment_id || null,
@@ -114,12 +153,11 @@ export default function DailyWheel() {
 
   const typeLabel = (t: string) => PRIZE_TYPES.find(x => x.value === t)?.label || t;
 
-  // Calculate real probabilities
   const totalWeight = prizes.filter(p => p.active).reduce((s, p) => s + (p.probability || 0), 0);
   const calcPct = (weight: number) => totalWeight > 0 ? ((weight / totalWeight) * 100).toFixed(1) : '0';
 
-  // Wheel preview colors
   const activeSlices = prizes.filter(p => p.active);
+  const cfg = configForm || wheelConfig || { max_spins_per_day: 3, spin_cost_coins: 0, free_spins_per_day: 1 };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -128,12 +166,62 @@ export default function DailyWheel() {
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <RotateCw className="w-6 h-6 text-purple-400" /> Roleta Diária
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Configure os prêmios e probabilidades da roleta</p>
+          <p className="text-sm text-muted-foreground mt-1">Configure os prêmios, limites e custos da roleta</p>
         </div>
         <Button className="gradient-primary border-0" onClick={() => { setEditId(null); setForm(emptyForm); setOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" /> Novo Prêmio
         </Button>
       </div>
+
+      {/* Wheel Config */}
+      <Card className="border-border">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Settings2 className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Configuração da Roleta</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <Label className="text-xs flex items-center gap-1"><Clock className="w-3 h-3" /> Giros Grátis por Dia</Label>
+              <Input
+                type="number" min="0"
+                value={cfg.free_spins_per_day}
+                onChange={e => setConfigForm({ ...cfg, free_spins_per_day: e.target.value })}
+                className="bg-secondary border-border font-mono mt-1"
+              />
+              <p className="text-[10px] text-muted-foreground mt-0.5">Quantos giros gratuitos o jogador recebe por dia</p>
+            </div>
+            <div>
+              <Label className="text-xs flex items-center gap-1"><RotateCw className="w-3 h-3" /> Máximo de Giros por Dia</Label>
+              <Input
+                type="number" min="0"
+                value={cfg.max_spins_per_day}
+                onChange={e => setConfigForm({ ...cfg, max_spins_per_day: e.target.value })}
+                className="bg-secondary border-border font-mono mt-1"
+              />
+              <p className="text-[10px] text-muted-foreground mt-0.5">0 = ilimitado. Inclui giros grátis + pagos</p>
+            </div>
+            <div>
+              <Label className="text-xs flex items-center gap-1"><Coins className="w-3 h-3 text-amber-400" /> Custo Extra (moedas)</Label>
+              <Input
+                type="number" min="0"
+                value={cfg.spin_cost_coins}
+                onChange={e => setConfigForm({ ...cfg, spin_cost_coins: e.target.value })}
+                className="bg-secondary border-border font-mono mt-1"
+              />
+              <p className="text-[10px] text-muted-foreground mt-0.5">Custo para girar além dos giros grátis. 0 = grátis</p>
+            </div>
+          </div>
+          {configForm && (
+            <div className="flex justify-end mt-3">
+              <Button size="sm" onClick={() => saveConfigMutation.mutate()} disabled={saveConfigMutation.isPending} className="gradient-primary border-0">
+                {saveConfigMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />}
+                Salvar Config
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Wheel Preview */}
       {activeSlices.length > 0 && (
@@ -242,7 +330,7 @@ export default function DailyWheel() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Peso (probabilidade)</Label>
-                <Input type="number" value={form.probability} onChange={e => setForm(f => ({ ...f, probability: e.target.value }))} className="bg-secondary border-border font-mono mt-1" min="1" />
+                <Input type="number" value={form.probability} onChange={e => setForm(f => ({ ...f, probability: e.target.value }))} className="bg-secondary border-border font-mono mt-1" min="0" />
                 <p className="text-[10px] text-muted-foreground mt-1">Quanto maior o peso, maior a chance de ser sorteado</p>
               </div>
               <div>

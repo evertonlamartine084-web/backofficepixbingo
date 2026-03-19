@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, Loader2, Trophy, Swords, Play, Square, Clock, Users } from 'lucide-react';
+import { Plus, Trash2, Edit2, Loader2, Trophy, Swords, Play, Square, Clock, Users, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { formatDateTime } from '@/lib/formatters';
 import { logAudit } from '@/hooks/use-audit';
@@ -33,13 +34,28 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   ENCERRADO: { label: 'Encerrado', color: 'bg-red-500/15 text-red-400' },
 };
 
-interface Prize { rank: number; value: number; description: string }
+const PRIZE_TYPES = [
+  { value: 'bonus', label: 'Bônus (R$)' },
+  { value: 'free_bet', label: 'Free Bet (R$)' },
+  { value: 'coins', label: 'Moedas' },
+  { value: 'xp', label: 'XP' },
+];
+
+const POINTS_PER_OPTIONS = [
+  { value: '1_centavo', label: '1 ponto a cada R$ 0,01', multiplier: 100 },
+  { value: '10_centavos', label: '1 ponto a cada R$ 0,10', multiplier: 10 },
+  { value: '1_real', label: '1 ponto a cada R$ 1,00', multiplier: 1 },
+];
+
+interface Prize { rank: number; value: number; description: string; type?: string }
 
 const emptyForm = {
   name: '', description: '', image_url: '', start_date: '', end_date: '',
   metric: 'total_bet', game_filter: 'all', min_bet: '0', status: 'RASCUNHO',
-  prizes: [{ rank: 1, value: 500, description: '1º lugar' }, { rank: 2, value: 200, description: '2º lugar' }, { rank: 3, value: 100, description: '3º lugar' }] as Prize[],
+  prizes: [{ rank: 1, value: 500, description: '1º lugar', type: 'bonus' }, { rank: 2, value: 200, description: '2º lugar', type: 'bonus' }, { rank: 3, value: 100, description: '3º lugar', type: 'bonus' }] as Prize[],
   segment_id: '',
+  require_optin: false,
+  points_per: '1_real',
 };
 
 export default function Tournaments() {
@@ -84,6 +100,8 @@ export default function Tournaments() {
         status: form.status,
         prizes: validPrizes,
         segment_id: form.segment_id || null,
+        require_optin: form.require_optin,
+        points_per: form.points_per,
       };
       if (editId) {
         const { error } = await supabase.from('tournaments').update(payload as any).eq('id', editId);
@@ -129,13 +147,14 @@ export default function Tournaments() {
   const closeDialog = () => { setOpen(false); setEditId(null); setForm(emptyForm); };
 
   const openEdit = (t: any) => {
-    const prizes = (t.prizes || []).map((p: any) => ({ rank: p.rank, value: p.value, description: p.description }));
+    const prizes = (t.prizes || []).map((p: any) => ({ rank: p.rank, value: p.value, description: p.description, type: p.type || 'bonus' }));
     setEditId(t.id);
     setForm({
       name: t.name, description: t.description || '', image_url: t.image_url || '',
       start_date: t.start_date?.slice(0, 16) || '', end_date: t.end_date?.slice(0, 16) || '',
       metric: t.metric, game_filter: t.game_filter, min_bet: String(t.min_bet || 0),
       status: t.status, prizes: prizes.length > 0 ? prizes : emptyForm.prizes, segment_id: t.segment_id || '',
+      require_optin: t.require_optin || false, points_per: t.points_per || '1_real',
     });
     setOpen(true);
   };
@@ -149,7 +168,7 @@ export default function Tournaments() {
   };
 
   const addPrize = () => {
-    setForm(f => ({ ...f, prizes: [...f.prizes, { rank: f.prizes.length + 1, value: 0, description: '' }] }));
+    setForm(f => ({ ...f, prizes: [...f.prizes, { rank: f.prizes.length + 1, value: 0, description: '', type: 'bonus' }] }));
   };
 
   const removePrize = (index: number) => {
@@ -209,6 +228,17 @@ export default function Tournaments() {
                     </div>
                   </div>
 
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    {t.require_optin && (
+                      <Badge className="bg-amber-500/15 text-amber-400 text-[10px]">
+                        <UserCheck className="w-3 h-3 mr-1" /> Opt-in obrigatório
+                      </Badge>
+                    )}
+                    <Badge variant="secondary" className="text-[10px]">
+                      {POINTS_PER_OPTIONS.find(o => o.value === t.points_per)?.label || '1 pt/R$ 1'}
+                    </Badge>
+                  </div>
+
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Clock className="w-3 h-3" />
                     <span>{formatDateTime(t.start_date)} — {formatDateTime(t.end_date)}</span>
@@ -216,12 +246,17 @@ export default function Tournaments() {
 
                   {prizes.length > 0 && (
                     <div className="space-y-1">
-                      {prizes.slice(0, 3).map((p: Prize, i: number) => (
+                      {prizes.slice(0, 3).map((p: Prize, i: number) => {
+                        const typeLabels: Record<string, string> = { bonus: 'R$', free_bet: 'Free Bet R$', coins: 'moedas', xp: 'XP' };
+                        const prefix = typeLabels[p.type || 'bonus'] || 'R$';
+                        const formatted = p.type === 'coins' || p.type === 'xp' ? `${p.value} ${prefix}` : `${prefix} ${Number(p.value).toLocaleString('pt-BR')}`;
+                        return (
                         <div key={i} className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground">{p.description || `${p.rank}º lugar`}</span>
-                          <span className="font-mono font-semibold text-emerald-400">R$ {Number(p.value).toLocaleString('pt-BR')}</span>
+                          <span className="font-mono font-semibold text-emerald-400">{formatted}</span>
                         </div>
-                      ))}
+                        );
+                      })}
                       {prizes.length > 3 && <p className="text-[10px] text-muted-foreground">+{prizes.length - 3} prêmios</p>}
                       <div className="flex justify-between text-xs border-t border-border pt-1 mt-1">
                         <span className="text-muted-foreground font-semibold">Prize Pool</span>
@@ -319,6 +354,32 @@ export default function Tournaments() {
               </Select>
             </div>
 
+            {/* Opt-in & Points */}
+            <div className="border-t border-border pt-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="flex items-center gap-2"><UserCheck className="w-4 h-4 text-primary" /> Exigir Opt-in</Label>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Jogador precisa se inscrever no torneio antes de participar</p>
+                </div>
+                <Switch checked={form.require_optin} onCheckedChange={v => setForm(f => ({ ...f, require_optin: v }))} />
+              </div>
+              <div>
+                <Label>Pontuação (1 ponto a cada...)</Label>
+                <Select value={form.points_per} onValueChange={v => setForm(f => ({ ...f, points_per: v }))}>
+                  <SelectTrigger className="bg-secondary border-border mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {POINTS_PER_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Exemplo: se o jogador apostar R$ 100,00 → {
+                    form.points_per === '1_centavo' ? '10.000 pontos' :
+                    form.points_per === '10_centavos' ? '1.000 pontos' : '100 pontos'
+                  }
+                </p>
+              </div>
+            </div>
+
             {/* Prizes */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -329,9 +390,15 @@ export default function Tournaments() {
               </div>
               {form.prizes.map((p, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <Input type="number" value={p.rank} onChange={e => updatePrize(i, 'rank', e.target.value)} className="bg-secondary border-border font-mono w-16" placeholder="#" />
-                  <Input value={p.description} onChange={e => updatePrize(i, 'description', e.target.value)} className="bg-secondary border-border flex-1" placeholder="Descrição" />
-                  <Input type="number" value={p.value} onChange={e => updatePrize(i, 'value', e.target.value)} className="bg-secondary border-border font-mono w-28" placeholder="R$" />
+                  <Input type="number" value={p.rank} onChange={e => updatePrize(i, 'rank', e.target.value)} className="bg-secondary border-border font-mono w-14" placeholder="#" />
+                  <Input value={p.description} onChange={e => updatePrize(i, 'description', e.target.value)} className="bg-secondary border-border flex-1" placeholder="Ex: 1º lugar" />
+                  <Select value={p.type || 'bonus'} onValueChange={v => updatePrize(i, 'type', v)}>
+                    <SelectTrigger className="bg-secondary border-border w-32"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PRIZE_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Input type="number" value={p.value} onChange={e => updatePrize(i, 'value', e.target.value)} className="bg-secondary border-border font-mono w-24" placeholder="Valor" />
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0" onClick={() => removePrize(i)}>
                     <Trash2 className="w-3 h-3" />
                   </Button>

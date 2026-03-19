@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  const API_URL = 'https://nehmmvtpagncmldivnxn.supabase.co/functions/v1/gamification-widget';
+  const API_URL = 'https://backofficepixbingobr.vercel.app/api/gamification-widget';
 
   if (window.__PIXBINGO_GAMIFICATION__) return;
   window.__PIXBINGO_GAMIFICATION__ = true;
@@ -66,26 +66,66 @@
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
     #pbg-widget-fab {
-      position: fixed !important; bottom: 24px !important; right: 24px !important; width: 60px !important; height: 60px !important;
-      border-radius: 50% !important; background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
+      position: fixed !important; bottom: 24px !important; right: 24px !important; width: 68px !important; height: 68px !important;
+      border-radius: 50% !important; background: transparent !important;
       border: none !important; cursor: pointer !important; z-index: 2147483647 !important;
       display: flex !important; align-items: center !important; justify-content: center !important;
-      box-shadow: 0 4px 24px rgba(139, 92, 246, 0.4) !important;
-      transition: transform 0.2s, box-shadow 0.2s !important;
-      animation: pbg-pulse 2s infinite !important;
+      box-shadow: none !important;
+      transition: transform 0.2s !important;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
       opacity: 1 !important; visibility: visible !important;
       pointer-events: auto !important;
       transform: none !important;
       margin: 0 !important; padding: 0 !important;
-      min-width: 60px !important; min-height: 60px !important;
+      min-width: 68px !important; min-height: 68px !important;
       overflow: visible !important;
       left: auto !important; top: auto !important;
     }
-    #pbg-widget-fab:hover { transform: scale(1.1) !important; box-shadow: 0 6px 32px rgba(139, 92, 246, 0.6) !important; }
-    @keyframes pbg-pulse { 0%,100%{box-shadow:0 4px 24px rgba(139,92,246,0.4)} 50%{box-shadow:0 4px 32px rgba(139,92,246,0.7)} }
-    #pbg-widget-fab svg { width: 28px !important; height: 28px !important; color: white !important; display: block !important; }
+    #pbg-widget-fab:hover { transform: scale(1.08) !important; }
+
+    .pbg-fab-ring {
+      position: absolute; inset: 0; width: 68px; height: 68px;
+    }
+    .pbg-fab-ring svg { width: 68px; height: 68px; transform: rotate(-90deg); filter: drop-shadow(0 2px 8px rgba(139,92,246,0.5)); }
+    .pbg-fab-ring .ring-bg { fill: none; stroke: rgba(139,92,246,0.2); stroke-width: 4; }
+    .pbg-fab-ring .ring-fg { fill: none; stroke: url(#pbg-fab-grad); stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset 0.8s ease; }
+
+    .pbg-fab-inner {
+      position: relative; width: 54px; height: 54px; border-radius: 50%;
+      background: linear-gradient(135deg, #8b5cf6, #6366f1);
+      display: flex; align-items: center; justify-content: center; flex-direction: column;
+      box-shadow: 0 4px 24px rgba(139,92,246,0.5);
+      animation: pbg-pulse 2s infinite;
+    }
+    @keyframes pbg-pulse { 0%,100%{box-shadow:0 4px 20px rgba(139,92,246,0.4)} 50%{box-shadow:0 4px 28px rgba(139,92,246,0.7)} }
+    .pbg-fab-inner svg { width: 24px; height: 24px; color: white; display: block; }
+    .pbg-fab-level {
+      font-size: 18px; font-weight: 800; color: #fff; line-height: 1;
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+    .pbg-fab-lvlabel {
+      font-size: 8px; font-weight: 700; color: rgba(255,255,255,0.7); text-transform: uppercase;
+      letter-spacing: 0.5px; line-height: 1; margin-top: 1px;
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+    }
+    .pbg-fab-coins {
+      position: absolute; bottom: -6px; right: -8px;
+      background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff;
+      font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      white-space: nowrap; line-height: 1.2;
+    }
+    .pbg-fab-diamonds {
+      position: absolute; top: -6px; right: -8px;
+      background: linear-gradient(135deg, #22d3ee, #0891b2); color: #fff;
+      font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      white-space: nowrap; line-height: 1.2;
+    }
 
     #pbg-widget-panel {
       position: fixed !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) scale(0.95);
@@ -117,17 +157,46 @@
 
     /* Level & Wallet bar */
     .pbg-level-bar {
-      padding: 10px 16px; background: rgba(255,255,255,0.02);
+      padding: 12px 16px 14px;
+      background: linear-gradient(180deg, rgba(139,92,246,0.08) 0%, rgba(0,0,0,0) 100%);
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
-    .pbg-level-info { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-    .pbg-level-name { font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; }
-    .pbg-level-xp { font-size: 11px; color: #71717a; }
-    .pbg-xp-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
-    .pbg-xp-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
-    .pbg-wallet-row { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 8px; }
-    .pbg-wallet-item { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; }
-    .pbg-wallet-divider { width: 1px; height: 14px; background: rgba(255,255,255,0.08); }
+    .pbg-level-info { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .pbg-level-badge {
+      width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-weight: 800; line-height: 1;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .pbg-level-badge-num { font-size: 16px; }
+    .pbg-level-badge-lbl { font-size: 8px; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
+    .pbg-level-texts { flex: 1; min-width: 0; }
+    .pbg-level-name { font-size: 14px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pbg-level-sub { font-size: 11px; color: #71717a; margin-top: 1px; }
+    .pbg-level-xp-right { text-align: right; flex-shrink: 0; }
+    .pbg-level-xp-val { font-size: 12px; font-weight: 700; color: #fff; }
+    .pbg-level-xp-lbl { font-size: 10px; color: #52525b; margin-top: 1px; }
+    .pbg-xp-track {
+      height: 7px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden;
+      position: relative; margin-bottom: 12px;
+    }
+    .pbg-xp-fill {
+      height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(.4,0,.2,1);
+      position: relative;
+    }
+    .pbg-xp-fill::after {
+      content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 20px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35));
+      border-radius: 0 4px 4px 0;
+    }
+    .pbg-wallet-row { display: flex; gap: 8px; }
+    .pbg-wallet-chip {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 8px 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.03);
+    }
+    .pbg-wallet-chip-val { font-size: 13px; font-weight: 800; color: #fff; line-height: 1; }
+    .pbg-wallet-chip-lbl { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; opacity: 0.55; color: #fff; }
 
     .pbg-tabs {
       display: flex; padding: 0 8px; gap: 1px;
@@ -244,6 +313,7 @@
     .pbg-m-detail-stat-label { font-size: 9px; color: #71717a; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
     .pbg-badge-bonus { background: rgba(16,185,129,0.15); color: #34d399; }
     .pbg-badge-coins { background: rgba(245,158,11,0.15); color: #fbbf24; }
+    .pbg-badge-diamonds { background: rgba(34,211,238,0.15); color: #22d3ee; }
     .pbg-badge-xp { background: rgba(99,102,241,0.15); color: #818cf8; }
     .pbg-badge-spins { background: rgba(139,92,246,0.15); color: #a78bfa; }
     .pbg-badge-free_bet { background: rgba(6,182,212,0.15); color: #22d3ee; }
@@ -539,8 +609,57 @@
   `;
 
   const ICONS = {
-    trophy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>',
-    gift: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>',
+    trophy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>',
+    gift: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>',
+    target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+    swords: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/><line x1="19" y1="21" x2="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" y1="14" x2="9" y2="18"/><line x1="7" y1="17" x2="4" y2="20"/><line x1="3" y1="19" x2="5" y2="21"/></svg>',
+    wheel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>',
+    gamepad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="11" x2="10" y2="11"/><line x1="8" y1="9" x2="8" y2="13"/><line x1="15" y1="12" x2="15.01" y2="12"/><line x1="18" y1="10" x2="18.01" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.544-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/></svg>',
+    cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>',
+    medal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="M12 18v-2h-.5"/></svg>',
+    clipboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>',
+    coin: '<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" fill="#f59e0b" stroke="#d97706" stroke-width="2"/><line x1="12" y1="6" x2="12" y2="18" stroke="#92400e" stroke-width="2"/><line x1="8" y1="8" x2="16" y2="8" stroke="#92400e" stroke-width="1.5"/><line x1="8" y1="16" x2="16" y2="16" stroke="#92400e" stroke-width="1.5"/></svg>',
+    star: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+    zap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+    calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+    party: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.8 11.3 2 22l10.7-3.79"/><path d="M4 3h.01"/><path d="M22 8h.01"/><path d="M15 2h.01"/><path d="M22 20h.01"/><path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12v0c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10"/><path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11v0c-.11.7-.72 1.22-1.43 1.22H17"/><path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98v0C9.52 4.9 9 5.52 9 6.23V7"/><path d="M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2Z"/></svg>',
+    fire: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
+    gem: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>',
+    dice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M16 8h.01"/><path d="M12 12h.01"/><path d="M8 16h.01"/></svg>',
+    slot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="8" y1="4" x2="8" y2="20"/><line x1="16" y1="4" x2="16" y2="20"/><path d="M12 7v4"/><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="14" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+    money: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+    ticket: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>',
+    dollar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>',
+    sparkle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>',
+    wind: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>',
+    sad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>',
+    pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>',
+    map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>',
+    bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>',
+    users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    card: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>',
+    giftbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>',
+    up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
+    gold: '<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" fill="#fbbf24" stroke="#d97706" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="12" font-weight="800" fill="#92400e" font-family="sans-serif">1</text></svg>',
+    silver: '<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" fill="#c0c0c0" stroke="#9ca3af" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="12" font-weight="800" fill="#4b5563" font-family="sans-serif">2</text></svg>',
+    bronze: '<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" fill="#cd7f32" stroke="#a16207" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="12" font-weight="800" fill="#451a03" font-family="sans-serif">3</text></svg>',
+    hand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 13"/></svg>',
+    timer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="12" y2="8"/><circle cx="12" cy="14" r="8"/></svg>',
+    hourglass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>',
+    diamond: '<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9Z" fill="#22d3ee" stroke="#06b6d4" stroke-width="2"/><path d="M11 3 8 9l4 13 4-13-3-6" fill="rgba(255,255,255,0.2)" stroke="#06b6d4" stroke-width="1"/><path d="M2 9h20" stroke="#06b6d4" stroke-width="2"/></svg>',
+  };
+
+  // Inline icon helper: wraps SVG in a small inline span
+  const inlIcon = (name, size) => {
+    const s = size || 14;
+    return '<span style="width:'+s+'px;height:'+s+'px;display:inline-block;vertical-align:middle;line-height:0">'+ICONS[name]+'</span>';
   };
 
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -550,7 +669,7 @@
 
   const rewardBadge = (type, value) => {
     const cls = `pbg-badge-${type}` || 'pbg-badge-bonus';
-    const labels = { bonus: fmt(value), free_bet: fmt(value), coins: `${value} Moedas`, xp: `${value} XP`, spins: `${value} Giros`, nothing: 'Nada' };
+    const labels = { bonus: fmt(value), free_bet: fmt(value), coins: `${value} Moedas`, xp: `${value} XP`, diamonds: `${value} Diamantes`, spins: `${value} Giros`, nothing: 'Nada' };
     return `<span class="pbg-badge pbg-badge-${type}">${labels[type] || `${value} ${type}`}</span>`;
   };
 
@@ -577,7 +696,7 @@
   };
 
   async function fetchData() {
-    try { data = await apiCall('data'); renderContent(); } catch (e) { console.error('[PBG Widget]', e); }
+    try { data = await apiCall('data'); updateFab(); renderContent(); } catch (e) { console.error('[PBG Widget]', e); }
   }
 
   // ---- LEVEL HELPERS ----
@@ -648,10 +767,10 @@
   let missionTab = 'all';
 
   function renderMissions() {
-    if (!data?.missions?.length) return '<div style="text-align:center;padding:40px;color:#52525b"><div style="font-size:40px;margin-bottom:12px;opacity:0.5">🎯</div><div style="font-size:13px">Nenhuma missão disponível</div></div>';
+    if (!data?.missions?.length) return `<div style="text-align:center;padding:40px;color:#52525b"><div style="width:40px;height:40px;margin:0 auto 12px;opacity:0.5;color:#71717a">${ICONS.target}</div><div style="font-size:13px">Nenhuma missão disponível</div></div>`;
 
     const typeColors = { daily: '#f59e0b', weekly: '#06b6d4', monthly: '#8b5cf6', one_time: '#10b981' };
-    const typeIcons = { daily: '⚡', weekly: '📅', monthly: '🔄', one_time: '🎯' };
+    const typeIcons = { daily: inlIcon('zap',20), weekly: inlIcon('calendar',20), monthly: inlIcon('refresh',20), one_time: inlIcon('target',20) };
     const typeLabels = { daily: 'Diária', weekly: 'Semanal', monthly: 'Mensal', one_time: 'Única' };
     const recLabels = { daily: 'Reseta todo dia', weekly: 'Reseta toda semana', monthly: 'Reseta todo mês' };
     const circumference = Math.PI * 2 * 15; // r=15
@@ -673,28 +792,28 @@
           <button onclick="window.__pbg('closeMission')" style="background:none;border:none;color:#a1a1aa;font-size:13px;cursor:pointer;font-family:inherit;padding:0;margin-bottom:8px">← Voltar</button>
 
           <div class="pbg-m-detail-header">
-            <div class="pbg-m-detail-icon">${m.icon_url ? `<img src="${m.icon_url}" style="width:56px;height:56px;border-radius:14px" alt="">` : typeIcons[m.type] || '🎯'}</div>
+            <div class="pbg-m-detail-icon">${m.icon_url ? `<img src="${m.icon_url}" style="width:56px;height:56px;border-radius:14px" alt="">` : typeIcons[m.type] || inlIcon('target',22)}</div>
             <div class="pbg-m-detail-name">${m.name}</div>
             ${m.description ? `<div class="pbg-m-detail-desc">${m.description}</div>` : ''}
             <div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-top:10px">
               <span class="pbg-m-tag" style="background:${color}18;color:${color}">${typeIcons[m.type]} ${typeLabels[m.type]}</span>
-              ${m.require_optin ? '<span class="pbg-m-tag pbg-m-optin-tag">✋ Opt-in</span>' : ''}
-              ${m.time_limit_hours ? `<span class="pbg-m-tag pbg-m-timer">⏱ ${m.time_limit_hours}h</span>` : ''}
-              ${m.recurrence && m.recurrence !== 'none' ? `<span class="pbg-m-tag pbg-m-rec">🔄 ${recLabels[m.recurrence] || m.recurrence}</span>` : ''}
-              ${isCompleted ? '<span class="pbg-m-tag pbg-m-complete-tag">✅ Completa</span>' : ''}
+              ${m.require_optin ? '<span class="pbg-m-tag pbg-m-optin-tag">' + inlIcon('hand',12) + ' Opt-in</span>' : ''}
+              ${m.time_limit_hours ? `<span class="pbg-m-tag pbg-m-timer">${inlIcon('timer',12)} ${m.time_limit_hours}h</span>` : ''}
+              ${m.recurrence && m.recurrence !== 'none' ? `<span class="pbg-m-tag pbg-m-rec">${inlIcon('refresh',12)} ${recLabels[m.recurrence] || m.recurrence}</span>` : ''}
+              ${isCompleted ? '<span class="pbg-m-tag pbg-m-complete-tag">' + inlIcon('check',12) + ' Completa</span>' : ''}
             </div>
           </div>
 
           <!-- Objective -->
           <div class="pbg-m-detail-section">
-            <div class="pbg-m-detail-section-title">📋 Objetivo</div>
+            <div class="pbg-m-detail-section-title">${inlIcon('clipboard',14)} Objetivo</div>
             <div style="font-size:14px;font-weight:700;color:#fff">${conditionText(m.condition_type, m.condition_value)}</div>
           </div>
 
           <!-- Progress -->
           ${PLAYER_CPF ? `
             <div class="pbg-m-detail-section">
-              <div class="pbg-m-detail-section-title">📊 Progresso</div>
+              <div class="pbg-m-detail-section-title">${inlIcon('chart',14)} Progresso</div>
               <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">
                 <div class="pbg-m-progress-ring">
                   <svg viewBox="0 0 38 38">
@@ -728,22 +847,22 @@
 
           <!-- Reward -->
           <div class="pbg-m-detail-section" style="background:rgba(16,185,129,0.04);border-color:rgba(16,185,129,0.12)">
-            <div class="pbg-m-detail-section-title" style="color:#34d399">🎁 Recompensa</div>
+            <div class="pbg-m-detail-section-title" style="color:#34d399">${inlIcon('gift',14)} Recompensa</div>
             <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 0">
-              <div style="font-size:28px">${{bonus:'💵',free_bet:'🎟️',coins:'🪙',xp:'⭐',spins:'🎡'}[m.reward_type] || '🎁'}</div>
+              <div style="font-size:28px">${{bonus:inlIcon('dollar',28),free_bet:inlIcon('ticket',28),cartelas:inlIcon('card',28),coins:inlIcon('coin',28),xp:inlIcon('star',28),diamonds:inlIcon('diamond',28),spins:inlIcon('wheel',28)}[m.reward_type] || inlIcon('gift',28)}</div>
               <div>
                 <div style="font-size:18px;font-weight:800;color:#fff">${m.reward_type === 'bonus' || m.reward_type === 'free_bet' ? fmt(m.reward_value) : m.reward_value}</div>
-                <div style="font-size:11px;color:#71717a">${{bonus:'Bônus',free_bet:'Aposta Grátis',coins:'Moedas',xp:'Pontos XP',spins:'Giros na Roleta'}[m.reward_type] || m.reward_type}</div>
+                <div style="font-size:11px;color:#71717a">${{bonus:'Bônus',free_bet:'Aposta Grátis',cartelas:'Cartelas',coins:'Moedas',xp:'Pontos XP',diamonds:'Diamantes',spins:'Giros na Roleta'}[m.reward_type] || m.reward_type}</div>
               </div>
             </div>
           </div>
 
           <!-- Actions -->
           ${m.require_optin && !isOptedIn && !isCompleted && PLAYER_CPF ? `
-            <button class="pbg-modal-btn" style="margin-top:4px" onclick="window.__pbg('missionOptin','${m.id}')">✋ Participar desta Missão</button>
+            <button class="pbg-modal-btn" style="margin-top:4px" onclick="window.__pbg('missionOptin','${m.id}')">${inlIcon('hand',14)} Participar desta Missão</button>
           ` : ''}
           ${isCompleted && m.manual_claim && !isClaimed && PLAYER_CPF ? `
-            <button class="pbg-modal-btn" style="margin-top:4px;background:linear-gradient(135deg,#10b981,#059669)" onclick="window.__pbg('claimMission','${m.id}')">🎁 Resgatar Recompensa</button>
+            <button class="pbg-modal-btn" style="margin-top:4px;background:linear-gradient(135deg,#10b981,#059669)" onclick="window.__pbg('claimMission','${m.id}')">${inlIcon('gift',14)} Resgatar Recompensa</button>
           ` : ''}
           ${m.cta_text && m.cta_url && !isCompleted ? `
             <a href="${m.cta_url}" target="_blank" style="display:block;text-align:center;padding:12px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:12px;color:#a78bfa;font-weight:700;font-size:13px;text-decoration:none;margin-top:8px;transition:all 0.2s">${m.cta_text} →</a>
@@ -755,10 +874,10 @@
     // Mission list with sub-tabs
     const tabs = [
       { key: 'all', label: 'Todas', count: data.missions.length },
-      { key: 'daily', label: '⚡ Diárias', count: data.missions.filter(m => m.type === 'daily').length },
-      { key: 'weekly', label: '📅 Semanais', count: data.missions.filter(m => m.type === 'weekly').length },
-      { key: 'monthly', label: '🔄 Mensais', count: data.missions.filter(m => m.type === 'monthly').length },
-      { key: 'one_time', label: '🎯 Únicas', count: data.missions.filter(m => m.type === 'one_time').length },
+      { key: 'daily', label: inlIcon('zap')+' Diárias', count: data.missions.filter(m => m.type === 'daily').length },
+      { key: 'weekly', label: inlIcon('calendar')+' Semanais', count: data.missions.filter(m => m.type === 'weekly').length },
+      { key: 'monthly', label: inlIcon('refresh')+' Mensais', count: data.missions.filter(m => m.type === 'monthly').length },
+      { key: 'one_time', label: inlIcon('target')+' Únicas', count: data.missions.filter(m => m.type === 'one_time').length },
     ].filter(t => t.count > 0);
 
     let html = `<div class="pbg-m-tabs">`;
@@ -782,13 +901,13 @@
       const isOptedIn = progress?.opted_in;
       const color = typeColors[m.type] || '#8b5cf6';
       const dashOffset = circumference - (circumference * pct / 100);
-      const rewardText = m.reward_type === 'bonus' || m.reward_type === 'free_bet' ? fmt(m.reward_value) : `${m.reward_value} ${{coins:'🪙',xp:'⭐',spins:'🎡'}[m.reward_type] || m.reward_type}`;
+      const rewardText = m.reward_type === 'bonus' || m.reward_type === 'free_bet' || m.reward_type === 'cartelas' ? fmt(m.reward_value) : `${m.reward_value} ${{coins:inlIcon('coin',12),xp:inlIcon('star',12),diamonds:inlIcon('diamond',12),spins:inlIcon('wheel',12)}[m.reward_type] || m.reward_type}`;
 
       return `
         <div class="pbg-m-card ${isCompleted ? 'completed' : ''}" onclick="window.__pbg('openMission',${globalIdx})">
           <div class="pbg-m-body">
             <div class="pbg-m-icon" style="background:${color}15">
-              ${m.icon_url ? `<img src="${m.icon_url}" style="width:28px;height:28px;border-radius:6px" alt="">` : `<span>${typeIcons[m.type] || '🎯'}</span>`}
+              ${m.icon_url ? `<img src="${m.icon_url}" style="width:28px;height:28px;border-radius:6px" alt="">` : `<span>${typeIcons[m.type] || inlIcon('target',22)}</span>`}
             </div>
             <div class="pbg-m-info">
               <div class="pbg-m-name">${m.name}</div>
@@ -801,7 +920,7 @@
                     <circle class="bg" cx="19" cy="19" r="15" />
                     <circle class="fg" cx="19" cy="19" r="15" stroke="${isCompleted ? '#34d399' : color}" stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}" />
                   </svg>
-                  <div class="pbg-m-progress-pct">${isCompleted ? '✅' : `${pct}%`}</div>
+                  <div class="pbg-m-progress-pct">${isCompleted ? inlIcon('check',14) : `${pct}%`}</div>
                 </div>
               ` : `
                 <div class="pbg-m-reward-chip">${rewardText}</div>
@@ -810,10 +929,10 @@
           </div>
           <div class="pbg-m-footer">
             ${!PLAYER_CPF ? '' : `<span class="pbg-m-reward-chip" style="font-size:9px;padding:2px 7px">${rewardText}</span>`}
-            ${m.time_limit_hours ? `<span class="pbg-m-tag pbg-m-timer">⏱ ${m.time_limit_hours}h</span>` : ''}
-            ${m.require_optin && !isOptedIn && !isCompleted ? '<span class="pbg-m-tag pbg-m-optin-tag">✋ Opt-in</span>' : ''}
-            ${m.recurrence && m.recurrence !== 'none' ? `<span class="pbg-m-tag pbg-m-rec">🔄</span>` : ''}
-            ${isCompleted && m.manual_claim && !isClaimed && PLAYER_CPF ? `<button class="pbg-m-claim-btn" onclick="event.stopPropagation();window.__pbg('claimMission','${m.id}')">🎁 Resgatar</button>` : ''}
+            ${m.time_limit_hours ? `<span class="pbg-m-tag pbg-m-timer">${inlIcon('timer',12)} ${m.time_limit_hours}h</span>` : ''}
+            ${m.require_optin && !isOptedIn && !isCompleted ? '<span class="pbg-m-tag pbg-m-optin-tag">' + inlIcon('hand',12) + ' Opt-in</span>' : ''}
+            ${m.recurrence && m.recurrence !== 'none' ? `<span class="pbg-m-tag pbg-m-rec">${inlIcon('refresh',12)}</span>` : ''}
+            ${isCompleted && m.manual_claim && !isClaimed && PLAYER_CPF ? `<button class="pbg-m-claim-btn" onclick="event.stopPropagation();window.__pbg('claimMission','${m.id}')">${inlIcon('gift',12)} Resgatar</button>` : ''}
           </div>
         </div>
       `;
@@ -833,8 +952,8 @@
   }
 
   function renderAchievements() {
-    if (!data?.achievements?.length) return '<div style="text-align:center;padding:40px;color:#52525b"><div style="font-size:40px;margin-bottom:12px;opacity:0.5">🏆</div><div style="font-size:13px">Nenhuma conquista disponível</div></div>';
-    const catNames = { deposito:'💰 Depósito', aposta:'🎲 Aposta', login:'🔑 Login', vitoria:'🏅 Vitória', social:'👥 Social', geral:'⭐ Geral' };
+    if (!data?.achievements?.length) return `<div style="text-align:center;padding:40px;color:#52525b"><div style="width:40px;height:40px;margin:0 auto 12px;opacity:0.5;color:#71717a">${ICONS.trophy}</div><div style="font-size:13px">Nenhuma conquista disponível</div></div>`;
+    const catNames = { deposito:inlIcon('money')+' Depósito', aposta:inlIcon('dice')+' Aposta', login:inlIcon('key')+' Login', vitoria:inlIcon('medal')+' Vitória', social:inlIcon('users')+' Social', geral:inlIcon('star')+' Geral' };
     const categories = [...new Set(data.achievements.map(a => a.category))];
     return categories.map(cat => {
       const items = data.achievements.filter(a => a.category === cat);
@@ -848,13 +967,13 @@
           return `
             <div class="pbg-card" style="cursor:default;${isCompleted ? 'border-color:rgba(16,185,129,0.3)' : !ap ? 'opacity:0.7' : ''}">
               <div class="pbg-card-title">
-                ${a.icon_url ? `<img src="${a.icon_url}" width="20" height="20" style="border-radius:4px;${!isCompleted && !ap ? 'filter:grayscale(1);opacity:0.5' : ''}">` : (isCompleted ? '🏆' : '🔒')}
+                ${a.icon_url ? `<img src="${a.icon_url}" width="20" height="20" style="border-radius:4px;${!isCompleted && !ap ? 'filter:grayscale(1);opacity:0.5' : ''}">` : (isCompleted ? inlIcon('trophy',18) : inlIcon('lock',18))}
                 ${a.name}
-                ${isCompleted ? '<span class="pbg-badge pbg-badge-completed">✅</span>' : ''}
+                ${isCompleted ? '<span class="pbg-badge pbg-badge-completed">${inlIcon(\'check\',12)}</span>' : ''}
                 ${segmentBadge(a)}
               </div>
               ${a.description ? `<p class="pbg-card-desc">${a.description}</p>` : ''}
-              <div class="pbg-condition">🎯 ${conditionText(a.condition_type, a.condition_value)}</div>
+              <div class="pbg-condition">${inlIcon('target',14)} ${conditionText(a.condition_type, a.condition_value)}</div>
               <div class="pbg-reward">
                 <span class="pbg-reward-label">Recompensa</span>
                 ${rewardBadge(a.reward_type, a.reward_value)}
@@ -867,7 +986,7 @@
   }
 
   function renderTournaments() {
-    if (!data?.tournaments?.length) return '<div style="text-align:center;padding:40px;color:#52525b"><div style="font-size:40px;margin-bottom:12px;opacity:0.5">⚔️</div><div style="font-size:13px">Nenhum torneio ativo</div></div>';
+    if (!data?.tournaments?.length) return `<div style="text-align:center;padding:40px;color:#52525b"><div style="width:40px;height:40px;margin:0 auto 12px;opacity:0.5;color:#71717a">${ICONS.swords}</div><div style="font-size:13px">Nenhum torneio ativo</div></div>`;
     const metricNames = { total_bet:'Total Apostado', total_won:'Total Ganho', total_deposit:'Total Depositado', ggr:'GGR' };
     const pointsPerLabels = { '1_centavo':'1 pt / R$ 0,01', '10_centavos':'1 pt / R$ 0,10', '1_real':'1 pt / R$ 1,00' };
 
@@ -931,10 +1050,10 @@
             </div>
 
             <div class="pbg-t-tags">
-              <span class="pbg-t-tag">📊 ${pointsPerLabels[t.points_per]||'1 pt / R$ 1'}</span>
-              ${t.buy_in_cost > 0 ? `<span class="pbg-t-tag" style="color:#fbbf24">🪙 Entrada: ${t.buy_in_cost}</span>` : '<span class="pbg-t-tag" style="color:#34d399">✅ Grátis</span>'}
-              ${t.max_players ? `<span class="pbg-t-tag">👥 Máx: ${t.max_players}</span>` : ''}
-              ${myRank > 0 ? `<span class="pbg-t-tag" style="color:#a78bfa">🏅 Sua posição: #${myRank}</span>` : ''}
+              <span class="pbg-t-tag">${inlIcon('chart',12)} ${pointsPerLabels[t.points_per]||'1 pt / R$ 1'}</span>
+              ${t.buy_in_cost > 0 ? `<span class="pbg-t-tag" style="color:#fbbf24">${inlIcon('coin',12)} Entrada: ${t.buy_in_cost}</span>` : '<span class="pbg-t-tag" style="color:#34d399">' + inlIcon('check',12) + ' Grátis</span>'}
+              ${t.max_players ? `<span class="pbg-t-tag">${inlIcon('users',12)} Máx: ${t.max_players}</span>` : ''}
+              ${myRank > 0 ? `<span class="pbg-t-tag" style="color:#a78bfa">${inlIcon('medal',12)} Sua posição: #${myRank}</span>` : ''}
             </div>
           </div>
 
@@ -942,30 +1061,30 @@
           <div style="margin-top:10px">
             ${(t.require_optin || t.buy_in_cost > 0) && !isJoined && PLAYER_CPF ? `
               <button class="pbg-t-join-btn" onclick="window.__pbg('joinTournament','${t.id}')">
-                ${t.buy_in_cost > 0 ? `🪙 Inscrever-se (${t.buy_in_cost} moedas)` : '⚔️ Participar do Torneio'}
+                ${t.buy_in_cost > 0 ? `${inlIcon('coin',14)} Inscrever-se (${t.buy_in_cost} moedas)` : inlIcon('swords',14)+' Participar do Torneio'}
               </button>
             ` : isJoined ? `
-              <div class="pbg-t-joined">✅ Inscrito ${myEntry.score > 0 ? `· ${Number(myEntry.score).toLocaleString('pt-BR')} pts` : ''}</div>
+              <div class="pbg-t-joined">${inlIcon('check',14)} Inscrito ${myEntry.score > 0 ? `· ${Number(myEntry.score).toLocaleString('pt-BR')} pts` : ''}</div>
             ` : !t.require_optin && !t.buy_in_cost ? `
-              <div class="pbg-t-joined">✅ Participação automática</div>
+              <div class="pbg-t-joined">${inlIcon('check',14)} Participação automática</div>
             ` : ''}
           </div>
 
           <!-- Podium + Leaderboard -->
           <div style="margin-top:14px">
-            <div class="pbg-section-title">📊 Classificação</div>
+            <div class="pbg-section-title">${inlIcon('chart',14)} Classificação</div>
             ${lb.length === 0 ? `
               <div style="text-align:center;padding:24px;background:rgba(255,255,255,0.02);border-radius:12px;border:1px solid rgba(255,255,255,0.04)">
-                <div style="font-size:36px;margin-bottom:8px;opacity:0.6">⏳</div>
+                <div style="width:36px;height:36px;margin:0 auto 8px;opacity:0.6;color:#71717a">${ICONS.hourglass}</div>
                 <div style="font-size:13px;color:#71717a">Aguardando participantes</div>
               </div>
             ` : `
               <!-- Podium for top 3 -->
-              ${top3.length >= 2 ? `
+              ${top3.length > 0 ? `
                 <div class="pbg-podium">
-                  ${top3.length >= 2 ? `<div class="pbg-podium-col pbg-podium-2"><div class="pbg-podium-bar"><div class="pbg-podium-medal">🥈</div><div class="pbg-podium-name">${PLAYER_CPF && top3[1].cpf === PLAYER_CPF ? 'Você' : maskCpf(top3[1].cpf)}</div><div class="pbg-podium-score">${Number(top3[1].score).toLocaleString('pt-BR')}</div></div></div>` : ''}
-                  <div class="pbg-podium-col pbg-podium-1"><div class="pbg-podium-bar"><div class="pbg-podium-medal">🥇</div><div class="pbg-podium-name">${PLAYER_CPF && top3[0].cpf === PLAYER_CPF ? 'Você' : maskCpf(top3[0].cpf)}</div><div class="pbg-podium-score">${Number(top3[0].score).toLocaleString('pt-BR')}</div></div></div>
-                  ${top3.length >= 3 ? `<div class="pbg-podium-col pbg-podium-3"><div class="pbg-podium-bar"><div class="pbg-podium-medal">🥉</div><div class="pbg-podium-name">${PLAYER_CPF && top3[2].cpf === PLAYER_CPF ? 'Você' : maskCpf(top3[2].cpf)}</div><div class="pbg-podium-score">${Number(top3[2].score).toLocaleString('pt-BR')}</div></div></div>` : ''}
+                  ${top3.length >= 2 ? `<div class="pbg-podium-col pbg-podium-2"><div class="pbg-podium-bar"><div class="pbg-podium-medal">${inlIcon('silver',22)}</div><div class="pbg-podium-name">${PLAYER_CPF && top3[1].cpf === PLAYER_CPF ? 'Você' : maskCpf(top3[1].cpf)}</div><div class="pbg-podium-score">${Number(top3[1].score).toLocaleString('pt-BR')}</div></div></div>` : ''}
+                  <div class="pbg-podium-col pbg-podium-1"><div class="pbg-podium-bar"><div class="pbg-podium-medal">${inlIcon('gold',22)}</div><div class="pbg-podium-name">${PLAYER_CPF && top3[0].cpf === PLAYER_CPF ? 'Você' : maskCpf(top3[0].cpf)}</div><div class="pbg-podium-score">${Number(top3[0].score).toLocaleString('pt-BR')}</div></div></div>
+                  ${top3.length >= 3 ? `<div class="pbg-podium-col pbg-podium-3"><div class="pbg-podium-bar"><div class="pbg-podium-medal">${inlIcon('bronze',22)}</div><div class="pbg-podium-name">${PLAYER_CPF && top3[2].cpf === PLAYER_CPF ? 'Você' : maskCpf(top3[2].cpf)}</div><div class="pbg-podium-score">${Number(top3[2].score).toLocaleString('pt-BR')}</div></div></div>` : ''}
                 </div>
               ` : ''}
               <!-- Rest of leaderboard -->
@@ -985,13 +1104,13 @@
           <!-- Prize Table -->
           ${prizes.length > 0 ? `
             <div style="margin-top:14px">
-              <div class="pbg-section-title">🏅 Premiação</div>
+              <div class="pbg-section-title">${inlIcon('medal',14)} Premiação</div>
               <div style="background:rgba(255,255,255,0.02);border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,0.04)">
                 ${prizes.map((p,i) => {
-                  const medals = ['🥇','🥈','🥉']; const medal = i < 3 ? medals[i] : `${p.rank||i+1}º`;
+                  const medals = [inlIcon('gold',18),inlIcon('silver',18),inlIcon('bronze',18)]; const medal = i < 3 ? medals[i] : `${p.rank||i+1}º`;
                   return `<div class="pbg-prize-row"><span class="pbg-prize-rank">${medal}</span><span class="pbg-prize-desc">${p.description||`${p.rank||i+1}º lugar`}</span><span class="pbg-prize-val">${fmt(p.value)}</span></div>`;
                 }).join('')}
-                <div class="pbg-prize-total"><span style="color:#fff;font-weight:700;font-size:13px">💰 Pool Total</span><span style="color:#34d399;font-weight:800;font-size:15px;font-family:'JetBrains Mono',monospace">${fmt(pool)}</span></div>
+                <div class="pbg-prize-total"><span style="color:#fff;font-weight:700;font-size:13px">${inlIcon('money',14)} Pool Total</span><span style="color:#34d399;font-weight:800;font-size:15px;font-family:'JetBrains Mono',monospace">${fmt(pool)}</span></div>
               </div>
             </div>
           ` : ''}
@@ -1023,9 +1142,9 @@
             <div class="pbg-t-stats">
               <div class="pbg-t-stat"><div class="pbg-t-stat-label">Prize Pool</div><div class="pbg-t-stat-val" style="color:#34d399;font-size:13px">${fmt(pool)}</div></div>
               <div class="pbg-t-stat"><div class="pbg-t-stat-label">Jogadores</div><div class="pbg-t-stat-val">${lb.length}</div></div>
-              <div class="pbg-t-stat"><div class="pbg-t-stat-label">Entrada</div><div class="pbg-t-stat-val" style="font-size:12px;color:${t.buy_in_cost > 0 ? '#fbbf24' : '#34d399'}">${t.buy_in_cost > 0 ? '🪙 '+t.buy_in_cost : 'Grátis'}</div></div>
+              <div class="pbg-t-stat"><div class="pbg-t-stat-label">Entrada</div><div class="pbg-t-stat-val" style="font-size:12px;color:${t.buy_in_cost > 0 ? '#fbbf24' : '#34d399'}">${t.buy_in_cost > 0 ? inlIcon('coin',12)+' '+t.buy_in_cost : 'Grátis'}</div></div>
             </div>
-            ${myEntry ? `<div style="margin-top:8px;padding:6px 10px;background:rgba(16,185,129,0.08);border-radius:6px;font-size:11px;color:#34d399;font-weight:600;text-align:center">✅ Inscrito${myEntry.score > 0 ? ' · '+Number(myEntry.score).toLocaleString('pt-BR')+' pts' : ''}</div>` : ''}
+            ${myEntry ? `<div style="margin-top:8px;padding:6px 10px;background:rgba(16,185,129,0.08);border-radius:6px;font-size:11px;color:#34d399;font-weight:600;text-align:center">${inlIcon('check',12)} Inscrito${myEntry.score > 0 ? ' · '+Number(myEntry.score).toLocaleString('pt-BR')+' pts' : ''}</div>` : ''}
           </div>
         </div>
       `;
@@ -1034,7 +1153,7 @@
 
   function renderWheel() {
     const prizes = data?.wheel_prizes || [];
-    if (!prizes.length) return '<div style="text-align:center;padding:40px;color:#52525b"><div style="font-size:40px;opacity:0.5">🎡</div><div style="font-size:13px">Roleta não configurada</div></div>';
+    if (!prizes.length) return `<div style="text-align:center;padding:40px;color:#52525b"><div style="width:40px;height:40px;margin:0 auto;opacity:0.5;color:#71717a">${ICONS.wheel}</div><div style="font-size:13px">Roleta não configurada</div></div>`;
 
     const cfg = data?.wheel_config || { max_spins_per_day: 3, spin_cost_coins: 0, free_spins_per_day: 1 };
     const ps = data?.player_spins || { spins_used_today: 0 };
@@ -1120,10 +1239,10 @@
     const flapSvg = `<svg width="32" height="38" viewBox="0 0 32 38"><defs><linearGradient id="pfg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f7d86c"/><stop offset="100%" stop-color="#b8860b"/></linearGradient></defs><path d="M16 38 L2 6 A14 14 0 0 1 30 6 Z" fill="url(#pfg)" stroke="#8b6914" stroke-width="1.5"/><circle cx="16" cy="12" r="5" fill="#fff" opacity="0.25"/></svg>`;
 
     // Hub content
-    let hubContent = `<div class="pbg-hub-icon">🎰</div><div class="pbg-hub-text">GIRAR</div>`;
-    if (isSpinning) hubContent = `<div class="pbg-hub-icon" style="animation:pbg-bulb-a 0.3s infinite">✨</div>`;
-    else if (maxReached) hubContent = `<div class="pbg-hub-icon">🔒</div><div class="pbg-hub-text" style="font-size:8px">LIMITE</div>`;
-    else if (!PLAYER_CPF) hubContent = `<div class="pbg-hub-icon">🔒</div><div class="pbg-hub-text" style="font-size:8px">LOGIN</div>`;
+    let hubContent = `<div class="pbg-hub-icon">${ICONS.slot}</div><div class="pbg-hub-text">GIRAR</div>`;
+    if (isSpinning) hubContent = `<div class="pbg-hub-icon" style="animation:pbg-bulb-a 0.3s infinite">${ICONS.sparkle}</div>`;
+    else if (maxReached) hubContent = `<div class="pbg-hub-icon">${ICONS.lock}</div><div class="pbg-hub-text" style="font-size:8px">LIMITE</div>`;
+    else if (!PLAYER_CPF) hubContent = `<div class="pbg-hub-icon">${ICONS.lock}</div><div class="pbg-hub-text" style="font-size:8px">LOGIN</div>`;
 
     return `
       <div class="pbg-wheel-container">
@@ -1138,15 +1257,15 @@
         ${spinResult && !isSpinning ? (spinResult.error
           ? `<div class="pbg-modal-error">${spinResult.error}</div>`
           : `<div class="pbg-spin-result">
-              <div style="font-size:12px;color:#a1a1aa">🎉 Você ganhou!</div>
-              <div class="pbg-spin-result-prize">${spinResult.type === 'nothing' ? '😅 Tente de novo!' : spinResult.label}</div>
+              <div style="font-size:12px;color:#a1a1aa">${inlIcon('party',14)} Você ganhou!</div>
+              <div class="pbg-spin-result-prize">${spinResult.type === 'nothing' ? inlIcon('sad',14)+' Tente de novo!' : spinResult.label}</div>
             </div>`
         ) : ''}
-        ${!isFree && cfg.spin_cost_coins > 0 && !maxReached && !isSpinning ? `<div class="pbg-spin-cost-badge">🪙 Próximo giro: ${cfg.spin_cost_coins} moedas</div>` : ''}
+        ${!isFree && cfg.spin_cost_coins > 0 && !maxReached && !isSpinning ? `<div class="pbg-spin-cost-badge">${inlIcon('coin',12)} Próximo giro: ${cfg.spin_cost_coins} moedas</div>` : ''}
         <div class="pbg-spin-info">
-          <span class="pbg-spin-tag" style="color:${freeLeft > 0 ? '#34d399' : '#f87171'}">🎫 Grátis: ${freeLeft}/${cfg.free_spins_per_day || 1}</span>
-          ${cfg.max_spins_per_day > 0 ? `<span class="pbg-spin-tag" style="color:${maxReached ? '#f87171' : '#a1a1aa'}">🎲 ${spinsUsed}/${cfg.max_spins_per_day}</span>` : ''}
-          ${coins > 0 ? `<span class="pbg-spin-tag" style="color:#fbbf24">🪙 ${coins}</span>` : ''}
+          <span class="pbg-spin-tag" style="color:${freeLeft > 0 ? '#34d399' : '#f87171'}">${inlIcon('ticket',12)} Grátis: ${freeLeft}/${cfg.free_spins_per_day || 1}</span>
+          ${cfg.max_spins_per_day > 0 ? `<span class="pbg-spin-tag" style="color:${maxReached ? '#f87171' : '#a1a1aa'}">${inlIcon('dice',12)} ${spinsUsed}/${cfg.max_spins_per_day}</span>` : ''}
+          ${coins > 0 ? `<span class="pbg-spin-tag" style="color:#fbbf24">${inlIcon('coin',12)} ${coins}</span>` : ''}
         </div>
       </div>
     `;
@@ -1159,7 +1278,7 @@
     const coins = data?.wallet?.coins || 0;
     const today = new Date().toISOString().slice(0, 10);
 
-    if (!games.length) return '<div style="text-align:center;padding:40px;color:#52525b"><div style="font-size:40px;opacity:0.5">🎮</div><div style="font-size:13px">Nenhum jogo disponível</div></div>';
+    if (!games.length) return `<div style="text-align:center;padding:40px;color:#52525b"><div style="width:40px;height:40px;margin:0 auto;opacity:0.5;color:#71717a">${ICONS.gamepad}</div><div style="font-size:13px">Nenhum jogo disponível</div></div>`;
 
     // Playing a specific game
     if (selectedMiniGame !== null) {
@@ -1172,13 +1291,13 @@
       const freeAtt = game.free_attempts_per_day || 1;
       const isFree = attToday < freeAtt;
       const maxReached = maxAtt > 0 && attToday >= maxAtt;
-      const typeIcons = { scratch_card: '🎴', gift_box: '🎁', prize_drop: '🎯' };
+      const typeIcons = { scratch_card: inlIcon('card',20), gift_box: inlIcon('giftbox',20), prize_drop: inlIcon('target',20) };
       const typeLabels = { scratch_card: 'Raspadinha', gift_box: 'Caixa Surpresa', prize_drop: 'Prize Drop' };
 
       let html = `
         <button onclick="window.__pbg('closeMiniGame')" style="background:none;border:none;color:#a1a1aa;font-size:13px;cursor:pointer;font-family:inherit;padding:0;margin-bottom:10px">← Voltar</button>
         <div style="text-align:center;margin-bottom:16px">
-          <div style="font-size:36px;margin-bottom:6px">${typeIcons[game.type] || '🎮'}</div>
+          <div style="font-size:36px;margin-bottom:6px">${typeIcons[game.type] || inlIcon('gamepad',36)}</div>
           <div style="font-size:16px;font-weight:700;color:#fff">${game.name}</div>
           ${game.description ? `<div style="font-size:12px;color:#71717a;margin-top:4px">${game.description}</div>` : ''}
         </div>
@@ -1200,11 +1319,11 @@
             html += `
               <div class="pbg-scratch-cell" onclick="window.__pbg('scratchCell',${i})">
                 <div class="pbg-scratch-cover ${revealed ? 'revealed' : ''}">
-                  <div style="font-size:20px">✨</div>
+                  <div style="font-size:20px">${ICONS.sparkle}</div>
                   <div style="font-size:9px;color:#a1a1aa;margin-top:2px">Raspe</div>
                 </div>
                 <div class="pbg-scratch-inner ${revealed ? (isWin ? 'win' : 'lose') : ''}">
-                  <div style="font-size:16px">${cell.prize?.icon || (isWin ? '⭐' : '❌')}</div>
+                  <div style="font-size:16px">${cell.prize?.icon || (isWin ? inlIcon('star',16) : inlIcon('x',16))}</div>
                   <div style="font-size:9px;font-weight:600;margin-top:2px;color:${isWin ? '#34d399' : '#71717a'}">${cell.prize?.label || ''}</div>
                 </div>
               </div>
@@ -1219,7 +1338,7 @@
             const won = winCount >= 3;
             html += `
               <div style="text-align:center;margin-top:16px;padding:16px;background:${won ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.03)'};border:1px solid ${won ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.06)'};border-radius:12px">
-                <div style="font-size:24px;margin-bottom:6px">${won ? '🎉' : '😅'}</div>
+                <div style="font-size:24px;margin-bottom:6px">${won ? inlIcon('party',24) : inlIcon('sad',24)}</div>
                 <div style="font-size:14px;font-weight:700;color:${won ? '#34d399' : '#a1a1aa'}">${won ? `Você ganhou: ${miniGameResult.prize?.label}!` : 'Não foi dessa vez!'}</div>
               </div>
             `;
@@ -1238,13 +1357,13 @@
               <div class="pbg-gift-box ${opened ? 'opened' : ''} ${opened && isWin ? 'won' : ''} ${otherOpened ? 'opened' : ''}"
                    onclick="${giftBoxOpened === null ? `window.__pbg('openGiftBox',${i})` : ''}">
                 ${!opened && giftBoxOpened === null ? `
-                  <div class="pbg-gift-icon">🎁</div>
+                  <div class="pbg-gift-icon" style="width:32px;height:32px;color:#a78bfa">${ICONS.giftbox}</div>
                   <div class="pbg-gift-label">Abrir</div>
                 ` : opened ? `
-                  <div style="font-size:24px;margin-bottom:4px">${isWin ? (box.prize?.icon || '🎉') : '💨'}</div>
+                  <div style="font-size:24px;margin-bottom:4px">${isWin ? (box.prize?.icon || inlIcon('party',24)) : inlIcon('wind',24)}</div>
                   <div style="font-size:10px;font-weight:700;color:${isWin ? '#34d399' : '#71717a'}">${box.prize?.label || (isWin ? 'Prêmio!' : 'Vazio')}</div>
                 ` : `
-                  <div class="pbg-gift-icon" style="opacity:0.3">🎁</div>
+                  <div class="pbg-gift-icon" style="opacity:0.3;width:32px;height:32px;color:#a78bfa">${ICONS.giftbox}</div>
                 `}
               </div>
             `;
@@ -1255,7 +1374,7 @@
             const box = boxes[giftBoxOpened];
             html += `
               <div style="text-align:center;margin-top:16px;padding:16px;background:${box.winning ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.03)'};border:1px solid ${box.winning ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.06)'};border-radius:12px">
-                <div style="font-size:24px;margin-bottom:6px">${box.winning ? '🎉' : '😅'}</div>
+                <div style="font-size:24px;margin-bottom:6px">${box.winning ? inlIcon('party',24) : inlIcon('sad',24)}</div>
                 <div style="font-size:14px;font-weight:700;color:${box.winning ? '#34d399' : '#a1a1aa'}">${box.winning ? `Você ganhou: ${miniGameResult.prize?.label}!` : 'Tente novamente!'}</div>
               </div>
             `;
@@ -1266,7 +1385,7 @@
         if (game.type === 'prize_drop') {
           html += `
             <div style="text-align:center;padding:24px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px">
-              <div style="font-size:48px;margin-bottom:12px;animation:pbg-bounce 0.5s ease">${miniGameResult.prize?.type === 'nothing' ? '💨' : (miniGameResult.prize?.icon || '🎁')}</div>
+              <div style="font-size:48px;margin-bottom:12px;animation:pbg-bounce 0.5s ease">${miniGameResult.prize?.type === 'nothing' ? inlIcon('wind',48) : (miniGameResult.prize?.icon || inlIcon('gift',48))}</div>
               <div style="font-size:16px;font-weight:700;color:${miniGameResult.prize?.type === 'nothing' ? '#a1a1aa' : '#34d399'}">${miniGameResult.prize?.type === 'nothing' ? 'Tente novamente!' : miniGameResult.prize?.label}</div>
               ${miniGameResult.prize?.type !== 'nothing' && miniGameResult.prize?.value ? `<div style="font-size:13px;color:#fbbf24;margin-top:6px;font-weight:600">+${miniGameResult.prize.value} ${miniGameResult.prize.type}</div>` : ''}
             </div>
@@ -1278,7 +1397,7 @@
           <div style="text-align:center;margin-top:16px">
             <button class="pbg-modal-btn" ${maxReached || (!isFree && game.attempt_cost_coins > 0 && coins < game.attempt_cost_coins) ? 'disabled' : ''}
                     onclick="window.__pbg('playMiniGame','${game.id}')">
-              ${maxReached ? 'Limite atingido' : '🔄 Jogar Novamente'}
+              ${maxReached ? 'Limite atingido' : inlIcon('refresh',14)+' Jogar Novamente'}
             </button>
           </div>
         `;
@@ -1298,9 +1417,9 @@
             ` : ''}
             <button class="pbg-modal-btn" ${!PLAYER_CPF || maxReached ? 'disabled' : ''}
                     onclick="window.__pbg('playMiniGame','${game.id}')">
-              ${!PLAYER_CPF ? 'Faça login' : maxReached ? 'Limite atingido' : `${typeIcons[game.type] || '🎮'} Jogar`}
+              ${!PLAYER_CPF ? 'Faça login' : maxReached ? 'Limite atingido' : `${typeIcons[game.type] || inlIcon('gamepad',14)} Jogar`}
             </button>
-            ${!isFree && game.attempt_cost_coins > 0 && !maxReached ? `<div style="font-size:11px;color:#fbbf24;margin-top:8px">🪙 Custo: ${game.attempt_cost_coins} moedas</div>` : ''}
+            ${!isFree && game.attempt_cost_coins > 0 && !maxReached ? `<div style="font-size:11px;color:#fbbf24;margin-top:8px">${inlIcon('coin',12)} Custo: ${game.attempt_cost_coins} moedas</div>` : ''}
           </div>
         `;
       } else {
@@ -1311,9 +1430,9 @@
       // Attempts info
       html += `
         <div style="display:flex;justify-content:center;gap:12px;margin-top:12px">
-          <span class="pbg-spin-tag" style="color:${isFree ? '#34d399' : '#f87171'}">🎫 Grátis: ${Math.max(0, freeAtt - attToday)}/${freeAtt}</span>
-          ${maxAtt > 0 ? `<span class="pbg-spin-tag" style="color:${maxReached ? '#f87171' : '#a1a1aa'}">🎲 ${attToday}/${maxAtt}</span>` : ''}
-          ${coins > 0 ? `<span class="pbg-spin-tag" style="color:#fbbf24">🪙 ${coins}</span>` : ''}
+          <span class="pbg-spin-tag" style="color:${isFree ? '#34d399' : '#f87171'}">${inlIcon('ticket',12)} Grátis: ${Math.max(0, freeAtt - attToday)}/${freeAtt}</span>
+          ${maxAtt > 0 ? `<span class="pbg-spin-tag" style="color:${maxReached ? '#f87171' : '#a1a1aa'}">${inlIcon('dice',12)} ${attToday}/${maxAtt}</span>` : ''}
+          ${coins > 0 ? `<span class="pbg-spin-tag" style="color:#fbbf24">${inlIcon('coin',12)} ${coins}</span>` : ''}
         </div>
       `;
 
@@ -1329,16 +1448,16 @@
       const freeAtt = game.free_attempts_per_day || 1;
       const freeLeft = Math.max(0, freeAtt - attToday);
       const maxReached = maxAtt > 0 && attToday >= maxAtt;
-      const typeIcons = { scratch_card: '🎴', gift_box: '🎁', prize_drop: '🎯' };
+      const typeIcons = { scratch_card: inlIcon('card',20), gift_box: inlIcon('giftbox',20), prize_drop: inlIcon('target',20) };
       const typeLabels = { scratch_card: 'Raspadinha', gift_box: 'Caixa Surpresa', prize_drop: 'Prize Drop' };
 
       html += `
         <div class="pbg-mg-card ${maxReached ? 'greyed' : ''}" onclick="window.__pbg('openMiniGame','${game.id}')">
-          <div class="pbg-mg-icon">${typeIcons[game.type] || '🎮'}</div>
+          <div class="pbg-mg-icon">${typeIcons[game.type] || inlIcon('gamepad',36)}</div>
           <div class="pbg-mg-name">${game.name}</div>
           <div class="pbg-mg-type">${typeLabels[game.type] || game.type}</div>
           <div class="pbg-mg-attempts" style="color:${maxReached ? '#f87171' : freeLeft > 0 ? '#34d399' : '#a1a1aa'}">
-            ${maxReached ? 'Limite atingido' : freeLeft > 0 ? `🎫 ${freeLeft} grátis` : `🪙 ${game.attempt_cost_coins || 0} moedas`}
+            ${maxReached ? 'Limite atingido' : freeLeft > 0 ? inlIcon('ticket',12)+` ${freeLeft} grátis` : inlIcon('coin',12)+` ${game.attempt_cost_coins || 0} moedas`}
           </div>
         </div>
       `;
@@ -1349,21 +1468,27 @@
 
   function renderStore() {
     const items = data?.store_items || [];
-    if (!items.length) return '<div style="text-align:center;padding:40px;color:#52525b"><div style="font-size:40px;opacity:0.5">🛒</div><div style="font-size:13px">Loja vazia</div></div>';
+    if (!items.length) return `<div style="text-align:center;padding:40px;color:#52525b"><div style="width:40px;height:40px;margin:0 auto;opacity:0.5;color:#71717a">${ICONS.cart}</div><div style="font-size:13px">Loja vazia</div></div>`;
 
     const coins = data?.wallet?.coins || 0;
+    const walletDiamonds = data?.wallet?.diamonds || 0;
     let html = `<div class="pbg-store-grid">${items.map((item, idx) => {
-      const canBuy = !item.price_coins || coins >= item.price_coins;
+      const canAffordCoins = !item.price_coins || coins >= item.price_coins;
+      const canAffordDiamonds = !item.price_diamonds || walletDiamonds >= item.price_diamonds;
+      const canBuy = canAffordCoins && canAffordDiamonds;
       const outOfStock = item.stock !== null && item.stock !== undefined && item.stock <= 0;
       return `
         <div class="pbg-store-item ${!canBuy || outOfStock ? 'greyed' : ''}" onclick="window.__pbg('openStore',${idx})">
-          ${item.image_url ? `<img src="${item.image_url}" alt="${item.name}">` : '<div style="font-size:32px;margin-bottom:8px">🎁</div>'}
+          ${item.image_url ? `<img src="${item.image_url}" alt="${item.name}">` : '<div style="width:32px;height:32px;margin:0 auto 8px;color:#a78bfa">' + ICONS.giftbox + '</div>'}
           <div style="font-size:12px;font-weight:600;color:#fff">${item.name}</div>
-          <div style="font-size:11px;color:#fbbf24;font-weight:600;margin-top:4px">
-            ${item.price_coins ? `🪙 ${item.price_coins}` : ''} ${item.price_xp ? `⭐ ${item.price_xp}` : ''}
+          <div style="font-size:11px;font-weight:600;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap">
+            ${item.price_coins ? `<span style="color:#fbbf24">${inlIcon('coin',12)} ${item.price_coins}</span>` : ''}
+            ${item.price_diamonds ? `<span style="color:#22d3ee">${inlIcon('diamond',12)} ${item.price_diamonds}</span>` : ''}
+            ${item.price_xp ? `<span style="color:#818cf8">${inlIcon('star',12)} ${item.price_xp}</span>` : ''}
           </div>
           ${outOfStock ? '<div style="font-size:10px;color:#f87171;margin-top:2px">Esgotado</div>' : ''}
-          ${!canBuy && !outOfStock ? `<div style="font-size:10px;color:#f87171;margin-top:2px">Faltam ${item.price_coins - coins} moedas</div>` : ''}
+          ${!canAffordCoins && !outOfStock ? `<div style="font-size:10px;color:#f87171;margin-top:2px">Faltam ${item.price_coins - coins} moedas</div>` : ''}
+          ${!canAffordDiamonds && canAffordCoins && !outOfStock ? `<div style="font-size:10px;color:#f87171;margin-top:2px">Faltam ${item.price_diamonds - walletDiamonds} diamantes</div>` : ''}
         </div>
       `;
     }).join('')}</div>`;
@@ -1371,30 +1496,34 @@
     if (selectedStoreItem !== null) {
       const item = items[selectedStoreItem];
       if (item) {
-        const canBuy = !item.price_coins || coins >= item.price_coins;
+        const canAffordCoins = !item.price_coins || coins >= item.price_coins;
+        const canAffordDiamonds = !item.price_diamonds || walletDiamonds >= item.price_diamonds;
+        const canBuy = canAffordCoins && canAffordDiamonds;
         const outOfStock = item.stock !== null && item.stock !== undefined && item.stock <= 0;
+        const insufficientMsg = !canAffordCoins ? 'Moedas insuficientes' : !canAffordDiamonds ? 'Diamantes insuficientes' : '';
         html += `
           <div class="pbg-modal-overlay" onclick="window.__pbg('closeStore')">
             <div class="pbg-modal" onclick="event.stopPropagation()">
-              ${item.image_url ? `<img src="${item.image_url}" style="width:80px;height:80px;object-fit:contain;border-radius:12px;margin:0 auto 12px">` : '<div style="font-size:48px;margin-bottom:12px">🎁</div>'}
+              ${item.image_url ? `<img src="${item.image_url}" style="width:80px;height:80px;object-fit:contain;border-radius:12px;margin:0 auto 12px">` : '<div style="width:48px;height:48px;margin:0 auto 12px;color:#a78bfa">' + ICONS.giftbox + '</div>'}
               <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:6px">${item.name}</div>
               ${item.description ? `<div style="font-size:12px;color:#a1a1aa;margin-bottom:12px;line-height:1.5">${item.description}</div>` : ''}
               ${item.reward_description || item.reward_value ? `
                 <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.15);border-radius:10px;padding:12px;margin-bottom:12px;text-align:left">
-                  <div style="font-size:11px;font-weight:700;color:#34d399;margin-bottom:4px">🎁 Você recebe</div>
+                  <div style="font-size:11px;font-weight:700;color:#34d399;margin-bottom:4px">${inlIcon('gift',12)} Você recebe</div>
                   ${item.reward_value ? `<div style="font-size:14px;font-weight:700;color:#fff">${item.reward_value}</div>` : ''}
                   ${item.reward_description ? `<div style="font-size:11px;color:#a1a1aa;margin-top:2px">${item.reward_description}</div>` : ''}
                 </div>
               ` : ''}
               <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px;background:rgba(255,255,255,0.04);border-radius:10px;margin-bottom:12px">
-                ${item.price_coins ? `<span style="font-size:14px;font-weight:700;color:#fbbf24">🪙 ${item.price_coins}</span>` : ''}
-                ${item.price_xp ? `<span style="font-size:14px;font-weight:700;color:#818cf8">⭐ ${item.price_xp}</span>` : ''}
+                ${item.price_coins ? `<span style="font-size:14px;font-weight:700;color:#fbbf24">${inlIcon('coin',14)} ${item.price_coins}</span>` : ''}
+                ${item.price_diamonds ? `<span style="font-size:14px;font-weight:700;color:#22d3ee">${inlIcon('diamond',14)} ${item.price_diamonds}</span>` : ''}
+                ${item.price_xp ? `<span style="font-size:14px;font-weight:700;color:#818cf8">${inlIcon('star',14)} ${item.price_xp}</span>` : ''}
               </div>
               ${item.stock !== null && item.stock !== undefined ? `<div style="font-size:11px;color:#71717a;margin-bottom:12px">${item.stock} em estoque</div>` : ''}
               ${storeMessage ? `<div class="${storeMessage.type === 'success' ? 'pbg-modal-success' : 'pbg-modal-error'}">${storeMessage.text}</div>` : ''}
               ${!storeMessage || storeMessage.type !== 'success' ? `
                 <button class="pbg-modal-btn" ${!canBuy || outOfStock || !PLAYER_CPF ? 'disabled' : ''} onclick="window.__pbg('buyItem','${item.id}')">
-                  ${outOfStock ? 'Esgotado' : !PLAYER_CPF ? 'Faça login' : !canBuy ? 'Moedas insuficientes' : '🛒 Comprar'}
+                  ${outOfStock ? 'Esgotado' : !PLAYER_CPF ? 'Faça login' : !canBuy ? insufficientMsg : inlIcon('cart',14)+' Comprar'}
                 </button>
               ` : ''}
               <button class="pbg-modal-btn-close" onclick="window.__pbg('closeStore')">Voltar</button>
@@ -1407,17 +1536,17 @@
   }
 
   function renderHistory() {
-    if (!PLAYER_CPF) return '<div style="text-align:center;padding:40px;color:#52525b"><div style="font-size:40px;opacity:0.5">📋</div><div style="font-size:13px">Faça login para ver seu histórico</div></div>';
+    if (!PLAYER_CPF) return `<div style="text-align:center;padding:40px;color:#52525b"><div style="width:40px;height:40px;margin:0 auto;opacity:0.5;color:#71717a">${ICONS.clipboard}</div><div style="font-size:13px">Faça login para ver seu histórico</div></div>`;
     const log = data?.activity_log || [];
-    if (!log.length) return '<div style="text-align:center;padding:40px;color:#52525b"><div style="font-size:40px;opacity:0.5">📋</div><div style="font-size:13px">Nenhuma atividade registrada</div></div>';
+    if (!log.length) return `<div style="text-align:center;padding:40px;color:#52525b"><div style="width:40px;height:40px;margin:0 auto;opacity:0.5;color:#71717a">${ICONS.clipboard}</div><div style="font-size:13px">Nenhuma atividade registrada</div></div>`;
 
-    const icons = { coins:'🪙', xp:'⭐', spin:'🎡', wheel:'🎡', bonus:'💰', store:'🛒', level_up:'🏅', mission:'🎯', achievement:'🏆', tournament:'⚔️' };
+    const icons = { coins:inlIcon('coin',14), xp:inlIcon('star',14), diamonds:inlIcon('diamond',14), spin:inlIcon('wheel',14), wheel:inlIcon('wheel',14), bonus:inlIcon('money',14), store:inlIcon('cart',14), level_up:inlIcon('medal',14), mission:inlIcon('target',14), achievement:inlIcon('trophy',14), tournament:inlIcon('swords',14) };
     return `
-      <div class="pbg-section-title">📋 Atividades Recentes</div>
+      <div class="pbg-section-title">${inlIcon('clipboard',14)} Atividades Recentes</div>
       ${log.map(entry => `
         <div class="pbg-log-item">
           <div>
-            <div class="pbg-log-desc">${icons[entry.type]||'📌'} ${entry.description || entry.source}</div>
+            <div class="pbg-log-desc">${icons[entry.type]||inlIcon('pin',14)} ${entry.description || entry.source}</div>
             <div class="pbg-log-source">${entry.source} · ${timeAgo(entry.created_at)}</div>
           </div>
           <div style="text-align:right">
@@ -1430,7 +1559,7 @@
 
   function renderLevels() {
     const levels = data?.levels || [];
-    if (!levels.length) return '<div style="text-align:center;padding:40px;color:#52525b"><div style="font-size:40px;opacity:0.5">🏅</div><div style="font-size:13px">Níveis não configurados</div></div>';
+    if (!levels.length) return `<div style="text-align:center;padding:40px;color:#52525b"><div style="width:40px;height:40px;margin:0 auto;opacity:0.5;color:#71717a">${ICONS.medal}</div><div style="font-size:13px">Níveis não configurados</div></div>`;
 
     const lvInfo = getLevelInfo();
     const sorted = [...levels].sort((a,b) => a.level_number - b.level_number);
@@ -1450,7 +1579,7 @@
           <div class="pbg-xp-track"><div class="pbg-xp-fill" style="width:${lvInfo.pct}%;background:${lvInfo.current.color}"></div></div>
         </div>
       ` : ''}
-      <div class="pbg-section-title">🗺️ Mapa de Níveis</div>
+      <div class="pbg-section-title">${inlIcon('map',14)} Mapa de Níveis</div>
       ${sorted.map(lvl => {
         const isCurrent = lvInfo && lvl.id === lvInfo.current.id;
         const isLocked = lvInfo && data.wallet && data.wallet.xp < lvl.min_xp;
@@ -1491,32 +1620,66 @@
       const lvInfo = getLevelInfo();
       if (lvInfo && data.wallet) {
         levelBar.style.display = 'block';
+        const col = lvInfo.current.color || '#8b5cf6';
+        const xpLabel = lvInfo.next ? `${lvInfo.xpInLevel.toLocaleString('pt-BR')} / ${lvInfo.xpForNext.toLocaleString('pt-BR')} XP` : 'MAX';
+        const xpSub = lvInfo.next ? `faltam ${(lvInfo.xpForNext - lvInfo.xpInLevel).toLocaleString('pt-BR')} XP` : 'nível máximo';
+        const fmt1k = n => n >= 1000 ? (n/1000).toFixed(1).replace('.',',')+'k' : n.toLocaleString('pt-BR');
         levelBar.innerHTML = `
           <div class="pbg-level-info">
-            <div class="pbg-level-name">
-              <span style="width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:${lvInfo.current.color}20;color:${lvInfo.current.color}">
-                ${lvInfo.current.icon_url ? `<img src="${lvInfo.current.icon_url}" style="width:14px;height:14px">` : lvInfo.current.level_number}
-              </span>
-              ${lvInfo.current.name}
+            <div class="pbg-level-badge" style="background:${col}22;color:${col};border:1.5px solid ${col}55">
+              ${lvInfo.current.icon_url
+                ? `<img src="${lvInfo.current.icon_url}" style="width:22px;height:22px;object-fit:contain">`
+                : `<span class="pbg-level-badge-num">${lvInfo.current.level_number}</span><span class="pbg-level-badge-lbl">Nv</span>`}
             </div>
-            <div class="pbg-level-xp">${lvInfo.next ? `${lvInfo.xpInLevel}/${lvInfo.xpForNext} XP` : 'MAX'}</div>
+            <div class="pbg-level-texts">
+              <div class="pbg-level-name">${lvInfo.current.name}</div>
+              <div class="pbg-level-sub">${xpSub}</div>
+            </div>
+            <div class="pbg-level-xp-right">
+              <div class="pbg-level-xp-val" style="color:${col}">${xpLabel}</div>
+            </div>
           </div>
-          <div class="pbg-xp-track"><div class="pbg-xp-fill" style="width:${lvInfo.pct}%;background:${lvInfo.current.color}"></div></div>
+          <div class="pbg-xp-track">
+            <div class="pbg-xp-fill" style="width:${lvInfo.pct}%;background:linear-gradient(90deg,${col}cc,${col})"></div>
+          </div>
           <div class="pbg-wallet-row">
-            <div class="pbg-wallet-item" style="color:#fbbf24">🪙 ${(data.wallet.coins||0).toLocaleString('pt-BR')}</div>
-            <div class="pbg-wallet-divider"></div>
-            <div class="pbg-wallet-item" style="color:#818cf8">⭐ ${(data.wallet.xp||0).toLocaleString('pt-BR')}</div>
-            <div class="pbg-wallet-divider"></div>
-            <div class="pbg-wallet-item" style="color:#fff">🏅 Nv.${data.wallet.level||1}</div>
+            <div class="pbg-wallet-chip">
+              <div style="color:#fbbf24;width:16px;height:16px">${inlIcon('coin',16)}</div>
+              <div class="pbg-wallet-chip-val">${fmt1k(data.wallet.coins||0)}</div>
+              <div class="pbg-wallet-chip-lbl">Moedas</div>
+            </div>
+            <div class="pbg-wallet-chip">
+              <div style="color:#22d3ee;width:16px;height:16px">${inlIcon('diamond',16)}</div>
+              <div class="pbg-wallet-chip-val">${fmt1k(data.wallet.diamonds||0)}</div>
+              <div class="pbg-wallet-chip-lbl">Diamantes</div>
+            </div>
+            <div class="pbg-wallet-chip">
+              <div style="color:#818cf8;width:16px;height:16px">${inlIcon('star',16)}</div>
+              <div class="pbg-wallet-chip-val">${fmt1k(data.wallet.xp||0)}</div>
+              <div class="pbg-wallet-chip-lbl">XP</div>
+            </div>
           </div>
         `;
       } else if (data.wallet) {
         levelBar.style.display = 'block';
+        const fmt1k2 = n => n >= 1000 ? (n/1000).toFixed(1).replace('.',',')+'k' : n.toLocaleString('pt-BR');
         levelBar.innerHTML = `
-          <div class="pbg-wallet-row" style="margin-top:0">
-            <div class="pbg-wallet-item" style="color:#fbbf24">🪙 ${(data.wallet.coins||0).toLocaleString('pt-BR')}</div>
-            <div class="pbg-wallet-divider"></div>
-            <div class="pbg-wallet-item" style="color:#818cf8">⭐ ${(data.wallet.xp||0).toLocaleString('pt-BR')}</div>
+          <div class="pbg-wallet-row">
+            <div class="pbg-wallet-chip">
+              <div style="color:#fbbf24;width:16px;height:16px">${inlIcon('coin',16)}</div>
+              <div class="pbg-wallet-chip-val">${fmt1k2(data.wallet.coins||0)}</div>
+              <div class="pbg-wallet-chip-lbl">Moedas</div>
+            </div>
+            <div class="pbg-wallet-chip">
+              <div style="color:#22d3ee;width:16px;height:16px">${inlIcon('diamond',16)}</div>
+              <div class="pbg-wallet-chip-val">${fmt1k2(data.wallet.diamonds||0)}</div>
+              <div class="pbg-wallet-chip-lbl">Diamantes</div>
+            </div>
+            <div class="pbg-wallet-chip">
+              <div style="color:#818cf8;width:16px;height:16px">${inlIcon('star',16)}</div>
+              <div class="pbg-wallet-chip-val">${fmt1k2(data.wallet.xp||0)}</div>
+              <div class="pbg-wallet-chip-lbl">XP</div>
+            </div>
           </div>
         `;
       } else {
@@ -1556,14 +1719,14 @@
       </div>
       <div id="pbg-level-bar" class="pbg-level-bar" style="display:none"></div>
       <div class="pbg-tabs">
-        <button class="pbg-tab active" data-tab="missions" onclick="window.__pbg('tab','missions')">🎯 Missões</button>
-        <button class="pbg-tab" data-tab="achievements" onclick="window.__pbg('tab','achievements')">🏆 Conquistas</button>
-        <button class="pbg-tab" data-tab="tournaments" onclick="window.__pbg('tab','tournaments')">⚔️ Torneios</button>
-        <button class="pbg-tab" data-tab="wheel" onclick="window.__pbg('tab','wheel')">🎡 Roleta</button>
-        <button class="pbg-tab" data-tab="games" onclick="window.__pbg('tab','games')">🎮 Jogos</button>
-        <button class="pbg-tab" data-tab="store" onclick="window.__pbg('tab','store')">🛒 Loja</button>
-        <button class="pbg-tab" data-tab="levels" onclick="window.__pbg('tab','levels')">🏅 Níveis</button>
-        <button class="pbg-tab" data-tab="history" onclick="window.__pbg('tab','history')">📋 Histórico<span id="pbg-pending-badge" class="pbg-tab-badge" style="display:none">0</span></button>
+        <button class="pbg-tab active" data-tab="missions" onclick="window.__pbg('tab','missions')">${inlIcon('target')} Missões</button>
+        <button class="pbg-tab" data-tab="achievements" onclick="window.__pbg('tab','achievements')">${inlIcon('trophy')} Conquistas</button>
+        <button class="pbg-tab" data-tab="tournaments" onclick="window.__pbg('tab','tournaments')">${inlIcon('swords')} Torneios</button>
+        <button class="pbg-tab" data-tab="wheel" onclick="window.__pbg('tab','wheel')">${inlIcon('wheel')} Roleta</button>
+        <button class="pbg-tab" data-tab="games" onclick="window.__pbg('tab','games')">${inlIcon('gamepad')} Jogos</button>
+        <button class="pbg-tab" data-tab="store" onclick="window.__pbg('tab','store')">${inlIcon('cart')} Loja</button>
+        <button class="pbg-tab" data-tab="levels" onclick="window.__pbg('tab','levels')">${inlIcon('medal')} Níveis</button>
+        <button class="pbg-tab" data-tab="history" onclick="window.__pbg('tab','history')">${inlIcon('clipboard')} Histórico<span id="pbg-pending-badge" class="pbg-tab-badge" style="display:none">0</span></button>
       </div>
       <div class="pbg-content" id="pbg-widget-content"></div>
     `;
@@ -1571,10 +1734,13 @@
 
     const fab = document.createElement('button');
     fab.id = 'pbg-widget-fab';
-    fab.innerHTML = ICONS.gift;
     fab.onclick = () => toggle(!isOpen);
     fab.title = 'Recompensas';
+    updateFab(fab);
     document.body.appendChild(fab);
+
+    // Pre-fetch data so FAB shows level ring immediately
+    if (PLAYER_CPF && !data) fetchData();
 
     // Global handler
     window.__pbg = async (action, arg) => {
@@ -1591,7 +1757,12 @@
         try {
           const result = await apiCall('store_buy', { item_id: arg });
           if (result.error) { storeMessage = { type: 'error', text: result.error }; }
-          else { storeMessage = { type: 'success', text: `✅ ${result.item_name} resgatado com sucesso!` }; setTimeout(() => fetchData(), 1000); }
+          else {
+            const msg = result.message || `${result.item_name} resgatado com sucesso!`;
+            const isOk = result.delivery_status === 'delivered' || result.delivery_status === 'pending_manual';
+            storeMessage = { type: isOk ? 'success' : 'warning', text: `${inlIcon(isOk ? 'check' : 'clock',14)} ${msg}` };
+            setTimeout(() => fetchData(), 1000);
+          }
         } catch (e) { storeMessage = { type: 'error', text: 'Erro ao comprar' }; }
         renderContent();
       }
@@ -1663,6 +1834,53 @@
   function init() {
     if (isUserLoggedIn()) initWidget();
     else { const chk = setInterval(() => { if (isUserLoggedIn()) { clearInterval(chk); initWidget(); } }, 3000); }
+  }
+
+  function updateFab(fabEl) {
+    if (!fabEl) fabEl = document.getElementById('pbg-widget-fab');
+    if (!fabEl) return;
+
+    const lvInfo = data ? getLevelInfo() : null;
+    const wallet = data?.wallet;
+    const circumference = Math.PI * 2 * 30; // r=30
+    let pct = 0;
+    let levelNum = '';
+    let color = '#8b5cf6';
+    let coins = 0;
+    let diamondsVal = 0;
+
+    if (lvInfo) {
+      pct = lvInfo.pct;
+      levelNum = lvInfo.current.level_number;
+      color = lvInfo.current.color || '#8b5cf6';
+      coins = wallet?.coins || 0;
+      diamondsVal = wallet?.diamonds || 0;
+    } else if (wallet) {
+      levelNum = wallet.level || 1;
+      coins = wallet.coins || 0;
+      diamondsVal = wallet.diamonds || 0;
+    }
+
+    const offset = circumference - (pct / 100) * circumference;
+    const hasLevel = levelNum !== '';
+
+    fabEl.innerHTML = `
+      <div class="pbg-fab-ring">
+        <svg viewBox="0 0 68 68">
+          <defs><linearGradient id="pbg-fab-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:${color}"/>
+            <stop offset="100%" style="stop-color:#06b6d4"/>
+          </linearGradient></defs>
+          <circle class="ring-bg" cx="34" cy="34" r="30"/>
+          <circle class="ring-fg" cx="34" cy="34" r="30" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"/>
+        </svg>
+      </div>
+      <div class="pbg-fab-inner">
+        ${ICONS.gift}
+      </div>
+      ${coins > 0 ? `<span class="pbg-fab-coins">${inlIcon('coin',10)} ${coins >= 1000 ? (coins/1000).toFixed(1)+'k' : coins}</span>` : ''}
+      ${diamondsVal > 0 ? `<span class="pbg-fab-diamonds">${inlIcon('diamond',10)} ${diamondsVal >= 1000 ? (diamondsVal/1000).toFixed(1)+'k' : diamondsVal}</span>` : ''}
+    `;
   }
 
   function toggle(state) {

@@ -6,10 +6,18 @@
         { "key": "Cache-Control", "value": "public, max-age=60, s-maxage=60" },
         { "key": "Access-Control-Allow-Origin", "value": "*" }
       ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "authorization, x-client-info, apikey, content-type" }
+      ]
     }
   ],
   "rewrites": [
     { "source": "/widget/(.*)", "destination": "/widget/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

@@ -15,12 +15,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const CATEGORIES = ['geral', 'bonus', 'cosmetico', 'vip', 'torneio'];
 
+const REWARD_TYPES = [
+  { value: 'bonus', label: 'Bônus na plataforma (R$)' },
+  { value: 'free_bet', label: 'Free Bet (R$)' },
+  { value: 'cartelas', label: 'Cartelas de Bingo (R$)' },
+  { value: 'coins', label: 'Moedas' },
+  { value: 'xp', label: 'XP' },
+  { value: 'diamonds', label: 'Diamantes' },
+  { value: 'physical', label: 'Produto físico (manual)' },
+  { value: 'coupon', label: 'Cupom / Voucher (manual)' },
+];
+
 export default function Store() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
-    name: '', description: '', image_url: '', price_coins: '', price_xp: '',
+    name: '', description: '', image_url: '', price_coins: '', price_diamonds: '', price_xp: '',
     category: 'geral', stock: '', min_level: '1',
+    reward_type: 'bonus', reward_value: '', reward_description: '',
   });
 
   const { data: items = [], isLoading } = useQuery({
@@ -40,10 +52,14 @@ export default function Store() {
         description: form.description,
         image_url: form.image_url || null,
         price_coins: parseInt(form.price_coins) || 0,
+        price_diamonds: parseInt(form.price_diamonds) || 0,
         price_xp: parseInt(form.price_xp) || 0,
         category: form.category,
         stock: form.stock ? parseInt(form.stock) : null,
         min_level: parseInt(form.min_level) || 1,
+        reward_type: form.reward_type,
+        reward_value: form.reward_value || null,
+        reward_description: form.reward_description || null,
       } as any);
       if (error) throw error;
     },
@@ -51,7 +67,7 @@ export default function Store() {
       queryClient.invalidateQueries({ queryKey: ['store_items'] });
       toast.success('Item criado');
       setOpen(false);
-      setForm({ name: '', description: '', image_url: '', price_coins: '', price_xp: '', category: 'geral', stock: '', min_level: '1' });
+      setForm({ name: '', description: '', image_url: '', price_coins: '', price_diamonds: '', price_xp: '', category: 'geral', stock: '', min_level: '1', reward_type: 'bonus', reward_value: '', reward_description: '' });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -115,10 +131,20 @@ export default function Store() {
                     <p className="text-xs text-muted-foreground truncate">{item.description || '—'}</p>
                     <div className="flex items-center gap-4 mt-2 text-[11px] text-muted-foreground">
                       {item.price_coins > 0 && <span className="flex items-center gap-1"><Coins className="w-3 h-3 text-amber-400" />{item.price_coins.toLocaleString()}</span>}
+                      {item.price_diamonds > 0 && <span className="flex items-center gap-1 text-cyan-400">◆ {item.price_diamonds.toLocaleString()}</span>}
                       {item.price_xp > 0 && <span className="flex items-center gap-1"><Star className="w-3 h-3 text-primary" />{item.price_xp.toLocaleString()} XP</span>}
                       {item.stock !== null && <span>Estoque: {item.stock}</span>}
                       <span>Nível mín: {item.min_level}</span>
                     </div>
+                    {item.reward_type && (
+                      <div className="mt-2 px-2 py-1.5 bg-emerald-500/10 rounded-md text-[11px]">
+                        <span className="text-emerald-400 font-semibold">Entrega: </span>
+                        <span className="text-muted-foreground">
+                          {REWARD_TYPES.find(r => r.value === item.reward_type)?.label || item.reward_type}
+                          {item.reward_value ? ` — ${item.reward_value}` : ''}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-border">
@@ -149,10 +175,14 @@ export default function Store() {
               <Label className="text-xs">URL da imagem (opcional)</Label>
               <Input value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} placeholder="https://..." className="mt-1" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs">Preço (moedas)</Label>
                 <Input type="number" value={form.price_coins} onChange={e => setForm(f => ({ ...f, price_coins: e.target.value }))} placeholder="0" className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Preço (diamantes)</Label>
+                <Input type="number" value={form.price_diamonds} onChange={e => setForm(f => ({ ...f, price_diamonds: e.target.value }))} placeholder="0" className="mt-1" />
               </div>
               <div>
                 <Label className="text-xs">Preço (XP)</Label>
@@ -176,6 +206,29 @@ export default function Store() {
               <div>
                 <Label className="text-xs">Nível mínimo</Label>
                 <Input type="number" value={form.min_level} onChange={e => setForm(f => ({ ...f, min_level: e.target.value }))} placeholder="1" className="mt-1" />
+              </div>
+            </div>
+            {/* O que o jogador recebe */}
+            <div className="border-t border-border pt-4 mt-2">
+              <p className="text-sm font-semibold text-foreground mb-3">O que o jogador recebe ao resgatar?</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Tipo de entrega</Label>
+                  <Select value={form.reward_type} onValueChange={v => setForm(f => ({ ...f, reward_type: v }))}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {REWARD_TYPES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Valor da entrega</Label>
+                  <Input value={form.reward_value} onChange={e => setForm(f => ({ ...f, reward_value: e.target.value }))} placeholder="Ex: R$ 50, 500 moedas" className="mt-1" />
+                </div>
+              </div>
+              <div className="mt-3">
+                <Label className="text-xs">Descrição da entrega (exibida ao jogador)</Label>
+                <Textarea value={form.reward_description} onChange={e => setForm(f => ({ ...f, reward_description: e.target.value }))} placeholder="Ex: Bônus de R$ 50 creditado automaticamente na sua conta após o resgate" rows={2} className="mt-1" />
               </div>
             </div>
           </div>

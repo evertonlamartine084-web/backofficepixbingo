@@ -1,6 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Code, Code2,
+  LayoutDashboard, Code, Code2, Settings,
   LogOut, ChevronRight, ChevronDown, Zap, UserSearch,
   ArrowUpDown, ListFilter, ShieldCheck, Megaphone, Gamepad2,
   MessageSquare, Package, User, RotateCcw, ScrollText,
@@ -50,6 +50,7 @@ const gamificationItems = [
 const adminItems = [
   { to: '/admin/manage-users', icon: ShieldCheck, label: 'Gestão de Usuários' },
   { to: '/admin/audit', icon: ScrollText, label: 'Log de Auditoria' },
+  { to: '/admin/platform', icon: Settings, label: 'Config Plataforma' },
 ];
 
 const profileQuickLinks = [
