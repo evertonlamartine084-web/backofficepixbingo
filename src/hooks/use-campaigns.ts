@@ -114,16 +114,19 @@ export function useCampaigns() {
     queryFn: async () => {
       const creds = getSavedCredentials();
       if (!creds.username || !creds.password) return [];
-      const { data, error } = await supabase.functions.invoke('pixbingo-proxy', {
-        body: {
+      const res = await fetch('/api/pixbingo-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           action: 'list_partidas',
           site_url: 'https://pixbingobr.concurso.club',
           login_url: 'https://pixbingobr.concurso.club/login',
           username: creds.username,
           password: creds.password,
-        },
+        }),
       });
-      if (error || !data?.success) return [];
+      const data = res.ok ? await res.json() : null;
+      if (!data?.success) return [];
       const items = data.data?.aaData || data.data?.data || [];
       const uniqueValues = new Map<string, { valor: string; tipo: string; count: number }>();
       for (const p of items) {
@@ -263,10 +266,12 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
 
     const runIteration = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('process-campaign', {
-          body: { campaign_id: campaign.id, username: creds.username, password: creds.password },
+        const _res = await fetch('/api/process-campaign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ campaign_id: campaign.id, username: creds.username, password: creds.password }),
         });
-        if (error) throw error;
+        const data = await _res.json();
         if (!data?.success) throw new Error(data?.error || 'Erro');
 
         const result = data.data;
@@ -315,10 +320,12 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
     }
     setProcessing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('process-campaign', {
-        body: { campaign_id: campaign.id, username: creds.username, password: creds.password },
+      const _res = await fetch('/api/process-campaign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaign_id: campaign.id, username: creds.username, password: creds.password }),
       });
-      if (error) throw error;
+      const data = await _res.json();
       if (!data?.success) throw new Error(data?.error || 'Erro ao processar campanha');
       const result = data.data;
       toast.success(`Processado: ${result.processed} jogadores | Elegíveis: ${result.eligible} | Creditados: ${result.credited} | Erros: ${result.errors}`);

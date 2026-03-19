@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 
 const DEFAULT_SITE = 'https://pixbingobr.concurso.club';
 const DEFAULT_LOGIN = 'https://pixbingobr.concurso.club/login';
@@ -76,17 +75,20 @@ export function useProxy() {
     credentials: { username: string; password: string },
     extra: Record<string, any> = {}
   ) => {
-    const { data, error } = await supabase.functions.invoke('pixbingo-proxy', {
-      body: {
+    const res = await fetch('/api/pixbingo-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         action,
         site_url: DEFAULT_SITE,
         login_url: DEFAULT_LOGIN,
         username: credentials.username,
         password: credentials.password,
         ...extra,
-      },
+      }),
     });
-    if (error) throw error;
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro na requisição');
     if (data && !data.success) throw new Error(data.error || 'Erro na requisição');
     return data;
   }, []);

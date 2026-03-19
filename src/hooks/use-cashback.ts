@@ -253,17 +253,19 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
 
     setProcessing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('process-cashback', {
-        body: {
+      const _res = await fetch('/api/process-cashback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           rule_id: rule.id,
           username: creds.username,
           password: creds.password,
           period_start: periodStart,
           period_end: periodEnd,
           action: isManual ? 'calculate' : undefined,
-        },
+        }),
       });
-      if (error) throw error;
+      const data = await _res.json();
       if (!data?.success) throw new Error(data?.error || 'Erro ao processar cashback');
       const result = data.data;
       if (result.awaiting_approval) {
@@ -295,16 +297,18 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
 
     setProcessing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('process-cashback', {
-        body: {
+      const _res = await fetch('/api/process-cashback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           rule_id: rule.id,
           username: creds.username,
           password: creds.password,
           action: 'credit',
           execution_id: executionId,
-        },
+        }),
       });
-      if (error) throw error;
+      const data = await _res.json();
       if (!data?.success) throw new Error(data?.error || 'Erro ao creditar cashback');
       const result = data.data;
       toast.success(`Cashback creditado: ${result.credited} jogadores | R$ ${Number(result.total_credited).toFixed(2)} total`);
@@ -335,10 +339,12 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
 
     const runIteration = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('process-cashback', {
-          body: { rule_id: rule.id, username: creds.username, password: creds.password },
+        const _res = await fetch('/api/process-cashback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rule_id: rule.id, username: creds.username, password: creds.password }),
         });
-        if (error) throw error;
+        const data = await _res.json();
         if (!data?.success) throw new Error(data?.error || 'Erro');
 
         queryClient.invalidateQueries({ queryKey: ['cashback-executions'] });
