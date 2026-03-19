@@ -43,7 +43,8 @@
       return false;
     }
     if (AUTH_SELECTOR) return !!document.querySelector(AUTH_SELECTOR);
-    return true;
+    // Default: só mostra para usuários logados (.menu-saldo-body só existe após login)
+    return !!document.querySelector('.menu-saldo-body');
   }
 
   let data = null;
