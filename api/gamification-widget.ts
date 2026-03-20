@@ -77,13 +77,16 @@ function buildPlatformHeaders(cookies: string, baseUrl: string): Record<string, 
   };
 }
 
-async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string>, cpf: string): Promise<string | null> {
+async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string>, cpf: string): Promise<{ uuid: string | null; debug: any }> {
   const userCols = ['username', 'celular', 'cpf', 'created_at', 'ultimo_login', 'situacao', 'uuid'];
-  // Try multiple strategies
+  const debugInfo: any[] = [];
+
+  // Strategy 1: Try /usuarios/listar with multiple search params
   const strategies = [
     { busca_cpf: cpf },
+    { busca_username: cpf },
     { 'search[value]': cpf },
-    { 'columns[2][search][value]': cpf }, // cpf is column index 2
+    { 'columns[2][search][value]': cpf },
   ];
   for (const extra of strategies) {
     try {
@@ -106,10 +109,44 @@ async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string
       });
       const text = await res.text();
       const data = JSON.parse(text);
-      if (data?.data?.length > 0) return data.data[0].uuid || null;
-    } catch {}
+      debugInfo.push({ strategy: extra, recordsTotal: data?.recordsTotal, recordsFiltered: data?.recordsFiltered, found: data?.data?.length, firstRow: data?.data?.[0] ? Object.keys(data.data[0]) : null });
+      if (data?.data?.length > 0) return { uuid: data.data[0].uuid || null, debug: debugInfo };
+    } catch (e: any) {
+      debugInfo.push({ strategy: extra, error: e.message });
+    }
   }
-  return null;
+
+  // Strategy 2: Try /usuarios/buscar endpoint directly
+  try {
+    const res = await fetch(`${baseUrl}/usuarios/buscar?q=${encodeURIComponent(cpf)}`, {
+      method: 'GET', headers, signal: AbortSignal.timeout(10000),
+    });
+    const text = await res.text();
+    debugInfo.push({ strategy: 'buscar', status: res.status, snippet: text.slice(0, 300) });
+    const data = JSON.parse(text);
+    if (Array.isArray(data) && data.length > 0) return { uuid: data[0].uuid || data[0].id || null, debug: debugInfo };
+    if (data?.data?.length > 0) return { uuid: data.data[0].uuid || null, debug: debugInfo };
+  } catch (e: any) {
+    debugInfo.push({ strategy: 'buscar', error: e.message });
+  }
+
+  // Strategy 3: Try /api/usuarios or /api/users
+  for (const path of ['/api/usuarios', '/api/users']) {
+    try {
+      const res = await fetch(`${baseUrl}${path}?cpf=${encodeURIComponent(cpf)}`, {
+        method: 'GET', headers, signal: AbortSignal.timeout(10000),
+      });
+      const text = await res.text();
+      debugInfo.push({ strategy: path, status: res.status, snippet: text.slice(0, 300) });
+      const data = JSON.parse(text);
+      if (Array.isArray(data) && data.length > 0) return { uuid: data[0].uuid || data[0].id || null, debug: debugInfo };
+      if (data?.data?.length > 0) return { uuid: data.data[0].uuid || null, debug: debugInfo };
+    } catch (e: any) {
+      debugInfo.push({ strategy: path, error: e.message });
+    }
+  }
+
+  return { uuid: null, debug: debugInfo };
 }
 
 async function creditBonusOnPlatform(baseUrl: string, headers: Record<string, string>, playerUuid: string, amount: number, password: string): Promise<{ success: boolean; msg?: string }> {
@@ -569,8 +606,10 @@ export default async function handler(req: Request): Promise<Response> {
         let saldo = 0, bonus = 0;
         let debug: any = { loginOk: login.success, loginDomain };
         // First find uuid by CPF
-        const uuid = await searchPlayerByCpf(loginDomain, headers2, playerCpf);
+        const searchResult = await searchPlayerByCpf(loginDomain, headers2, playerCpf);
+        const uuid = searchResult.uuid;
         debug.uuid = uuid;
+        debug.searchDebug = searchResult.debug;
         if (uuid) {
           // Fetch /usuarios/transacoes which returns carteiras
           const txRes = await fetch(`${loginDomain}/usuarios/transacoes?id=${uuid}`, {
@@ -677,7 +716,8 @@ export default async function handler(req: Request): Promise<Response> {
               const loginResult = await platformLogin(loginDomain, config.username, config.password, config.login_url);
               if (loginResult.success) {
                 const headers = buildPlatformHeaders(loginResult.cookies, loginDomain);
-                const playerUuid = await searchPlayerByCpf(loginDomain, headers, playerCpf);
+                const playerSearch = await searchPlayerByCpf(loginDomain, headers, playerCpf);
+                const playerUuid = playerSearch.uuid;
                 if (playerUuid) {
                   const creditResult = await creditBonusOnPlatform(loginDomain, headers, playerUuid, numericValue, config.password);
                   if (creditResult.success) {
