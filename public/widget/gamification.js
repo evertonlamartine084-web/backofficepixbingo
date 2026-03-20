@@ -677,12 +677,63 @@
     .pbg-gift-box:hover .pbg-gift-icon { transform: rotate(-10deg) scale(1.1); }
     .pbg-gift-label { font-size: 10px; color: #a1a1aa; margin-top: 4px; font-weight: 600; }
 
-    /* Store */
-    .pbg-store-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .pbg-store-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 12px; text-align: center; transition: border-color 0.2s; cursor: pointer; }
-    .pbg-store-item:hover { border-color: rgba(139,92,246,0.3); }
-    .pbg-store-item img { width: 48px; height: 48px; object-fit: contain; margin: 0 auto 8px; border-radius: 8px; }
+    /* Store — Redesign */
+    .pbg-store-filters { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
+    .pbg-store-filters::-webkit-scrollbar { display: none; }
+    .pbg-store-filter {
+      padding: 7px 14px; border-radius: 20px; font-size: 10px; font-weight: 700;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      color: #a1a1aa; cursor: pointer; white-space: nowrap; transition: all 0.2s; font-family: inherit;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .pbg-store-filter:hover { background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.2); }
+    .pbg-store-filter.active { background: linear-gradient(135deg, #8b5cf6, #6366f1); border-color: transparent; color: #fff; }
+    .pbg-store-section { display: flex; align-items: center; gap: 8px; margin: 16px 0 10px; }
+    .pbg-store-section-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); }
+    .pbg-store-section-title { font-size: 14px; font-weight: 700; color: #fff; flex: 1; }
+    .pbg-store-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+    .pbg-store-scroll::-webkit-scrollbar { display: none; }
+    .pbg-store-item {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px; overflow: hidden; cursor: pointer; flex-shrink: 0;
+      width: 160px; transition: border-color 0.2s, transform 0.15s; position: relative;
+    }
+    .pbg-store-item:hover { border-color: rgba(249,115,22,0.4); transform: translateY(-2px); }
     .pbg-store-item.greyed { opacity: 0.45; }
+    .pbg-store-item-img {
+      width: 100%; height: 120px; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%);
+      padding: 10px;
+    }
+    .pbg-store-item-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .pbg-store-item-discount {
+      position: absolute; top: 8px; right: 8px; padding: 3px 8px; border-radius: 4px;
+      font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+      background: #dc2626; color: #fff;
+    }
+    .pbg-store-item-body { padding: 8px 10px; }
+    .pbg-store-item-name { font-size: 12px; font-weight: 700; color: #fff; margin: 0 0 3px; line-height: 1.3; }
+    .pbg-store-item-desc { font-size: 10px; color: #71717a; margin: 0 0 8px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .pbg-store-item-footer { display: flex; align-items: center; gap: 6px; }
+    .pbg-store-item-price {
+      flex: 1; display: flex; align-items: center; gap: 4px; padding: 5px 8px;
+      border-radius: 6px; background: rgba(255,255,255,0.04);
+    }
+    .pbg-store-item-price-val { font-size: 11px; font-weight: 800; }
+    .pbg-store-item-price-lbl { font-size: 8px; font-weight: 600; text-transform: uppercase; }
+    .pbg-store-item-price-old { font-size: 9px; font-weight: 600; text-decoration: line-through; opacity: 0.6; }
+    .pbg-store-cart-btn {
+      width: 32px; height: 32px; border-radius: 6px; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #f97316, #ea580c); color: #fff;
+      transition: filter 0.2s; flex-shrink: 0;
+    }
+    .pbg-store-cart-btn:hover { filter: brightness(1.15); }
+    /* Price color variants */
+    .pbg-store-price-coins { color: #fbbf24; }
+    .pbg-store-price-diamonds { color: #22d3ee; }
+    .pbg-store-price-gems { color: #4ade80; }
+    .pbg-store-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
     /* Modal */
     .pbg-modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.7); z-index: 10; display: flex; align-items: center; justify-content: center; padding: 20px; animation: pbg-fade-in 0.2s ease; }
@@ -1706,26 +1757,105 @@
 
     const coins = data?.wallet?.coins || 0;
     const walletDiamonds = data?.wallet?.diamonds || 0;
-    let html = `<div class="pbg-store-grid">${items.map((item, idx) => {
+    const sFilter = window.__pbg_store_filter || 'all';
+
+    // Determine primary currency for each item
+    const getCurrency = (item) => {
+      if (item.price_diamonds > 0 && !item.price_coins) return 'diamonds';
+      if (item.price_xp > 0 && !item.price_coins && !item.price_diamonds) return 'gems';
+      return 'coins';
+    };
+
+    // Check if item has a discount (original prices stored in description or reward_description)
+    const getDiscount = (item) => {
+      if (item.discount_percent) return item.discount_percent;
+      return 0;
+    };
+
+    // Filter items
+    let filtered = items;
+    if (sFilter === 'offers') filtered = items.filter(i => getDiscount(i) > 0);
+    else if (sFilter === 'coins') filtered = items.filter(i => getCurrency(i) === 'coins');
+    else if (sFilter === 'diamonds') filtered = items.filter(i => getCurrency(i) === 'diamonds');
+    else if (sFilter === 'gems') filtered = items.filter(i => getCurrency(i) === 'gems');
+
+    // Group by currency
+    const groups = { coins: [], diamonds: [], gems: [] };
+    filtered.forEach(i => { const c = getCurrency(i); if (groups[c]) groups[c].push(i); });
+
+    // Promotional items (with discount)
+    const promos = filtered.filter(i => getDiscount(i) > 0);
+
+    // Render a single card
+    const renderCard = (item) => {
+      const idx = items.indexOf(item);
       const canAffordCoins = !item.price_coins || coins >= item.price_coins;
       const canAffordDiamonds = !item.price_diamonds || walletDiamonds >= item.price_diamonds;
       const canBuy = canAffordCoins && canAffordDiamonds;
       const outOfStock = item.stock !== null && item.stock !== undefined && item.stock <= 0;
+      const disc = getDiscount(item);
+      const cur = getCurrency(item);
+      const priceColors = { coins: 'pbg-store-price-coins', diamonds: 'pbg-store-price-diamonds', gems: 'pbg-store-price-gems' };
+      const curLabels = { coins: 'COINS', diamonds: 'DIAMONDS', gems: 'GEMS' };
+      const curIcons = { coins: inlIcon('coin',14), diamonds: inlIcon('diamond',14), gems: inlIcon('star',14) };
+      const price = item.price_coins || item.price_diamonds || item.price_xp || 0;
+      const origPrice = disc > 0 ? Math.round(price / (1 - disc / 100)) : 0;
+
       return `
         <div class="pbg-store-item ${!canBuy || outOfStock ? 'greyed' : ''}" onclick="window.__pbg('openStore',${idx})">
-          ${item.image_url ? `<img src="${item.image_url}" alt="${item.name}">` : '<div style="width:32px;height:32px;margin:0 auto 8px;color:#a78bfa">' + ICONS.giftbox + '</div>'}
-          <div style="font-size:12px;font-weight:600;color:#fff">${item.name}</div>
-          <div style="font-size:11px;font-weight:600;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap">
-            ${item.price_coins ? `<span style="color:#fbbf24">${inlIcon('coin',12)} ${item.price_coins}</span>` : ''}
-            ${item.price_diamonds ? `<span style="color:#22d3ee">${inlIcon('diamond',12)} ${item.price_diamonds}</span>` : ''}
-            ${item.price_xp ? `<span style="color:#818cf8">${inlIcon('star',12)} ${item.price_xp}</span>` : ''}
+          ${disc > 0 ? `<div class="pbg-store-item-discount">DESCONTO ${String(disc).padStart(2,'0')}%</div>` : ''}
+          <div class="pbg-store-item-img">
+            ${item.image_url ? `<img src="${item.image_url}" alt="${item.name}">` : '<div style="width:48px;height:48px;color:#a78bfa">' + ICONS.giftbox + '</div>'}
           </div>
-          ${outOfStock ? '<div style="font-size:10px;color:#f87171;margin-top:2px">Esgotado</div>' : ''}
-          ${!canAffordCoins && !outOfStock ? `<div style="font-size:10px;color:#f87171;margin-top:2px">Faltam ${item.price_coins - coins} moedas</div>` : ''}
-          ${!canAffordDiamonds && canAffordCoins && !outOfStock ? `<div style="font-size:10px;color:#f87171;margin-top:2px">Faltam ${item.price_diamonds - walletDiamonds} diamantes</div>` : ''}
+          <div class="pbg-store-item-body">
+            <div class="pbg-store-item-name">${item.name}</div>
+            <div class="pbg-store-item-desc">${item.description || ''}</div>
+            <div class="pbg-store-item-footer">
+              <div class="pbg-store-item-price ${priceColors[cur]}">
+                ${curIcons[cur]}
+                <div>
+                  ${disc > 0 ? `<div class="pbg-store-item-price-old">${origPrice.toLocaleString('pt-BR')}</div>` : ''}
+                  <div class="pbg-store-item-price-val">${price.toLocaleString('pt-BR')} <span class="pbg-store-item-price-lbl">${curLabels[cur]}</span></div>
+                </div>
+              </div>
+              <button class="pbg-store-cart-btn" onclick="event.stopPropagation();window.__pbg('openStore',${idx})">${inlIcon('cart',16)}</button>
+            </div>
+          </div>
         </div>
       `;
-    }).join('')}</div>`;
+    };
+
+    // Section renderer
+    const renderSection = (icon, title, itemsList) => {
+      if (!itemsList.length) return '';
+      return `
+        <div class="pbg-store-section">
+          <div class="pbg-store-section-icon">${icon}</div>
+          <div class="pbg-store-section-title">${title}</div>
+        </div>
+        <div class="pbg-store-scroll">${itemsList.map(i => renderCard(i)).join('')}</div>
+      `;
+    };
+
+    let html = `
+      <div class="pbg-store-filters">
+        <button class="pbg-store-filter ${sFilter === 'all' ? 'active' : ''}" onclick="window.__pbg_store_filter='all';window.__pbg('tab','store')">Todos</button>
+        <button class="pbg-store-filter ${sFilter === 'offers' ? 'active' : ''}" onclick="window.__pbg_store_filter='offers';window.__pbg('tab','store')">Ofertas</button>
+        <button class="pbg-store-filter ${sFilter === 'coins' ? 'active' : ''}" onclick="window.__pbg_store_filter='coins';window.__pbg('tab','store')">Coins</button>
+        <button class="pbg-store-filter ${sFilter === 'diamonds' ? 'active' : ''}" onclick="window.__pbg_store_filter='diamonds';window.__pbg('tab','store')">Diamantes</button>
+        <button class="pbg-store-filter ${sFilter === 'gems' ? 'active' : ''}" onclick="window.__pbg_store_filter='gems';window.__pbg('tab','store')">Gemas</button>
+      </div>
+    `;
+
+    if (sFilter === 'all') {
+      if (promos.length > 0) html += renderSection(inlIcon('zap',18), 'Promocionais', promos);
+      if (groups.coins.length > 0) html += renderSection(inlIcon('coin',18), 'Coins', groups.coins);
+      if (groups.diamonds.length > 0) html += renderSection(inlIcon('diamond',18), 'Diamonds', groups.diamonds);
+      if (groups.gems.length > 0) html += renderSection(inlIcon('star',18), 'Gems', groups.gems);
+    } else {
+      html += `<div class="pbg-store-scroll">${filtered.map(i => renderCard(i)).join('')}</div>`;
+      if (!filtered.length) html += '<div style="text-align:center;padding:30px;color:#52525b;font-size:12px">Nenhum item nesta categoria</div>';
+    }
 
     if (selectedStoreItem !== null) {
       const item = items[selectedStoreItem];
