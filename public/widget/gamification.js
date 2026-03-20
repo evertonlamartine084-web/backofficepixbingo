@@ -660,20 +660,44 @@
       .pbg-wheel-stage { width: 230px; height: 230px; }
     }
 
-    /* Mini Games */
-    .pbg-mg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    /* Mini Games — Card grid (reference design) */
+    .pbg-mg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .pbg-mg-card {
-      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 14px; padding: 16px; text-align: center; cursor: pointer;
-      transition: border-color 0.2s, transform 0.15s;
+      position: relative; border-radius: 14px; padding: 16px 14px; text-align: center; cursor: pointer;
+      background: linear-gradient(180deg, rgba(1,6,18,0.4) 0%, rgba(11,31,79,0.4) 100%);
+      border: 1.5px solid rgba(100,100,100,0.25);
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex; flex-direction: column; align-items: center;
     }
-    .pbg-mg-card:hover { border-color: rgba(139,92,246,0.3); transform: translateY(-2px); }
-    .pbg-mg-card.greyed { opacity: 0.45; pointer-events: none; }
+    .pbg-mg-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,0,0,0.3); }
+    .pbg-mg-card.greyed { opacity: 0.4; pointer-events: none; }
+    .pbg-mg-card-img {
+      width: 90px; height: 90px; object-fit: contain; margin-bottom: 8px;
+      transition: transform 0.3s;
+    }
+    .pbg-mg-card:hover .pbg-mg-card-img { transform: scale(1.06); }
     .pbg-mg-icon { font-size: 36px; margin-bottom: 8px; }
-    .pbg-mg-name { font-size: 13px; font-weight: 700; color: #fff; }
-    .pbg-mg-type { font-size: 10px; color: #71717a; margin-top: 2px; }
+    .pbg-mg-name { font-size: 14px; font-weight: 800; color: #fff; letter-spacing: 0.03em; }
+    .pbg-mg-type { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 2px; }
+    .pbg-mg-actions { display: flex; gap: 6px; width: 100%; margin-top: 12px; }
+    .pbg-mg-btn-free {
+      padding: 8px 14px; border-radius: 8px; background: rgb(38,45,65); color: #fff;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.04em; border: none; cursor: pointer;
+      transition: background 0.2s; font-family: inherit;
+    }
+    .pbg-mg-btn-free:hover { background: rgb(50,58,82); }
+    .pbg-mg-btn-open {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;
+      padding: 8px 12px; border-radius: 8px;
+      background: linear-gradient(135deg, #e85d3a, #f07040); color: #fff;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.04em; border: none; cursor: pointer;
+      transition: all 0.2s; box-shadow: 0 3px 10px rgba(232,93,58,0.3); font-family: inherit;
+    }
+    .pbg-mg-btn-open:hover { background: linear-gradient(135deg, #f06a48, #f58050); box-shadow: 0 4px 14px rgba(232,93,58,0.45); }
+    .pbg-mg-btn-open svg { width: 12px; height: 9px; flex-shrink: 0; }
     .pbg-mg-attempts { font-size: 10px; color: #a1a1aa; margin-top: 6px; }
     @keyframes pbg-bounce { 0%{transform:scale(0.5);opacity:0} 50%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
+
     /* Scratch Card */
     .pbg-scratch-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; max-width: 280px; margin: 0 auto; }
     .pbg-scratch-cell {
@@ -695,25 +719,33 @@
     }
     .pbg-scratch-inner.win { background: rgba(16,185,129,0.15); border: 2px solid rgba(16,185,129,0.3); }
     .pbg-scratch-inner.lose { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
-    /* Gift Box */
-    .pbg-gift-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; max-width: 280px; margin: 0 auto; }
+
+    /* Gift Box — Chest game (reference design) */
+    .pbg-gift-grid { display: flex; justify-content: center; gap: 12px; max-width: 320px; margin: 0 auto; }
     .pbg-gift-box {
-      aspect-ratio: 1; border-radius: 14px; cursor: pointer; position: relative;
-      background: linear-gradient(145deg, rgba(139,92,246,0.2), rgba(99,102,241,0.1));
-      border: 2px solid rgba(139,92,246,0.3);
+      width: 90px; height: 90px; border-radius: 14px; cursor: pointer; position: relative;
+      background: linear-gradient(145deg, rgba(80,80,90,0.3), rgba(40,40,50,0.4));
+      border: 2px solid rgba(120,120,130,0.3);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       transition: transform 0.2s, box-shadow 0.2s;
     }
-    .pbg-gift-box:hover { transform: scale(1.05); box-shadow: 0 4px 20px rgba(139,92,246,0.3); }
+    .pbg-gift-box:hover { transform: scale(1.06); box-shadow: 0 4px 16px rgba(200,200,210,0.15); }
     .pbg-gift-box.opened {
       background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08);
       cursor: default; transform: none;
     }
     .pbg-gift-box.opened:hover { transform: none; box-shadow: none; }
-    .pbg-gift-box.won { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); }
+    .pbg-gift-box.won { background: rgba(245,174,0,0.1); border-color: rgba(245,174,0,0.4); box-shadow: 0 0 20px rgba(245,174,0,0.2); }
     .pbg-gift-icon { font-size: 32px; transition: transform 0.3s; }
     .pbg-gift-box:hover .pbg-gift-icon { transform: rotate(-10deg) scale(1.1); }
-    .pbg-gift-label { font-size: 10px; color: #a1a1aa; margin-top: 4px; font-weight: 600; }
+    .pbg-gift-label { font-size: 9px; color: #a1a1aa; margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .pbg-gift-keys {
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      color: #f5ae00; font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
+      margin-top: 16px; text-transform: uppercase;
+    }
+    @keyframes pbg-chest-shake { 0%,100%{transform:translateY(0) rotate(0)} 20%{transform:translateY(-3px) rotate(-2deg)} 40%{transform:translateY(-5px) rotate(2deg)} 60%{transform:translateY(-3px) rotate(-1deg)} 80%{transform:translateY(-1px) rotate(1deg)} }
+    .pbg-chest-shaking { animation: pbg-chest-shake 0.5s ease-in-out; }
 
     /* Store — Redesign */
     .pbg-store-filters { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
@@ -1627,12 +1659,23 @@
       const typeIcons = { scratch_card: inlIcon('card',20), gift_box: inlIcon('giftbox',20), prize_drop: inlIcon('target',20) };
       const typeLabels = { scratch_card: 'Raspadinha', gift_box: 'Caixa Surpresa', prize_drop: 'Prize Drop' };
 
+      // Split game name for highlight styling (e.g., "FICHAS DOURADAS" → "FICHAS" white + "DOURADAS" gold)
+      const nameParts = game.name.split(' ');
+      const nameFirst = nameParts[0] || '';
+      const nameRest = nameParts.slice(1).join(' ');
+      const isChestGame = game.type === 'gift_box';
+
       let html = `
         <button onclick="window.__pbg('closeMiniGame')" style="background:none;border:none;color:#a1a1aa;font-size:13px;cursor:pointer;font-family:inherit;padding:0;margin-bottom:10px">← Voltar</button>
         <div style="text-align:center;margin-bottom:16px">
-          <div style="font-size:36px;margin-bottom:6px">${typeIcons[game.type] || inlIcon('gamepad',36)}</div>
-          <div style="font-size:16px;font-weight:700;color:#fff">${game.name}</div>
-          ${game.description ? `<div style="font-size:12px;color:#71717a;margin-top:4px">${game.description}</div>` : ''}
+          ${isChestGame ? `
+            <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.08em;text-transform:uppercase;line-height:1.2">${nameFirst}</div>
+            ${nameRest ? `<div style="font-size:22px;font-weight:900;color:#f5ae00;letter-spacing:0.08em;text-transform:uppercase;line-height:1.2">${nameRest}</div>` : ''}
+          ` : `
+            <div style="font-size:36px;margin-bottom:6px">${typeIcons[game.type] || inlIcon('gamepad',36)}</div>
+            <div style="font-size:16px;font-weight:700;color:#fff">${game.name}</div>
+            ${game.description ? `<div style="font-size:12px;color:#71717a;margin-top:4px">${game.description}</div>` : ''}
+          `}
         </div>
       `;
 
@@ -1678,9 +1721,18 @@
           }
         }
 
-        // Gift box game
+        // Gift box game — Chest style matching reference
         if (game.type === 'gift_box' && miniGameResult.game_data?.boxes) {
           const boxes = miniGameResult.game_data.boxes;
+          const CHEST_SVG = `<svg viewBox="0 0 200 180" width="70" height="70" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="cb" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8a8a8a"/><stop offset="30%" stop-color="#6b6b6b"/><stop offset="70%" stop-color="#4a4a4a"/><stop offset="100%" stop-color="#333"/></linearGradient><linearGradient id="cl" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#999"/><stop offset="50%" stop-color="#777"/><stop offset="100%" stop-color="#555"/></linearGradient><linearGradient id="ct" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#aaa"/><stop offset="50%" stop-color="#ccc"/><stop offset="100%" stop-color="#aaa"/></linearGradient><radialGradient id="lb" cx="50%" cy="40%" r="50%"><stop offset="0%" stop-color="#555"/><stop offset="100%" stop-color="#2a2a2a"/></radialGradient></defs><g><rect x="30" y="95" width="140" height="65" rx="6" fill="url(#cb)" stroke="#555" stroke-width="2"/><rect x="30" y="95" width="140" height="10" rx="3" fill="url(#ct)" opacity="0.7"/><rect x="30" y="150" width="140" height="10" rx="3" fill="url(#ct)" opacity="0.5"/><rect x="55" y="95" width="8" height="65" fill="url(#ct)" opacity="0.4"/><rect x="137" y="95" width="8" height="65" fill="url(#ct)" opacity="0.4"/><circle cx="40" cy="102" r="4" fill="url(#ct)"/><circle cx="160" cy="102" r="4" fill="url(#ct)"/><circle cx="40" cy="152" r="4" fill="url(#ct)"/><circle cx="160" cy="152" r="4" fill="url(#ct)"/><path d="M30 95 Q35 45 100 35 Q165 45 170 95 Z" fill="url(#cl)" stroke="#666" stroke-width="2"/><path d="M30 95 Q35 52 100 42 Q165 52 170 95" fill="none" stroke="url(#ct)" stroke-width="4" opacity="0.6"/><ellipse cx="100" cy="38" rx="20" ry="4" fill="url(#ct)" opacity="0.5"/><rect x="82" y="80" width="36" height="32" rx="5" fill="url(#lb)" stroke="#777" stroke-width="2"/><circle cx="100" cy="91" r="6" fill="#1a1a1a"/><rect x="97" y="91" width="6" height="10" rx="1" fill="#1a1a1a"/><path d="M90 82 Q90 72 100 72 Q110 72 110 82" fill="none" stroke="#888" stroke-width="3" stroke-linecap="round"/></g></svg>`;
+          const CHEST_OPEN_SVG = `<svg viewBox="0 0 200 180" width="70" height="70" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="cb2" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8a8a8a"/><stop offset="30%" stop-color="#6b6b6b"/><stop offset="70%" stop-color="#4a4a4a"/><stop offset="100%" stop-color="#333"/></linearGradient><linearGradient id="cl2" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#999"/><stop offset="50%" stop-color="#777"/><stop offset="100%" stop-color="#555"/></linearGradient><linearGradient id="ct2" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#aaa"/><stop offset="50%" stop-color="#ccc"/><stop offset="100%" stop-color="#aaa"/></linearGradient></defs><g><rect x="30" y="95" width="140" height="65" rx="6" fill="url(#cb2)" stroke="#555" stroke-width="2"/><rect x="30" y="95" width="140" height="10" rx="3" fill="url(#ct2)" opacity="0.7"/><rect x="30" y="150" width="140" height="10" rx="3" fill="url(#ct2)" opacity="0.5"/><g transform="rotate(-30, 100, 95)"><path d="M30 95 Q35 45 100 35 Q165 45 170 95 Z" fill="url(#cl2)" stroke="#666" stroke-width="2"/></g><ellipse cx="100" cy="95" rx="30" ry="10" fill="#ffe429" opacity="0.6"/></g></svg>`;
+
+          // Result message
+          if (giftBoxOpened !== null) {
+            const box = boxes[giftBoxOpened];
+            html += `<div style="text-align:center;font-size:16px;font-weight:700;color:${box.winning ? '#f5ae00' : 'rgba(255,255,255,0.7)'};margin-bottom:14px">${box.winning ? `${miniGameResult.prize?.icon || '🎉'} ${miniGameResult.prize?.label}!` : 'Tente novamente'}</div>`;
+          }
+
           html += `<div class="pbg-gift-grid">`;
           boxes.forEach((box, i) => {
             const opened = giftBoxOpened === i;
@@ -1688,30 +1740,20 @@
             const isWin = box.winning;
             html += `
               <div class="pbg-gift-box ${opened ? 'opened' : ''} ${opened && isWin ? 'won' : ''} ${otherOpened ? 'opened' : ''}"
-                   onclick="${giftBoxOpened === null ? `window.__pbg('openGiftBox',${i})` : ''}">
-                ${!opened && giftBoxOpened === null ? `
-                  <div class="pbg-gift-icon" style="width:32px;height:32px;color:#a78bfa">${ICONS.giftbox}</div>
-                  <div class="pbg-gift-label">Abrir</div>
-                ` : opened ? `
-                  <div style="font-size:24px;margin-bottom:4px">${isWin ? (box.prize?.icon || inlIcon('party',24)) : inlIcon('wind',24)}</div>
-                  <div style="font-size:10px;font-weight:700;color:${isWin ? '#34d399' : '#71717a'}">${box.prize?.label || (isWin ? 'Prêmio!' : 'Vazio')}</div>
-                ` : `
-                  <div class="pbg-gift-icon" style="opacity:0.3;width:32px;height:32px;color:#a78bfa">${ICONS.giftbox}</div>
-                `}
+                   onclick="${giftBoxOpened === null ? `window.__pbg('openGiftBox',${i})` : ''}"
+                   style="border:none;background:transparent;width:auto;height:auto">
+                ${opened
+                  ? (isWin ? CHEST_OPEN_SVG : `<div style="opacity:0.4">${CHEST_SVG}</div>`)
+                  : (otherOpened ? `<div style="opacity:0.3">${CHEST_SVG}</div>` : CHEST_SVG)
+                }
               </div>
             `;
           });
           html += `</div>`;
 
-          if (giftBoxOpened !== null) {
-            const box = boxes[giftBoxOpened];
-            html += `
-              <div style="text-align:center;margin-top:16px;padding:16px;background:${box.winning ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.03)'};border:1px solid ${box.winning ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.06)'};border-radius:12px">
-                <div style="font-size:24px;margin-bottom:6px">${box.winning ? inlIcon('party',24) : inlIcon('sad',24)}</div>
-                <div style="font-size:14px;font-weight:700;color:${box.winning ? '#34d399' : '#a1a1aa'}">${box.winning ? `Você ganhou: ${miniGameResult.prize?.label}!` : 'Tente novamente!'}</div>
-              </div>
-            `;
-          }
+          // Keys remaining
+          const keysLeft = Math.max(0, freeAtt - attToday);
+          html += `<div class="pbg-gift-keys">${inlIcon('key',14)} <span>${keysLeft} CHAVES RESTANTES</span></div>`;
         }
 
         // Prize Drop
@@ -1725,6 +1767,11 @@
           `;
         }
 
+        // Possible Prizes link (for gift_box games)
+        if (isChestGame && gamePrizes.length > 0) {
+          html += `<div style="text-align:center;margin-top:12px"><button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'flex':'none'" style="background:none;border:none;color:rgba(255,255,255,0.35);font-size:10px;font-weight:700;letter-spacing:0.1em;text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-family:inherit;text-transform:uppercase">POSSIBLE PRIZES</button><div style="display:none;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px">${gamePrizes.filter(p=>p.type!=='nothing').map(p=>`<span style="font-size:10px;padding:4px 8px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.6)">${p.icon||''} ${p.label}</span>`).join('')}</div></div>`;
+        }
+
         // Play again button
         html += `
           <div style="text-align:center;margin-top:16px">
@@ -1736,43 +1783,69 @@
         `;
       } else if (!miniGamePlaying) {
         // Show play button (initial state)
-        html += `
-          <div style="text-align:center;padding:20px">
-            ${gamePrizes.length > 0 ? `
-              <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#52525b;margin-bottom:10px">Prêmios possíveis</div>
-              <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:20px">
-                ${gamePrizes.filter(p => p.type !== 'nothing').map(p => `
-                  <span class="pbg-badge pbg-badge-${p.type}" style="font-size:11px">
-                    ${p.icon || ''} ${p.label}
-                  </span>
-                `).join('')}
+        if (isChestGame) {
+          // Chest game initial state — show 3 locked chests with "Escolha um baú"
+          const INIT_CHEST_SVG = `<svg viewBox="0 0 200 180" width="70" height="70" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="icb" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8a8a8a"/><stop offset="30%" stop-color="#6b6b6b"/><stop offset="70%" stop-color="#4a4a4a"/><stop offset="100%" stop-color="#333"/></linearGradient><linearGradient id="icl" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#999"/><stop offset="50%" stop-color="#777"/><stop offset="100%" stop-color="#555"/></linearGradient><linearGradient id="ict" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#aaa"/><stop offset="50%" stop-color="#ccc"/><stop offset="100%" stop-color="#aaa"/></linearGradient><radialGradient id="ilb" cx="50%" cy="40%" r="50%"><stop offset="0%" stop-color="#555"/><stop offset="100%" stop-color="#2a2a2a"/></radialGradient></defs><g><rect x="30" y="95" width="140" height="65" rx="6" fill="url(#icb)" stroke="#555" stroke-width="2"/><rect x="30" y="95" width="140" height="10" rx="3" fill="url(#ict)" opacity="0.7"/><rect x="30" y="150" width="140" height="10" rx="3" fill="url(#ict)" opacity="0.5"/><rect x="55" y="95" width="8" height="65" fill="url(#ict)" opacity="0.4"/><rect x="137" y="95" width="8" height="65" fill="url(#ict)" opacity="0.4"/><circle cx="40" cy="102" r="4" fill="url(#ict)"/><circle cx="160" cy="102" r="4" fill="url(#ict)"/><circle cx="40" cy="152" r="4" fill="url(#ict)"/><circle cx="160" cy="152" r="4" fill="url(#ict)"/><path d="M30 95 Q35 45 100 35 Q165 45 170 95 Z" fill="url(#icl)" stroke="#666" stroke-width="2"/><path d="M30 95 Q35 52 100 42 Q165 52 170 95" fill="none" stroke="url(#ict)" stroke-width="4" opacity="0.6"/><ellipse cx="100" cy="38" rx="20" ry="4" fill="url(#ict)" opacity="0.5"/><rect x="82" y="80" width="36" height="32" rx="5" fill="url(#ilb)" stroke="#777" stroke-width="2"/><circle cx="100" cy="91" r="6" fill="#1a1a1a"/><rect x="97" y="91" width="6" height="10" rx="1" fill="#1a1a1a"/><path d="M90 82 Q90 72 100 72 Q110 72 110 82" fill="none" stroke="#888" stroke-width="3" stroke-linecap="round"/></g></svg>`;
+          html += `
+            <div style="text-align:center;padding:10px 0 16px">
+              <div style="display:flex;justify-content:center;gap:12px;margin-bottom:16px">
+                ${INIT_CHEST_SVG}${INIT_CHEST_SVG}${INIT_CHEST_SVG}
               </div>
-            ` : ''}
-            <button class="pbg-modal-btn" ${!PLAYER_CPF || maxReached ? 'disabled' : ''}
-                    onclick="window.__pbg('playMiniGame','${game.id}')">
-              ${!PLAYER_CPF ? 'Faça login' : maxReached ? 'Limite atingido' : `${typeIcons[game.type] || inlIcon('gamepad',14)} Jogar`}
-            </button>
-            ${!isFree && game.attempt_cost_coins > 0 && !maxReached ? `<div style="font-size:11px;color:#fbbf24;margin-top:8px">${inlIcon('coin',12)} Custo: ${game.attempt_cost_coins} moedas</div>` : ''}
-          </div>
-        `;
+              <div class="pbg-gift-keys">${inlIcon('key',14)} <span>${Math.max(0, freeAtt - attToday)} CHAVES RESTANTES</span></div>
+              <div style="margin-top:16px">
+                <button class="pbg-modal-btn" ${!PLAYER_CPF || maxReached ? 'disabled' : ''}
+                        onclick="window.__pbg('playMiniGame','${game.id}')">
+                  ${!PLAYER_CPF ? 'Faça login' : maxReached ? 'Limite atingido' : inlIcon('key',14)+' Jogar'}
+                </button>
+              </div>
+              ${!isFree && game.attempt_cost_coins > 0 && !maxReached ? `<div style="font-size:11px;color:#fbbf24;margin-top:8px">${inlIcon('coin',12)} Custo: ${game.attempt_cost_coins} moedas</div>` : ''}
+            </div>
+          `;
+        } else {
+          html += `
+            <div style="text-align:center;padding:20px">
+              ${gamePrizes.length > 0 ? `
+                <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:#52525b;margin-bottom:10px">Prêmios possíveis</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:20px">
+                  ${gamePrizes.filter(p => p.type !== 'nothing').map(p => `
+                    <span class="pbg-badge pbg-badge-${p.type}" style="font-size:11px">
+                      ${p.icon || ''} ${p.label}
+                    </span>
+                  `).join('')}
+                </div>
+              ` : ''}
+              <button class="pbg-modal-btn" ${!PLAYER_CPF || maxReached ? 'disabled' : ''}
+                      onclick="window.__pbg('playMiniGame','${game.id}')">
+                ${!PLAYER_CPF ? 'Faça login' : maxReached ? 'Limite atingido' : `${typeIcons[game.type] || inlIcon('gamepad',14)} Jogar`}
+              </button>
+              ${!isFree && game.attempt_cost_coins > 0 && !maxReached ? `<div style="font-size:11px;color:#fbbf24;margin-top:8px">${inlIcon('coin',12)} Custo: ${game.attempt_cost_coins} moedas</div>` : ''}
+            </div>
+          `;
+        }
       } else {
         // Loading / playing
         html += `<div style="text-align:center;padding:40px"><div style="width:24px;height:24px;border:2px solid #8b5cf6;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto"></div><div style="font-size:12px;color:#71717a;margin-top:12px">Jogando...</div></div>`;
       }
 
-      // Attempts info
-      html += `
-        <div style="display:flex;justify-content:center;gap:12px;margin-top:12px">
-          <span class="pbg-spin-tag" style="color:${isFree ? '#34d399' : '#f87171'}">${inlIcon('ticket',12)} Grátis: ${Math.max(0, freeAtt - attToday)}/${freeAtt}</span>
-          ${maxAtt > 0 ? `<span class="pbg-spin-tag" style="color:${maxReached ? '#f87171' : '#a1a1aa'}">${inlIcon('dice',12)} ${attToday}/${maxAtt}</span>` : ''}
-          ${coins > 0 ? `<span class="pbg-spin-tag" style="color:#fbbf24">${inlIcon('coin',12)} ${coins}</span>` : ''}
-        </div>
-      `;
+      // Attempts info — chest style for gift_box, classic for others
+      if (!isChestGame) {
+        html += `
+          <div style="display:flex;justify-content:center;gap:12px;margin-top:12px">
+            <span class="pbg-spin-tag" style="color:${isFree ? '#34d399' : '#f87171'}">${inlIcon('ticket',12)} Grátis: ${Math.max(0, freeAtt - attToday)}/${freeAtt}</span>
+            ${maxAtt > 0 ? `<span class="pbg-spin-tag" style="color:${maxReached ? '#f87171' : '#a1a1aa'}">${inlIcon('dice',12)} ${attToday}/${maxAtt}</span>` : ''}
+            ${coins > 0 ? `<span class="pbg-spin-tag" style="color:#fbbf24">${inlIcon('coin',12)} ${coins}</span>` : ''}
+          </div>
+        `;
+      }
 
       return html;
     }
 
-    // Game selection grid
+    // Game selection grid — reference design with chest image & action buttons
+    const CHEST_IMG = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
+    const OPEN_ICON_SVG = '<svg width="12" height="9" viewBox="0 0 23 17" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.36797 0.236328L11.168 1.37919L19.968 0.236328L22.168 4.80776L19.968 5.46133L14.468 7.09347L12.488 3.6649L11.168 1.37919L9.84797 3.6649L7.86797 7.09347L2.36797 5.46133L0.167969 4.80776L2.36797 0.236328ZM2.36797 13.9506V6.65061L7.56547 8.19347L8.37672 8.43276L8.80984 7.68276L11.1302 3.6649H11.2058L13.5261 7.68276L13.9592 8.43276L14.7705 8.19347L19.968 6.65061V13.9506L11.168 16.2363L2.36797 13.9506Z" fill="white"/></svg>';
+    const typeLabels = { scratch_card: 'Raspadinha', gift_box: 'Baú de Fichas Douradas', prize_drop: 'Prize Drop' };
+
     let html = '<div class="pbg-mg-grid">';
     games.forEach(game => {
       const att = attempts.find(a => a.game_id === game.id);
@@ -1781,16 +1854,24 @@
       const freeAtt = game.free_attempts_per_day || 1;
       const freeLeft = Math.max(0, freeAtt - attToday);
       const maxReached = maxAtt > 0 && attToday >= maxAtt;
-      const typeIcons = { scratch_card: inlIcon('card',20), gift_box: inlIcon('giftbox',20), prize_drop: inlIcon('target',20) };
-      const typeLabels = { scratch_card: 'Raspadinha', gift_box: 'Caixa Surpresa', prize_drop: 'Prize Drop' };
+
+      const isChest = game.type === 'gift_box';
+      const imgSrc = isChest ? CHEST_IMG : '';
 
       html += `
         <div class="pbg-mg-card ${maxReached ? 'greyed' : ''}" onclick="window.__pbg('openMiniGame','${game.id}')">
-          <div class="pbg-mg-icon">${typeIcons[game.type] || inlIcon('gamepad',36)}</div>
+          ${isChest
+            ? `<img class="pbg-mg-card-img" src="${imgSrc}" alt="${game.name}" draggable="false" loading="lazy" />`
+            : `<div class="pbg-mg-icon">${game.type === 'scratch_card' ? inlIcon('card',36) : game.type === 'prize_drop' ? inlIcon('target',36) : inlIcon('gamepad',36)}</div>`
+          }
           <div class="pbg-mg-name">${game.name}</div>
-          <div class="pbg-mg-type">${typeLabels[game.type] || game.type}</div>
-          <div class="pbg-mg-attempts" style="color:${maxReached ? '#f87171' : freeLeft > 0 ? '#34d399' : '#a1a1aa'}">
-            ${maxReached ? 'Limite atingido' : freeLeft > 0 ? inlIcon('ticket',12)+` ${freeLeft} grátis` : inlIcon('coin',12)+` ${game.attempt_cost_coins || 0} moedas`}
+          <div class="pbg-mg-type">${game.description || typeLabels[game.type] || game.type}</div>
+          <div class="pbg-mg-actions">
+            ${freeLeft > 0 ? `<button class="pbg-mg-btn-free" onclick="event.stopPropagation();window.__pbg('openMiniGame','${game.id}')">GRÁTIS</button>` : ''}
+            <button class="pbg-mg-btn-open" onclick="event.stopPropagation();window.__pbg('openMiniGame','${game.id}')">
+              ${OPEN_ICON_SVG}
+              <span>ABRIR (${freeLeft})</span>
+            </button>
           </div>
         </div>
       `;
