@@ -2083,21 +2083,30 @@
         ${arrowSvg}
       `;
 
-      // Populate dropdown
-      // Read platform balances from .currency-dropdown > .balance-item elements
+      // Populate dropdown — read platform balances
       let saldoReal = 'R$ 0,00';
       let saldoBonus = 'B$ 0,00';
       try {
-        const balItems = document.querySelectorAll('.currency-dropdown .balance-item');
+        // Method 1: .currency-dropdown .balance-item (dropdown may be hidden)
+        const balItems = document.querySelectorAll('.currency-dropdown .balance-item, .balance-item');
         balItems.forEach(el => {
           const val = el.querySelector('.balance-value');
           const lbl = el.querySelector('.balance-label');
           if (val && lbl) {
-            const label = lbl.textContent.trim().toUpperCase();
-            if (label.includes('REAL')) saldoReal = val.textContent.trim();
-            else if (label.includes('BÔNUS') || label.includes('BONUS')) saldoBonus = val.textContent.trim();
+            const label = lbl.innerText.trim().toUpperCase();
+            const value = val.innerText.trim().replace(/\s+/g, ' ');
+            if (label.includes('REAL') && value) saldoReal = value;
+            else if ((label.includes('BÔNUS') || label.includes('BONUS')) && value) saldoBonus = value;
           }
         });
+        // Method 2: look for elements containing R$ and B$ patterns
+        if (saldoReal === 'R$ 0,00') {
+          document.querySelectorAll('[class*="saldo"], [class*="balance"], [class*="Balance"]').forEach(el => {
+            const txt = el.innerText.trim();
+            if (txt.match(/^R\$?\s*[\d.,]+/) && !el.closest('#pbg-widget-panel')) saldoReal = txt;
+            if (txt.match(/^B\$?\s*[\d.,]+/) && !el.closest('#pbg-widget-panel')) saldoBonus = txt;
+          });
+        }
       } catch {}
 
       const ddEl = document.getElementById('pbg-wallet-dropdown');
