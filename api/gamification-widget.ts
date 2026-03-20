@@ -109,7 +109,7 @@ async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string
       });
       const text = await res.text();
       const data = JSON.parse(text);
-      debugInfo.push({ strategy: extra, recordsTotal: data?.recordsTotal, recordsFiltered: data?.recordsFiltered, found: data?.data?.length, firstRow: data?.data?.[0] ? Object.keys(data.data[0]) : null });
+      debugInfo.push({ strategy: extra, recordsTotal: data?.recordsTotal, recordsFiltered: data?.recordsFiltered, found: data?.data?.length, firstRow: data?.data?.[0] ? Object.keys(data.data[0]) : null, snippet: text.slice(0, 400) });
       if (data?.data?.length > 0) return { uuid: data.data[0].uuid || null, debug: debugInfo };
     } catch (e: any) {
       debugInfo.push({ strategy: extra, error: e.message });
