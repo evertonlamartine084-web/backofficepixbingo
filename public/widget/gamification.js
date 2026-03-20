@@ -441,7 +441,7 @@
         radial-gradient(1px 1px at 70% 35%, rgba(255,255,255,0.5) 0%, transparent 100%);
     }
     .pbg-wheel-stage {
-      position: relative; width: 250px; height: 250px; margin: 6px auto 10px;
+      position: relative; width: 250px; height: 250px; margin: 10px auto 20px;
     }
     /* Blue neon outer ring — rotates slowly (idle) */
     .pbg-wheel-ring-outer {
@@ -526,7 +526,7 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
       text-shadow: none;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
-      padding: 0; margin: 0 0 24px;
+      padding: 0; margin: 10px 0 30px;
       position: relative; z-index: 1;
     }
     .pbg-spin-info {
@@ -543,7 +543,7 @@
       text-align: center; padding: 8px 12px; border-radius: 10px;
       background: linear-gradient(135deg, rgba(212,160,23,0.15), rgba(0,100,255,0.08));
       border: 1px solid rgba(212,160,23,0.3);
-      animation: pbg-scale-in 0.35s ease; margin: 0 0 4px;
+      animation: pbg-scale-in 0.35s ease; margin: 0 0 16px;
     }
     .pbg-spin-result-prize { font-size: 18px; font-weight: 800; color: #f7d86c; margin-top: 2px; }
     .pbg-spin-cost-badge {
