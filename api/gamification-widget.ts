@@ -606,12 +606,9 @@ export default async function handler(req: Request): Promise<Response> {
           'X-Requested-With': 'XMLHttpRequest',
         };
         let saldo = 0, bonus = 0;
-        let debug: any = { loginOk: login.success, loginDomain };
         // First find uuid by CPF
         const searchResult = await searchPlayerByCpf(loginDomain, headers2, playerCpf);
         const uuid = searchResult.uuid;
-        debug.uuid = uuid;
-        debug.searchDebug = searchResult.debug;
         if (uuid) {
           // Fetch /usuarios/transacoes which returns carteiras
           const txRes = await fetch(`${loginDomain}/usuarios/transacoes?id=${uuid}`, {
@@ -620,10 +617,7 @@ export default async function handler(req: Request): Promise<Response> {
           const txText = await txRes.text();
           let txData: any;
           try { txData = JSON.parse(txText); } catch { txData = null; }
-          debug.txKeys = txData ? Object.keys(txData) : null;
-          debug.txSnippet = txText.slice(0, 500);
           const carteiras = txData?.carteiras;
-          debug.carteiras = carteiras;
           // Parse BR currency format: "4.279,46" → 4279.46
           const parseBR = (v: any): number => {
             if (typeof v === 'number') return v;
@@ -651,7 +645,7 @@ export default async function handler(req: Request): Promise<Response> {
             }
           }
         }
-        return new Response(JSON.stringify({ saldo, bonus, debug }), {
+        return new Response(JSON.stringify({ saldo, bonus }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } catch (e: any) {
