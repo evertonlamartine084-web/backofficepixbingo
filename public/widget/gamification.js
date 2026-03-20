@@ -688,53 +688,57 @@
     }
     .pbg-store-filter:hover { background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.2); }
     .pbg-store-filter.active { background: linear-gradient(135deg, #8b5cf6, #6366f1); border-color: transparent; color: #fff; }
-    .pbg-store-section { display: flex; align-items: center; gap: 8px; margin: 16px 0 10px; }
-    .pbg-store-section-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); }
-    .pbg-store-section-title { font-size: 14px; font-weight: 700; color: #fff; flex: 1; }
+    .pbg-store-section { display: flex; align-items: center; gap: 10px; margin: 20px 0 12px; }
+    .pbg-store-section-icon { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(99,102,241,0.15)); color: #a78bfa; }
+    .pbg-store-section-title { font-size: 15px; font-weight: 700; color: #f1f1f1; flex: 1; }
     .pbg-store-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
     .pbg-store-scroll::-webkit-scrollbar { display: none; }
     .pbg-store-item {
-      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 12px; overflow: hidden; cursor: pointer; flex-shrink: 0;
-      width: 160px; transition: border-color 0.2s, transform 0.15s; position: relative;
+      background: linear-gradient(165deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
+      border: 1.5px solid rgba(255,255,255,0.12);
+      border-radius: 14px; overflow: hidden; cursor: pointer; flex-shrink: 0;
+      width: 165px; transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s; position: relative;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
     }
-    .pbg-store-item:hover { transform: translateY(-2px); }
-    .pbg-store-item.pbg-store-coins { border-color: rgba(217,119,6,0.3); }
-    .pbg-store-item.pbg-store-coins:hover { border-color: rgba(217,119,6,0.5); }
-    .pbg-store-item.pbg-store-diamonds { border-color: rgba(6,182,212,0.3); }
-    .pbg-store-item.pbg-store-diamonds:hover { border-color: rgba(6,182,212,0.5); }
-    .pbg-store-item.pbg-store-gems { border-color: rgba(74,222,128,0.3); }
-    .pbg-store-item.pbg-store-gems:hover { border-color: rgba(74,222,128,0.5); }
+    .pbg-store-item:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+    .pbg-store-item.pbg-store-coins { border-color: rgba(251,191,36,0.45); }
+    .pbg-store-item.pbg-store-coins:hover { border-color: rgba(251,191,36,0.7); box-shadow: 0 4px 20px rgba(251,191,36,0.15); }
+    .pbg-store-item.pbg-store-diamonds { border-color: rgba(34,211,238,0.45); }
+    .pbg-store-item.pbg-store-diamonds:hover { border-color: rgba(34,211,238,0.7); box-shadow: 0 4px 20px rgba(34,211,238,0.15); }
+    .pbg-store-item.pbg-store-gems { border-color: rgba(74,222,128,0.45); }
+    .pbg-store-item.pbg-store-gems:hover { border-color: rgba(74,222,128,0.7); box-shadow: 0 4px 20px rgba(74,222,128,0.15); }
     .pbg-store-item.greyed { opacity: 0.45; }
     .pbg-store-item-img {
-      width: 100%; height: 120px; display: flex; align-items: center; justify-content: center;
-      background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%);
+      width: 100%; height: 130px; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(180deg, rgba(139,92,246,0.08) 0%, rgba(255,255,255,0.02) 100%);
       padding: 10px;
     }
-    .pbg-store-item-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .pbg-store-item-img img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4)); }
     .pbg-store-item-discount {
-      position: absolute; top: 8px; right: 8px; padding: 3px 8px; border-radius: 4px;
-      font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
-      background: #dc2626; color: #fff;
+      position: absolute; top: 8px; right: 8px; padding: 4px 10px; border-radius: 6px;
+      font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+      background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff;
+      box-shadow: 0 2px 8px rgba(220,38,38,0.4);
     }
-    .pbg-store-item-body { padding: 8px 10px; }
-    .pbg-store-item-name { font-size: 12px; font-weight: 700; color: #fff; margin: 0 0 3px; line-height: 1.3; }
-    .pbg-store-item-desc { font-size: 10px; color: #71717a; margin: 0 0 8px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-    .pbg-store-item-footer { display: flex; align-items: center; gap: 6px; }
+    .pbg-store-item-body { padding: 10px 12px; }
+    .pbg-store-item-name { font-size: 13px; font-weight: 700; color: #f1f1f1; margin: 0 0 4px; line-height: 1.3; }
+    .pbg-store-item-desc { font-size: 10px; color: #a1a1aa; margin: 0 0 10px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .pbg-store-item-footer { display: flex; align-items: center; gap: 8px; }
     .pbg-store-item-price {
-      flex: 1; display: flex; align-items: center; gap: 4px; padding: 5px 8px;
-      border-radius: 6px; background: rgba(255,255,255,0.04);
+      flex: 1; display: flex; align-items: center; gap: 5px; padding: 6px 10px;
+      border-radius: 8px; background: rgba(255,255,255,0.07);
     }
-    .pbg-store-item-price-val { font-size: 11px; font-weight: 800; }
-    .pbg-store-item-price-lbl { font-size: 8px; font-weight: 600; text-transform: uppercase; }
-    .pbg-store-item-price-old { font-size: 9px; font-weight: 600; text-decoration: line-through; opacity: 0.6; }
+    .pbg-store-item-price-val { font-size: 13px; font-weight: 800; }
+    .pbg-store-item-price-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; }
+    .pbg-store-item-price-old { font-size: 10px; font-weight: 600; text-decoration: line-through; opacity: 0.5; }
     .pbg-store-cart-btn {
-      width: 32px; height: 32px; border-radius: 6px; border: none; cursor: pointer;
+      width: 36px; height: 36px; border-radius: 8px; border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       background: linear-gradient(135deg, #f97316, #ea580c); color: #fff;
-      transition: filter 0.2s; flex-shrink: 0;
+      transition: filter 0.2s, transform 0.15s; flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(249,115,22,0.4);
     }
-    .pbg-store-cart-btn:hover { filter: brightness(1.15); }
+    .pbg-store-cart-btn:hover { filter: brightness(1.15); transform: scale(1.05); }
     /* Price color variants */
     .pbg-store-price-coins { color: #fbbf24; }
     .pbg-store-price-diamonds { color: #22d3ee; }
