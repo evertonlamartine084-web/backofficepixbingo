@@ -624,17 +624,31 @@ export default async function handler(req: Request): Promise<Response> {
           debug.txSnippet = txText.slice(0, 500);
           const carteiras = txData?.carteiras;
           debug.carteiras = carteiras;
+          // Parse BR currency format: "4.279,46" → 4279.46
+          const parseBR = (v: any): number => {
+            if (typeof v === 'number') return v;
+            if (!v) return 0;
+            return Number(String(v).replace(/\./g, '').replace(',', '.')) || 0;
+          };
+
           if (Array.isArray(carteiras)) {
             for (const c of carteiras) {
               const nome = (c.carteira || c.nome || c.tipo || '').toUpperCase();
-              const val = Number(c.saldo || c.valor || 0);
+              const val = parseBR(c.saldo || c.valor);
               if (nome.includes('BONUS')) bonus = val;
-              else if (nome.includes('REAL') || nome.includes('PRINCIPAL') || nome === 'CREDITO') saldo = val;
-              else if (!nome.includes('BONUS') && saldo === 0) saldo = val;
+              else if (nome.includes('PREMIO') || nome.includes('CREDITO') || nome.includes('REAL') || nome.includes('PRINCIPAL')) {
+                saldo += val;
+              }
             }
           } else if (carteiras && typeof carteiras === 'object') {
-            saldo = Number(carteiras.saldo || carteiras.real || carteiras.credito || 0);
-            bonus = Number(carteiras.bonus || carteiras.saldo_bonus || 0);
+            // Direct key format: { CREDITO: "0,00", BONUS: "4.279,46", PREMIO: "207,71" }
+            for (const [key, val] of Object.entries(carteiras)) {
+              const k = key.toUpperCase();
+              if (k.includes('BONUS')) bonus = parseBR(val);
+              else if (k === 'PREMIO' || k === 'CREDITO' || k === 'REAL' || k === 'SALDO') {
+                saldo += parseBR(val);
+              }
+            }
           }
         }
         return new Response(JSON.stringify({ saldo, bonus, debug }), {
