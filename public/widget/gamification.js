@@ -2083,75 +2083,44 @@
         ${arrowSvg}
       `;
 
-      // Populate dropdown — read platform balances
-      let saldoReal = 'R$ 0,00';
-      let saldoBonus = 'B$ 0,00';
-      try {
-        // Method 1: .currency-dropdown .balance-item (dropdown may be hidden)
-        const balItems = document.querySelectorAll('.currency-dropdown .balance-item, .balance-item');
-        balItems.forEach(el => {
-          const val = el.querySelector('.balance-value');
-          const lbl = el.querySelector('.balance-label');
-          if (val && lbl) {
-            const label = lbl.innerText.trim().toUpperCase();
-            const value = val.innerText.trim().replace(/\s+/g, ' ');
-            if (label.includes('REAL') && value) saldoReal = value;
-            else if ((label.includes('BÔNUS') || label.includes('BONUS')) && value) saldoBonus = value;
-          }
-        });
-        // Method 2: look for elements containing R$ and B$ patterns
-        if (saldoReal === 'R$ 0,00') {
-          document.querySelectorAll('[class*="saldo"], [class*="balance"], [class*="Balance"]').forEach(el => {
-            const txt = el.innerText.trim();
-            if (txt.match(/^R\$?\s*[\d.,]+/) && !el.closest('#pbg-widget-panel')) saldoReal = txt;
-            if (txt.match(/^B\$?\s*[\d.,]+/) && !el.closest('#pbg-widget-panel')) saldoBonus = txt;
-          });
-        }
-        // Method 3: bonus balance in .float-end.ms-2 (platform specific)
-        if (saldoBonus === 'B$ 0,00') {
-          const bonusEl = document.querySelector('.float-end.ms-2, span.float-end');
-          if (bonusEl && !bonusEl.closest('#pbg-widget-panel')) {
-            const v = bonusEl.innerText.trim().replace(/\s+/g, '');
-            if (v.match(/[\d.,]+/)) saldoBonus = 'B$ ' + v;
-          }
-        }
-      } catch {}
-
+      // Dropdown is populated on-click via refreshWalletDropdown()
       const ddEl = document.getElementById('pbg-wallet-dropdown');
       if (ddEl) {
         const coinSvgLg = coinSvg.replace('pbg-counter-coin-icon', 'pbg-counter-coin-icon" style="width:28px;height:28px');
         const diamondSvgLg = diamondSvg.replace('pbg-counter-diamond-icon', 'pbg-counter-diamond-icon" style="width:22px;height:28px');
         const gemSvgLg = gemSvg.replace('pbg-counter-gem-icon', 'pbg-counter-gem-icon" style="width:28px;height:28px');
+        // Store SVGs for reuse in refreshWalletDropdown
+        window.__pbg_dd_svgs = { coinSvgLg, diamondSvgLg, gemSvgLg };
         ddEl.innerHTML = `
-          <div class="pbg-wallet-dd-item">
+          <div class="pbg-wallet-dd-item" id="pbg-dd-saldo-real">
             <div class="pbg-wallet-dd-icon" style="font-size:18px;font-weight:800;color:#10b981">R$</div>
             <div class="pbg-wallet-dd-info">
-              <div class="pbg-wallet-dd-val">${saldoReal}</div>
+              <div class="pbg-wallet-dd-val">R$ 0,00</div>
               <div class="pbg-wallet-dd-lbl">SALDO REAL</div>
             </div>
           </div>
-          <div class="pbg-wallet-dd-item">
+          <div class="pbg-wallet-dd-item" id="pbg-dd-saldo-bonus">
             <div class="pbg-wallet-dd-icon" style="font-size:18px;font-weight:800;color:#f59e0b">B$</div>
             <div class="pbg-wallet-dd-info">
-              <div class="pbg-wallet-dd-val">${saldoBonus}</div>
+              <div class="pbg-wallet-dd-val">B$ 0,00</div>
               <div class="pbg-wallet-dd-lbl">SALDO BÔNUS</div>
             </div>
           </div>
-          <div class="pbg-wallet-dd-item">
+          <div class="pbg-wallet-dd-item" id="pbg-dd-coins">
             <div class="pbg-wallet-dd-icon">${coinSvgLg}</div>
             <div class="pbg-wallet-dd-info">
               <div class="pbg-wallet-dd-val" style="color:#fbbf24">${coins.toLocaleString('pt-BR')}</div>
               <div class="pbg-wallet-dd-lbl">COINS</div>
             </div>
           </div>
-          <div class="pbg-wallet-dd-item">
+          <div class="pbg-wallet-dd-item" id="pbg-dd-diamonds">
             <div class="pbg-wallet-dd-icon">${diamondSvgLg}</div>
             <div class="pbg-wallet-dd-info">
               <div class="pbg-wallet-dd-val" style="color:#22d3ee">${diamonds.toLocaleString('pt-BR')}</div>
               <div class="pbg-wallet-dd-lbl">DIAMONDS</div>
             </div>
           </div>
-          <div class="pbg-wallet-dd-item">
+          <div class="pbg-wallet-dd-item" id="pbg-dd-gems">
             <div class="pbg-wallet-dd-icon">${gemSvgLg}</div>
             <div class="pbg-wallet-dd-info">
               <div class="pbg-wallet-dd-val" style="color:#4ade80">${xp.toLocaleString('pt-BR')}</div>
@@ -2239,7 +2208,7 @@
           </div>
         </div>
         <div class="pbg-counters-wrapper">
-          <div class="pbg-counters-row" id="pbg-counters-row" onclick="this.classList.toggle('open');document.getElementById('pbg-wallet-dropdown').classList.toggle('open')"></div>
+          <div class="pbg-counters-row" id="pbg-counters-row" onclick="window.__pbg('toggleWallet')"></div>
           <div class="pbg-wallet-dropdown" id="pbg-wallet-dropdown"></div>
         </div>
       </div>
@@ -2296,7 +2265,64 @@
 
     // Global handler
     window.__pbg = async (action, arg) => {
-      if (action === 'toggle') toggle(arg);
+      if (action === 'toggleWallet') {
+        const cr = document.getElementById('pbg-counters-row');
+        const dd = document.getElementById('pbg-wallet-dropdown');
+        if (cr && dd) {
+          const opening = !dd.classList.contains('open');
+          cr.classList.toggle('open');
+          dd.classList.toggle('open');
+          if (opening) {
+            // Read balances fresh from platform DOM
+            let sReal = 'R$ 0,00', sBonus = 'B$ 0,00';
+            try {
+              // Method 1: .balance-item
+              document.querySelectorAll('.currency-dropdown .balance-item, .balance-item').forEach(el => {
+                const v = el.querySelector('.balance-value');
+                const l = el.querySelector('.balance-label');
+                if (v && l) {
+                  const lbl = l.innerText.trim().toUpperCase();
+                  const val = v.innerText.trim().replace(/\s+/g, ' ');
+                  if (lbl.includes('REAL') && val) sReal = val;
+                  else if ((lbl.includes('BÔNUS') || lbl.includes('BONUS')) && val) sBonus = val;
+                }
+              });
+              // Method 2: .float-end.ms-2 for bonus
+              if (sBonus === 'B$ 0,00') {
+                const be = document.querySelector('.float-end.ms-2, span.float-end');
+                if (be && !be.closest('#pbg-widget-panel')) {
+                  const bv = be.innerText.trim().replace(/\s+/g, '');
+                  if (bv.match(/[\d.,]+/)) sBonus = 'B$ ' + bv;
+                }
+              }
+              // Method 3: menu-saldo-body for real balance
+              if (sReal === 'R$ 0,00') {
+                const ms = document.querySelector('.menu-saldo-body');
+                if (ms) {
+                  const txt = ms.innerText.trim();
+                  if (txt.match(/[\d.,]+/)) sReal = 'R$ ' + txt.match(/[\d.,]+/)[0];
+                }
+              }
+            } catch {}
+            // Update dropdown values
+            const realEl = dd.querySelector('#pbg-dd-saldo-real .pbg-wallet-dd-val');
+            const bonusEl = dd.querySelector('#pbg-dd-saldo-bonus .pbg-wallet-dd-val');
+            if (realEl) realEl.textContent = sReal;
+            if (bonusEl) bonusEl.textContent = sBonus;
+            // Update coins/diamonds/gems from data
+            if (data?.wallet) {
+              const ddCoins = dd.querySelector('#pbg-dd-coins .pbg-wallet-dd-val');
+              const ddDiam = dd.querySelector('#pbg-dd-diamonds .pbg-wallet-dd-val');
+              const ddGems = dd.querySelector('#pbg-dd-gems .pbg-wallet-dd-val');
+              if (ddCoins) ddCoins.textContent = (data.wallet.coins || 0).toLocaleString('pt-BR');
+              if (ddDiam) ddDiam.textContent = (data.wallet.diamonds || 0).toLocaleString('pt-BR');
+              if (ddGems) ddGems.textContent = (data.wallet.xp || 0).toLocaleString('pt-BR');
+            }
+          }
+        }
+        return;
+      }
+      else if (action === 'toggle') toggle(arg);
       else if (action === 'tab') { activeTab = arg; selectedStoreItem = null; storeMessage = null; selectedTournament = null; selectedMission = null; selectedMiniGame = null; miniGameResult = null; miniGamePlaying = false; scratchRevealed = []; giftBoxOpened = null; renderContent(); }
       else if (action === 'spin') spinWheel();
       else if (action === 'openTournament') { selectedTournament = arg; renderContent(); }
