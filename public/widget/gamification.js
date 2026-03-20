@@ -2107,6 +2107,14 @@
             if (txt.match(/^B\$?\s*[\d.,]+/) && !el.closest('#pbg-widget-panel')) saldoBonus = txt;
           });
         }
+        // Method 3: bonus balance in .float-end.ms-2 (platform specific)
+        if (saldoBonus === 'B$ 0,00') {
+          const bonusEl = document.querySelector('.float-end.ms-2, span.float-end');
+          if (bonusEl && !bonusEl.closest('#pbg-widget-panel')) {
+            const v = bonusEl.innerText.trim().replace(/\s+/g, '');
+            if (v.match(/[\d.,]+/)) saldoBonus = 'B$ ' + v;
+          }
+        }
       } catch {}
 
       const ddEl = document.getElementById('pbg-wallet-dropdown');
