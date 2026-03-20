@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, ShoppingBag, Trash2, Coins, Star } from 'lucide-react';
+import { Plus, ShoppingBag, Trash2, Coins, Star, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,14 +26,21 @@ const REWARD_TYPES = [
   { value: 'coupon', label: 'Cupom / Voucher (manual)' },
 ];
 
+const emptyForm = {
+  name: '', description: '', image_url: '', price_coins: '', price_diamonds: '', price_xp: '',
+  category: 'geral', stock: '', min_level: '1',
+  reward_type: 'bonus', reward_value: '', reward_description: '', discount_percent: '',
+};
+
+const categoryLabel: Record<string, string> = {
+  geral: 'Geral', bonus: 'Bônus', cosmetico: 'Cosmético', vip: 'VIP', torneio: 'Torneio',
+};
+
 export default function Store() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: '', description: '', image_url: '', price_coins: '', price_diamonds: '', price_xp: '',
-    category: 'geral', stock: '', min_level: '1',
-    reward_type: 'bonus', reward_value: '', reward_description: '', discount_percent: '',
-  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ ...emptyForm });
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ['store_items'],
@@ -44,10 +51,10 @@ export default function Store() {
     },
   });
 
-  const createMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async () => {
       if (!form.name) throw new Error('Preencha o nome');
-      const { error } = await supabase.from('store_items').insert({
+      const payload = {
         name: form.name,
         description: form.description,
         image_url: form.image_url || null,
@@ -61,14 +68,20 @@ export default function Store() {
         reward_value: form.reward_value || null,
         reward_description: form.reward_description || null,
         discount_percent: parseInt(form.discount_percent) || 0,
-      } as any);
-      if (error) throw error;
+      } as any;
+
+      if (editingId) {
+        const { error } = await supabase.from('store_items').update(payload).eq('id', editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('store_items').insert(payload);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['store_items'] });
-      toast.success('Item criado');
-      setOpen(false);
-      setForm({ name: '', description: '', image_url: '', price_coins: '', price_diamonds: '', price_xp: '', category: 'geral', stock: '', min_level: '1', reward_type: 'bonus', reward_value: '', reward_description: '', discount_percent: '' });
+      toast.success(editingId ? 'Item atualizado' : 'Item criado');
+      closeDialog();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -79,6 +92,7 @@ export default function Store() {
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['store_items'] }); toast.success('Status atualizado'); },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const deleteMutation = useMutation({
@@ -87,11 +101,40 @@ export default function Store() {
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['store_items'] }); toast.success('Item excluído'); },
+    onError: (e: Error) => toast.error('Erro ao excluir: ' + e.message),
   });
 
-  const categoryLabel: Record<string, string> = {
-    geral: 'Geral', bonus: 'Bônus', cosmetico: 'Cosmético', vip: 'VIP', torneio: 'Torneio',
-  };
+  function closeDialog() {
+    setOpen(false);
+    setEditingId(null);
+    setForm({ ...emptyForm });
+  }
+
+  function openEdit(item: any) {
+    setEditingId(item.id);
+    setForm({
+      name: item.name || '',
+      description: item.description || '',
+      image_url: item.image_url || '',
+      price_coins: item.price_coins ? String(item.price_coins) : '',
+      price_diamonds: item.price_diamonds ? String(item.price_diamonds) : '',
+      price_xp: item.price_xp ? String(item.price_xp) : '',
+      category: item.category || 'geral',
+      stock: item.stock !== null && item.stock !== undefined ? String(item.stock) : '',
+      min_level: item.min_level ? String(item.min_level) : '1',
+      reward_type: item.reward_type || 'bonus',
+      reward_value: item.reward_value || '',
+      reward_description: item.reward_description || '',
+      discount_percent: item.discount_percent ? String(item.discount_percent) : '',
+    });
+    setOpen(true);
+  }
+
+  function openCreate() {
+    setEditingId(null);
+    setForm({ ...emptyForm });
+    setOpen(true);
+  }
 
   return (
     <div className="space-y-6">
@@ -102,7 +145,7 @@ export default function Store() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Itens que os jogadores podem trocar por moedas ou XP</p>
         </div>
-        <Button onClick={() => setOpen(true)} className="gap-2 gradient-primary border-0">
+        <Button onClick={openCreate} className="gap-2 gradient-primary border-0">
           <Plus className="w-4 h-4" /> Novo Item
         </Button>
       </div>
@@ -128,6 +171,7 @@ export default function Store() {
                       <h3 className="font-semibold text-sm truncate">{item.name}</h3>
                       <Badge variant="outline" className="text-[10px]">{categoryLabel[item.category] || item.category}</Badge>
                       {!item.active && <Badge variant="outline" className="text-[10px] text-muted-foreground">Inativo</Badge>}
+                      {item.discount_percent > 0 && <Badge className="text-[10px] bg-red-600 text-white border-0">-{item.discount_percent}%</Badge>}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{item.description || '—'}</p>
                     <div className="flex items-center gap-4 mt-2 text-[11px] text-muted-foreground">
@@ -150,6 +194,9 @@ export default function Store() {
                 </div>
                 <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-border">
                   <Switch checked={item.active} onCheckedChange={(active) => toggleMutation.mutate({ id: item.id, active })} />
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { if (confirm('Excluir item?')) deleteMutation.mutate(item.id); }}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -160,9 +207,9 @@ export default function Store() {
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(v) => { if (!v) closeDialog(); else setOpen(true); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Novo Item da Loja</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingId ? 'Editar Item' : 'Novo Item da Loja'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
               <Label className="text-xs">Nome</Label>
@@ -176,7 +223,7 @@ export default function Store() {
               <Label className="text-xs">URL da imagem (opcional)</Label>
               <Input value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} placeholder="https://..." className="mt-1" />
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
                 <Label className="text-xs">Preço (moedas)</Label>
                 <Input type="number" value={form.price_coins} onChange={e => setForm(f => ({ ...f, price_coins: e.target.value }))} placeholder="0" className="mt-1" />
@@ -213,7 +260,6 @@ export default function Store() {
                 <Input type="number" value={form.min_level} onChange={e => setForm(f => ({ ...f, min_level: e.target.value }))} placeholder="1" className="mt-1" />
               </div>
             </div>
-            {/* O que o jogador recebe */}
             <div className="border-t border-border pt-4 mt-2">
               <p className="text-sm font-semibold text-foreground mb-3">O que o jogador recebe ao resgatar?</p>
               <div className="grid grid-cols-2 gap-3">
@@ -238,8 +284,10 @@ export default function Store() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending} className="gradient-primary border-0">Criar Item</Button>
+            <Button variant="outline" onClick={closeDialog}>Cancelar</Button>
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="gradient-primary border-0">
+              {editingId ? 'Salvar' : 'Criar Item'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
