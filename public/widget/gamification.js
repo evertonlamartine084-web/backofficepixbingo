@@ -420,9 +420,9 @@
 
     /* Wheel — Donald Bet Style */
     .pbg-wheel-container {
-      display: flex; flex-direction: column; align-items: center; gap: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
       background: radial-gradient(ellipse at 50% 30%, #0a2a5e 0%, #060e2a 55%, #020510 100%);
-      margin: 0; padding: 10px 16px 16px; position: relative;
+      margin: 0; padding: 16px 16px 20px; position: relative;
       min-height: 100%;
     }
     /* Stars overlay */
@@ -526,13 +526,13 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
       text-shadow: none;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
-      padding: 0; margin: 16px 0 8px;
+      padding: 0; margin: 0 0 20px;
       position: relative; z-index: 1;
     }
     .pbg-spin-info {
       font-size: 11px; color: #a1a1aa; text-align: center;
       display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
-      margin-top: 4px; padding-bottom: 12px;
+      margin-top: 20px; padding-bottom: 0;
     }
     .pbg-spin-tag {
       display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px;
