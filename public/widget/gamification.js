@@ -210,7 +210,7 @@
     }
 
     .pbg-content { flex: 1; overflow-y: auto; padding: 16px; min-height: 0; }
-    .pbg-content.pbg-no-pad { padding: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
+    .pbg-content.pbg-no-pad { padding: 0; overflow-y: auto; overflow-x: hidden; }
     .pbg-content::-webkit-scrollbar { width: 4px; }
     .pbg-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
@@ -420,10 +420,10 @@
 
     /* Wheel — Donald Bet Style */
     .pbg-wheel-container {
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+      display: flex; flex-direction: column; align-items: center; gap: 0;
       background: radial-gradient(ellipse at 50% 30%, #0a2a5e 0%, #060e2a 55%, #020510 100%);
-      border-radius: 0; margin: 0; padding: 10px 20px 12px; position: relative;
-      flex: 1; min-height: 0;
+      margin: 0; padding: 10px 16px 16px; position: relative;
+      min-height: 100%;
     }
     /* Stars overlay */
     .pbg-wheel-container::before {
@@ -441,7 +441,7 @@
         radial-gradient(1px 1px at 70% 35%, rgba(255,255,255,0.5) 0%, transparent 100%);
     }
     .pbg-wheel-stage {
-      position: relative; width: 240px; height: 240px; margin: 24px auto 20px;
+      position: relative; width: 270px; height: 270px; margin: 10px auto 14px;
     }
     /* Blue neon outer ring — rotates slowly (idle) */
     .pbg-wheel-ring-outer {
@@ -552,7 +552,7 @@
       background: rgba(245,158,11,0.08); color: #fbbf24; border: 1px solid rgba(245,158,11,0.15);
     }
     @media (max-width: 420px) {
-      .pbg-wheel-stage { width: 220px; height: 220px; }
+      .pbg-wheel-stage { width: 250px; height: 250px; }
     }
 
     /* Mini Games */
