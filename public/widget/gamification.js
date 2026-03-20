@@ -420,7 +420,7 @@
 
     /* Wheel — Donald Bet Style */
     .pbg-wheel-container {
-      display: flex; flex-direction: column; align-items: center; gap: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
       background: radial-gradient(ellipse at 50% 30%, #0a2a5e 0%, #060e2a 55%, #020510 100%);
       border-radius: 0; margin: 0; padding: 10px 20px 12px; position: relative;
       flex: 1; min-height: 0;
