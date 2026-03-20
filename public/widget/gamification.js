@@ -1762,6 +1762,27 @@
     el.classList.toggle('pbg-no-pad', activeTab === 'wheel');
     el.scrollTop = 0;
 
+    // Live countdown timer for wheel tab
+    if (window.__pbg_wheel_timer) { clearInterval(window.__pbg_wheel_timer); window.__pbg_wheel_timer = null; }
+    if (activeTab === 'wheel') {
+      window.__pbg_wheel_timer = setInterval(() => {
+        const timerEl = document.querySelector('.pbg-wheel-timer-countdown');
+        if (!timerEl) return;
+        const now = new Date();
+        const midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
+        const ms = midnight - now;
+        const hrs = Math.floor(ms / 3600000);
+        const mins = Math.floor((ms % 3600000) / 60000);
+        const secs = Math.floor((ms % 60000) / 1000);
+        const blocks = timerEl.querySelectorAll('.pbg-timer-num');
+        if (blocks.length === 3) {
+          blocks[0].textContent = String(hrs).padStart(2, '0');
+          blocks[1].textContent = String(mins).padStart(2, '0');
+          blocks[2].textContent = String(secs).padStart(2, '0');
+        }
+      }, 1000);
+    }
+
     // Update nav tabs
     document.querySelectorAll('.pbg-nav-item').forEach(item => item.classList.toggle('active', item.dataset.tab === activeTab));
 
