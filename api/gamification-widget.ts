@@ -78,29 +78,37 @@ function buildPlatformHeaders(cookies: string, baseUrl: string): Record<string, 
 }
 
 async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string>, cpf: string): Promise<string | null> {
-  const params = new URLSearchParams({ draw: '1', start: '0', length: '1', busca_cpf: cpf });
   const userCols = ['username', 'celular', 'cpf', 'created_at', 'ultimo_login', 'situacao', 'uuid'];
-  userCols.forEach((col, i) => {
-    params.set(`columns[${i}][data]`, col);
-    params.set(`columns[${i}][name]`, '');
-    params.set(`columns[${i}][searchable]`, 'true');
-    params.set(`columns[${i}][orderable]`, 'true');
-    params.set(`columns[${i}][search][value]`, '');
-    params.set(`columns[${i}][search][regex]`, 'false');
-  });
-  params.set('order[0][column]', '0');
-  params.set('order[0][dir]', 'asc');
-  params.set('search[value]', '');
-  params.set('search[regex]', 'false');
-
-  try {
-    const res = await fetch(`${baseUrl}/usuarios/listar?${params.toString()}`, {
-      method: 'GET', headers, signal: AbortSignal.timeout(15000),
-    });
-    const text = await res.text();
-    const data = JSON.parse(text);
-    if (data?.data?.length > 0) return data.data[0].uuid || null;
-  } catch {}
+  // Try multiple strategies
+  const strategies = [
+    { busca_cpf: cpf },
+    { 'search[value]': cpf },
+    { 'columns[2][search][value]': cpf }, // cpf is column index 2
+  ];
+  for (const extra of strategies) {
+    try {
+      const params = new URLSearchParams({ draw: '1', start: '0', length: '5' });
+      userCols.forEach((col, i) => {
+        params.set(`columns[${i}][data]`, col);
+        params.set(`columns[${i}][name]`, '');
+        params.set(`columns[${i}][searchable]`, 'true');
+        params.set(`columns[${i}][orderable]`, 'true');
+        params.set(`columns[${i}][search][value]`, '');
+        params.set(`columns[${i}][search][regex]`, 'false');
+      });
+      params.set('order[0][column]', '0');
+      params.set('order[0][dir]', 'asc');
+      params.set('search[value]', '');
+      params.set('search[regex]', 'false');
+      for (const [k, v] of Object.entries(extra)) params.set(k, v);
+      const res = await fetch(`${baseUrl}/usuarios/listar?${params.toString()}`, {
+        method: 'GET', headers, signal: AbortSignal.timeout(15000),
+      });
+      const text = await res.text();
+      const data = JSON.parse(text);
+      if (data?.data?.length > 0) return data.data[0].uuid || null;
+    } catch {}
+  }
   return null;
 }
 
