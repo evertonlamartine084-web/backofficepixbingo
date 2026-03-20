@@ -441,7 +441,7 @@
         radial-gradient(1px 1px at 70% 35%, rgba(255,255,255,0.5) 0%, transparent 100%);
     }
     .pbg-wheel-stage {
-      position: relative; width: 270px; height: 270px; margin: 8px auto 18px;
+      position: relative; width: 250px; height: 250px; margin: 6px auto 10px;
     }
     /* Blue neon outer ring — rotates slowly (idle) */
     .pbg-wheel-ring-outer {
@@ -506,8 +506,8 @@
     .pbg-hub-icon { color: #fff; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; }
     /* Spin info / timer */
     .pbg-wheel-timer-banner {
-      text-align: center; padding: 10px 16px 4px; color: #fbbf24;
-      font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+      text-align: center; padding: 6px 16px 2px; color: #fbbf24;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
     }
     .pbg-wheel-timer-countdown {
       display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px;
@@ -516,7 +516,7 @@
       background: rgba(0,0,0,0.5); border: 1px solid rgba(255,193,7,0.3);
       border-radius: 6px; padding: 3px 8px; min-width: 36px; text-align: center;
     }
-    .pbg-timer-num { font-size: 16px; font-weight: 800; color: #fbbf24; line-height: 1; }
+    .pbg-timer-num { font-size: 14px; font-weight: 800; color: #fbbf24; line-height: 1; }
     .pbg-timer-lbl { font-size: 8px; color: #92400e; text-transform: uppercase; letter-spacing: 0.05em; }
     .pbg-timer-sep { font-size: 18px; font-weight: 800; color: #fbbf24; line-height: 1; margin-top: -4px; }
     /* ROLETA DIÁRIA banner */
@@ -526,13 +526,13 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
       text-shadow: none;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
-      padding: 0; margin: 0 0 50px;
+      padding: 0; margin: 0 0 14px;
       position: relative; z-index: 1;
     }
     .pbg-spin-info {
       font-size: 11px; color: #a1a1aa; text-align: center;
       display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
-      margin-top: 50px; padding-bottom: 0;
+      margin-top: 10px; padding-bottom: 0;
     }
     .pbg-spin-tag {
       display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px;
@@ -540,19 +540,19 @@
       background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
     }
     .pbg-spin-result {
-      text-align: center; padding: 14px 16px; border-radius: 14px;
+      text-align: center; padding: 8px 12px; border-radius: 10px;
       background: linear-gradient(135deg, rgba(212,160,23,0.15), rgba(0,100,255,0.08));
       border: 1px solid rgba(212,160,23,0.3);
-      animation: pbg-scale-in 0.35s ease; margin: 0 0 8px;
+      animation: pbg-scale-in 0.35s ease; margin: 0 0 4px;
     }
-    .pbg-spin-result-prize { font-size: 22px; font-weight: 800; color: #f7d86c; margin-top: 4px; }
+    .pbg-spin-result-prize { font-size: 18px; font-weight: 800; color: #f7d86c; margin-top: 2px; }
     .pbg-spin-cost-badge {
       display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
       border-radius: 8px; font-size: 11px; font-weight: 600;
       background: rgba(245,158,11,0.08); color: #fbbf24; border: 1px solid rgba(245,158,11,0.15);
     }
     @media (max-width: 420px) {
-      .pbg-wheel-stage { width: 250px; height: 250px; }
+      .pbg-wheel-stage { width: 230px; height: 230px; }
     }
 
     /* Mini Games */
