@@ -567,7 +567,16 @@ export default async function handler(req: Request): Promise<Response> {
           'X-Requested-With': 'XMLHttpRequest',
         };
         let saldo = 0, bonus = 0;
-        let debug: any = {};
+        let debug: any = { loginOk: login.success, baseUrl };
+        // Quick test: try listing users to see if auth works
+        try {
+          const testRes = await fetch(`${baseUrl}/usuarios/listar?draw=1&start=0&length=1&busca_cpf=${playerCpf}`, {
+            headers: headers2, signal: AbortSignal.timeout(10000),
+          });
+          const testTxt = await testRes.text();
+          debug.listStatus = testRes.status;
+          debug.listSnippet = testTxt.slice(0, 300);
+        } catch (e: any) { debug.listError = e.message; }
         // First find uuid by CPF
         const uuid = await searchPlayerByCpf(baseUrl, headers2, playerCpf);
         debug.uuid = uuid;
