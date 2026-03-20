@@ -334,15 +334,16 @@
     /* Tournament — Smartico style */
     /* ---- Tournament Hero Banner ---- */
     .pbg-t-hero { position: relative; border-radius: 14px; overflow: hidden; margin-bottom: 14px; }
-    .pbg-t-hero-img { width: 100%; height: 160px; object-fit: cover; display: block; }
+    .pbg-t-hero-img { width: 100%; height: 180px; object-fit: cover; display: block; }
     .pbg-t-hero-grad { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(12,10,26,0.95) 0%, rgba(12,10,26,0.4) 40%, transparent 70%); }
-    .pbg-t-hero-body { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 14px; display: flex; align-items: flex-end; gap: 10px; z-index: 1; flex-wrap: wrap; }
+    .pbg-t-hero-body { position: absolute; bottom: 0; left: 0; right: 0; padding: 10px 12px; display: flex; align-items: flex-end; gap: 8px; z-index: 1; flex-wrap: wrap; }
     .pbg-t-hero-info { flex: 1; min-width: 0; }
     .pbg-t-hero-name { font-size: 14px; font-weight: 800; color: #fff; text-transform: uppercase; margin: 0 0 2px; }
     .pbg-t-hero-prize { font-size: 12px; color: #a1a1aa; }
     .pbg-t-hero-prize span { color: #22d3ee; font-weight: 700; }
     .pbg-t-hero-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-    .pbg-t-hero-cd { display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.5); border-radius: 8px; padding: 6px 10px; }
+    .pbg-t-hero-cd { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.5); border-radius: 8px; padding: 6px 10px; }
+    .pbg-t-hero-cd > div { text-align: center; }
     .pbg-t-hero-cd-num { font-size: 12px; font-weight: 800; color: #fff; min-width: 18px; text-align: center; }
     .pbg-t-hero-cd-lbl { font-size: 7px; color: #71717a; text-transform: uppercase; }
     .pbg-t-hero-cd-sep { color: #52525b; font-weight: 800; font-size: 12px; }
@@ -1148,7 +1149,7 @@
 
           <!-- Info -->
           <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-top:none;border-radius:0 0 14px 14px;padding:14px">
-            <div class="pbg-t-title">${t.name}</div>
+            <div class="pbg-t-title" style="font-size:16px;text-align:left">${t.name}</div>
             ${t.description ? `<div class="pbg-t-desc">${t.description}</div>` : ''}
 
             <!-- Countdown -->
