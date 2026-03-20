@@ -558,21 +558,28 @@ export default async function handler(req: Request): Promise<Response> {
           'Accept': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
         };
-        // Fetch financeiro-geral for this player
-        const fgParams = new URLSearchParams({
-          'columns[0][data]': 'cpf', 'columns[0][search][value]': playerCpf,
-          'start': '0', 'length': '1',
-        });
         let saldo = 0, bonus = 0;
-        const fgRes = await fetch(`${baseUrl}/financeiro-geral/listar?${fgParams.toString()}`, {
-          headers: headers2, signal: AbortSignal.timeout(10000),
-        });
-        const fgData = await fgRes.json();
-        const totais = fgData?.totais;
-        const totaisObj = Array.isArray(totais) ? totais[0] : totais;
-        if (totaisObj) {
-          saldo = Number(totaisObj.saldo || totaisObj.credito || 0);
-          bonus = Number(totaisObj.bonus || totaisObj.saldo_bonus || 0);
+        // First find uuid by CPF
+        const uuid = await findPlayerUuid(baseUrl, headers2, playerCpf);
+        if (uuid) {
+          // Fetch /usuarios/transacoes which returns carteiras
+          const txRes = await fetch(`${baseUrl}/usuarios/transacoes?id=${uuid}`, {
+            headers: headers2, signal: AbortSignal.timeout(10000),
+          });
+          const txData = await txRes.json();
+          const carteiras = txData?.carteiras;
+          if (Array.isArray(carteiras)) {
+            for (const c of carteiras) {
+              const nome = (c.carteira || c.nome || c.tipo || '').toUpperCase();
+              const val = Number(c.saldo || c.valor || 0);
+              if (nome.includes('BONUS')) bonus = val;
+              else if (nome.includes('REAL') || nome.includes('PRINCIPAL') || nome === 'CREDITO') saldo = val;
+              else if (!nome.includes('BONUS') && saldo === 0) saldo = val;
+            }
+          } else if (carteiras && typeof carteiras === 'object') {
+            saldo = Number(carteiras.saldo || carteiras.real || carteiras.credito || 0);
+            bonus = Number(carteiras.bonus || carteiras.saldo_bonus || 0);
+          }
         }
         return new Response(JSON.stringify({ saldo, bonus }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
