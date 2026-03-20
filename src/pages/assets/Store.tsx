@@ -26,8 +26,14 @@ const REWARD_TYPES = [
   { value: 'coupon', label: 'Cupom / Voucher (manual)' },
 ];
 
+const CURRENCY_OPTIONS = [
+  { value: 'coins', label: 'Moedas (Coins)' },
+  { value: 'diamonds', label: 'Diamantes' },
+  { value: 'xp', label: 'XP (Gemas)' },
+];
+
 const emptyForm = {
-  name: '', description: '', image_url: '', price_coins: '', price_diamonds: '', price_xp: '',
+  name: '', description: '', image_url: '', currency: 'coins', price: '',
   category: 'geral', stock: '', min_level: '1',
   reward_type: 'bonus', reward_value: '', reward_description: '', discount_percent: '',
 };
@@ -54,13 +60,14 @@ export default function Store() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!form.name) throw new Error('Preencha o nome');
+      const priceVal = parseInt(form.price) || 0;
       const payload = {
         name: form.name,
         description: form.description,
         image_url: form.image_url || null,
-        price_coins: parseInt(form.price_coins) || 0,
-        price_diamonds: parseInt(form.price_diamonds) || 0,
-        price_xp: parseInt(form.price_xp) || 0,
+        price_coins: form.currency === 'coins' ? priceVal : 0,
+        price_diamonds: form.currency === 'diamonds' ? priceVal : 0,
+        price_xp: form.currency === 'xp' ? priceVal : 0,
         category: form.category,
         stock: form.stock ? parseInt(form.stock) : null,
         min_level: parseInt(form.min_level) || 1,
@@ -112,13 +119,18 @@ export default function Store() {
 
   function openEdit(item: any) {
     setEditingId(item.id);
+    // Detectar moeda principal do item
+    let currency = 'coins';
+    let price = '';
+    if (item.price_diamonds > 0) { currency = 'diamonds'; price = String(item.price_diamonds); }
+    else if (item.price_xp > 0 && !item.price_coins) { currency = 'xp'; price = String(item.price_xp); }
+    else if (item.price_coins > 0) { currency = 'coins'; price = String(item.price_coins); }
     setForm({
       name: item.name || '',
       description: item.description || '',
       image_url: item.image_url || '',
-      price_coins: item.price_coins ? String(item.price_coins) : '',
-      price_diamonds: item.price_diamonds ? String(item.price_diamonds) : '',
-      price_xp: item.price_xp ? String(item.price_xp) : '',
+      currency,
+      price,
       category: item.category || 'geral',
       stock: item.stock !== null && item.stock !== undefined ? String(item.stock) : '',
       min_level: item.min_level ? String(item.min_level) : '1',
@@ -175,9 +187,9 @@ export default function Store() {
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{item.description || '—'}</p>
                     <div className="flex items-center gap-4 mt-2 text-[11px] text-muted-foreground">
-                      {item.price_coins > 0 && <span className="flex items-center gap-1"><Coins className="w-3 h-3 text-amber-400" />{item.price_coins.toLocaleString()}</span>}
-                      {item.price_diamonds > 0 && <span className="flex items-center gap-1 text-cyan-400">◆ {item.price_diamonds.toLocaleString()}</span>}
-                      {item.price_xp > 0 && <span className="flex items-center gap-1"><Star className="w-3 h-3 text-primary" />{item.price_xp.toLocaleString()} XP</span>}
+                      {item.price_coins > 0 && <span className="flex items-center gap-1"><Coins className="w-3 h-3 text-amber-400" />{item.price_coins.toLocaleString()} moedas</span>}
+                      {item.price_diamonds > 0 && !item.price_coins && <span className="flex items-center gap-1 text-cyan-400">◆ {item.price_diamonds.toLocaleString()} diamantes</span>}
+                      {item.price_xp > 0 && !item.price_coins && !item.price_diamonds && <span className="flex items-center gap-1"><Star className="w-3 h-3 text-primary" />{item.price_xp.toLocaleString()} XP</span>}
                       {item.stock !== null && <span>Estoque: {item.stock}</span>}
                       <span>Nível mín: {item.min_level}</span>
                     </div>
@@ -223,18 +235,19 @@ export default function Store() {
               <Label className="text-xs">URL da imagem (opcional)</Label>
               <Input value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} placeholder="https://..." className="mt-1" />
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label className="text-xs">Preço (moedas)</Label>
-                <Input type="number" value={form.price_coins} onChange={e => setForm(f => ({ ...f, price_coins: e.target.value }))} placeholder="0" className="mt-1" />
+                <Label className="text-xs">Moeda de pagamento</Label>
+                <Select value={form.currency} onValueChange={v => setForm(f => ({ ...f, currency: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CURRENCY_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
-                <Label className="text-xs">Preço (diamantes)</Label>
-                <Input type="number" value={form.price_diamonds} onChange={e => setForm(f => ({ ...f, price_diamonds: e.target.value }))} placeholder="0" className="mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs">Preço (XP)</Label>
-                <Input type="number" value={form.price_xp} onChange={e => setForm(f => ({ ...f, price_xp: e.target.value }))} placeholder="0" className="mt-1" />
+                <Label className="text-xs">Preço</Label>
+                <Input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="0" className="mt-1" />
               </div>
               <div>
                 <Label className="text-xs">Desconto (%)</Label>

@@ -1866,11 +1866,15 @@
     if (selectedStoreItem !== null) {
       const item = items[selectedStoreItem];
       if (item) {
-        const canAffordCoins = !item.price_coins || coins >= item.price_coins;
-        const canAffordDiamonds = !item.price_diamonds || walletDiamonds >= item.price_diamonds;
-        const canBuy = canAffordCoins && canAffordDiamonds;
+        const cur = getCurrency(item);
+        const price = item.price_coins || item.price_diamonds || item.price_xp || 0;
+        const walletAmount = cur === 'coins' ? coins : cur === 'diamonds' ? walletDiamonds : (data?.wallet?.xp || 0);
+        const canBuy = walletAmount >= price;
         const outOfStock = item.stock !== null && item.stock !== undefined && item.stock <= 0;
-        const insufficientMsg = !canAffordCoins ? 'Moedas insuficientes' : !canAffordDiamonds ? 'Diamantes insuficientes' : '';
+        const curColors = { coins: '#fbbf24', diamonds: '#22d3ee', gems: '#818cf8' };
+        const curNames = { coins: 'Moedas', diamonds: 'Diamantes', gems: 'XP' };
+        const curIconKeys = { coins: 'coin', diamonds: 'diamond', gems: 'star' };
+        const insufficientMsg = curNames[cur] + ' insuficientes';
         html += `
           <div class="pbg-modal-overlay" onclick="window.__pbg('closeStore')">
             <div class="pbg-modal" onclick="event.stopPropagation()">
@@ -1885,9 +1889,7 @@
                 </div>
               ` : ''}
               <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px;background:rgba(255,255,255,0.04);border-radius:10px;margin-bottom:12px">
-                ${item.price_coins ? `<span style="font-size:14px;font-weight:700;color:#fbbf24">${inlIcon('coin',14)} ${item.price_coins}</span>` : ''}
-                ${item.price_diamonds ? `<span style="font-size:14px;font-weight:700;color:#22d3ee">${inlIcon('diamond',14)} ${item.price_diamonds}</span>` : ''}
-                ${item.price_xp ? `<span style="font-size:14px;font-weight:700;color:#818cf8">${inlIcon('star',14)} ${item.price_xp}</span>` : ''}
+                <span style="font-size:14px;font-weight:700;color:${curColors[cur]}">${inlIcon(curIconKeys[cur],14)} ${price.toLocaleString('pt-BR')} ${curNames[cur]}</span>
               </div>
               ${item.stock !== null && item.stock !== undefined ? `<div style="font-size:11px;color:#71717a;margin-bottom:12px">${item.stock} em estoque</div>` : ''}
               ${storeMessage ? `<div class="${storeMessage.type === 'success' ? 'pbg-modal-success' : 'pbg-modal-error'}">${storeMessage.text}</div>` : ''}
