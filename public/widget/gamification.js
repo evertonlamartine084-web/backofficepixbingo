@@ -175,14 +175,22 @@
       font-size: 16px; transition: all 0.2s; font-family: inherit; padding: 0;
     }
     .pbg-close:hover { background: rgba(255,255,255,0.12); color: #fff; }
-    .pbg-counters-row { display: flex; gap: 8px; }
-    .pbg-counter-chip {
-      flex: 1; display: flex; align-items: center; gap: 7px;
-      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 10px; padding: 7px 10px;
+    .pbg-counters-row {
+      display: flex; align-items: center; gap: 0;
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 6px 10px; position: relative;
     }
-    .pbg-counter-val { font-size: 14px; font-weight: 800; color: #fff; line-height: 1; }
-    .pbg-counter-lbl { font-size: 9px; color: #71717a; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 1px; }
+    .pbg-counter-chip {
+      flex: 1; display: flex; align-items: center; gap: 5px;
+      justify-content: center; padding: 4px 6px;
+    }
+    .pbg-counter-chip + .pbg-counter-chip { border-left: 1px solid rgba(255,255,255,0.08); }
+    .pbg-counter-val { font-size: 13px; font-weight: 800; line-height: 1; }
+    .pbg-counter-lbl { font-size: 8px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
+    .pbg-counter-coin-icon { width: 22px; height: 22px; flex-shrink: 0; }
+    .pbg-counter-diamond-icon { width: 18px; height: 22px; flex-shrink: 0; }
+    .pbg-counter-gem-icon { width: 22px; height: 22px; flex-shrink: 0; }
 
     /* ---- Smartico-style navbar ---- */
     .pbg-smartico-nav {
@@ -2030,18 +2038,21 @@
       const coins = data.wallet.coins || 0;
       const diamonds = data.wallet.diamonds || 0;
       const xp = data.wallet.xp || 0;
+      const coinSvg = `<svg class="pbg-counter-coin-icon" viewBox="0 0 31 30" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M30.07 15c0 1.83-.34 3.58-.97 5.18-2.07 5.3-7.23 9.06-13.26 9.06-5.71 0-10.63-3.36-12.9-8.2A14.47 14.47 0 011.59 15C1.6 7.13 7.97.76 15.83.76 23.7.76 30.07 7.14 30.07 15z" fill="#FFD01C"/><circle cx="15.83" cy="14.74" r="6.5" fill="#FFD01C"/><path d="M29.1 20.19c-2.07 5.3-7.23 9.05-13.27 9.05-5.7 0-10.63-3.36-12.9-8.2 3.54-3.02 8.34-4.87 13.62-4.87 4.76 0 9.14 1.5 12.55 4.02z" fill="#FFAE00"/><path d="M30.07 15c0 .16 0 .32-.01.48C29.81 7.84 23.54 1.72 15.83 1.72S1.86 7.84 1.61 15.48c-.01-.16-.01-.32-.01-.48C1.6 7.13 7.97.76 15.83.76S30.07 7.14 30.07 15z" fill="#FFFF6E"/><path d="M23.57 19.69a9.39 9.39 0 01-7.74 5.33c-5.07 0-9.18-4.36-9.18-9.73 0-4.83 3.92-8.75 8.75-8.75s8.75 3.92 8.75 8.75c0 1.82-.53 3.52-1.45 4.95-.09-.14.87-1.43.87-4.95 0-5.07-4.11-9.18-9.18-9.18s-9.18 4.11-9.18 9.18c0 1.82.53 3.52 1.45 4.95z" fill="#FB7B01"/></svg>`;
+      const diamondSvg = `<svg class="pbg-counter-diamond-icon" viewBox="0 0 31 30" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21.12 14.48L15.5 29.74c.54 0 1.07-.26 1.38-.78l9.44-15.87c.3-.5.44-1.07.43-1.62l-5.63 3.01z" fill="#0C80E3"/><path d="M26.75 11.47l-5.63 3.01L15.5.25c.79 0 1.57.3 2.17.9l8.17 8.19c.58.58.89 1.34.9 2.13z" fill="#12C0F1"/><path d="M21.12 14.48H9.88l.28-.71L15.5.25l2.05 5.2 3.57 9.03z" fill="#12C0F1"/><path d="M9.88 14.48L15.5 29.75l5.62-15.27H9.88z" fill="#12C0F1"/><path d="M15.5.25L9.88 14.48 4.25 11.47c.01-.78.32-1.55.9-2.13L13.33 1.15c.6-.6 1.39-.9 2.17-.9z" fill="#0C80E3"/><path d="M9.88 14.48L15.5 29.74c-.54 0-1.07-.26-1.38-.78L4.68 13.09c-.3-.5-.44-1.07-.43-1.62l5.63 3.01z" fill="#0C80E3"/><path d="M4.25 11.47c.01-.78.32-1.55.9-2.13l8.18-8.19c.6-.6 1.39-.9 2.17-.9l-5.62 14.23-5.63-3.01z" fill="#0C80E3"/><path d="M26.75 11.47c0 .56-.14 1.12-.43 1.62L16.88 28.96c-.29.49-.78.75-1.28.78-.57.03-1.15-.23-1.48-.78L4.68 13.09c-.3-.5-.44-1.06-.43-1.62l.03-.35c.07.25.05.77.19 1L14.11 26.61c.33.53.92.78 1.49.75.5-.03 1-.29 1.29-.75l9.7-14.74c.14-.23.06-.52.13-.77l.03.37z" fill="#0269B7"/></svg>`;
+      const gemSvg = `<svg class="pbg-counter-gem-icon" viewBox="0 0 31 30" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.56 5.28L9.68 1.75h10.98l-1.89 3.53h-7.21z" fill="#5CAE39"/><path d="M9.68 1.75L1.91 9.18l4.56.56 5.09-4.46L9.68 1.75z" fill="#3C972A"/><path d="M6.47 16.73l-4.56 4.08 7.77 7.44 1.88-7.05-5.09-4.47z" fill="#3C972A"/><path d="M11.56 21.2L9.68 28.25h10.98l-1.89-7.05h-7.21z" fill="#1D801B"/><path d="M23.87 16.73l4.55 4.08-7.76 7.44-1.89-7.05 5.1-4.47z" fill="#3C972A"/><path d="M23.87 9.75l4.55-.56v11.63l-4.55-4.08V9.75z" fill="#3C972A"/><path d="M20.66 1.75l-1.89 3.53 5.1 4.47 4.55-.56-7.76-7.44z" fill="#6EC839"/><path d="M6.47 9.75L1.91 9.18v11.63l4.56-4.08V9.75z" fill="#1D801B"/><path d="M18.49 5.06h-6.53c-.27 0-.54.1-.75.28l-4.5 3.95a1.03 1.03 0 00-.39.87v6.09c0 .34.14.66.4.88l4.5 3.95c.2.18.47.28.74.28h6.53c.28 0 .54-.1.75-.28l4.5-3.95c.25-.22.4-.53.4-.87v-6.09c0-.34-.14-.66-.4-.88l-4.5-3.95a1.06 1.06 0 00-.75-.28z" fill="#80E239"/><path d="M18.91 5.06l-.07.06L6.43 16.76v-6.73c.03-.29.17-.52.38-.71l4.5-3.95c.21-.18.47-.28.75-.28h6.85z" fill="#B3F539"/></svg>`;
       countersEl.innerHTML = `
         <div class="pbg-counter-chip">
-          <div style="color:#fbbf24;flex-shrink:0">${inlIcon('coin',18)}</div>
-          <div><div class="pbg-counter-val">${fmt1k(coins)}</div><div class="pbg-counter-lbl">Moedas</div></div>
+          ${coinSvg}
+          <div><div class="pbg-counter-val" style="color:#fbbf24">${fmt1k(coins)}</div><div class="pbg-counter-lbl">COINS</div></div>
         </div>
         <div class="pbg-counter-chip">
-          <div style="color:#22d3ee;flex-shrink:0">${inlIcon('diamond',18)}</div>
-          <div><div class="pbg-counter-val">${fmt1k(diamonds)}</div><div class="pbg-counter-lbl">Diamantes</div></div>
+          ${diamondSvg}
+          <div><div class="pbg-counter-val" style="color:#22d3ee">${fmt1k(diamonds)}</div><div class="pbg-counter-lbl">DIAMONDS</div></div>
         </div>
         <div class="pbg-counter-chip">
-          <div style="color:#818cf8;flex-shrink:0">${inlIcon('star',18)}</div>
-          <div><div class="pbg-counter-val">${fmt1k(xp)}</div><div class="pbg-counter-lbl">XP</div></div>
+          ${gemSvg}
+          <div><div class="pbg-counter-val" style="color:#4ade80">${fmt1k(xp)}</div><div class="pbg-counter-lbl">GEMS</div></div>
         </div>
       `;
     }
