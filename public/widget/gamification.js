@@ -698,7 +698,13 @@
       border-radius: 12px; overflow: hidden; cursor: pointer; flex-shrink: 0;
       width: 160px; transition: border-color 0.2s, transform 0.15s; position: relative;
     }
-    .pbg-store-item:hover { border-color: rgba(249,115,22,0.4); transform: translateY(-2px); }
+    .pbg-store-item:hover { transform: translateY(-2px); }
+    .pbg-store-item.pbg-store-coins { border-color: rgba(217,119,6,0.3); }
+    .pbg-store-item.pbg-store-coins:hover { border-color: rgba(217,119,6,0.5); }
+    .pbg-store-item.pbg-store-diamonds { border-color: rgba(6,182,212,0.3); }
+    .pbg-store-item.pbg-store-diamonds:hover { border-color: rgba(6,182,212,0.5); }
+    .pbg-store-item.pbg-store-gems { border-color: rgba(74,222,128,0.3); }
+    .pbg-store-item.pbg-store-gems:hover { border-color: rgba(74,222,128,0.5); }
     .pbg-store-item.greyed { opacity: 0.45; }
     .pbg-store-item-img {
       width: 100%; height: 120px; display: flex; align-items: center; justify-content: center;
@@ -1802,7 +1808,7 @@
       const origPrice = disc > 0 ? Math.round(price / (1 - disc / 100)) : 0;
 
       return `
-        <div class="pbg-store-item ${!canBuy || outOfStock ? 'greyed' : ''}" onclick="window.__pbg('openStore',${idx})">
+        <div class="pbg-store-item pbg-store-${cur} ${!canBuy || outOfStock ? 'greyed' : ''}" onclick="window.__pbg('openStore',${idx})">
           ${disc > 0 ? `<div class="pbg-store-item-discount">DESCONTO ${String(disc).padStart(2,'0')}%</div>` : ''}
           <div class="pbg-store-item-img">
             ${item.image_url ? `<img src="${item.image_url}" alt="${item.name}">` : '<div style="width:48px;height:48px;color:#a78bfa">' + ICONS.giftbox + '</div>'}

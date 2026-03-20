@@ -32,7 +32,7 @@ export default function Store() {
   const [form, setForm] = useState({
     name: '', description: '', image_url: '', price_coins: '', price_diamonds: '', price_xp: '',
     category: 'geral', stock: '', min_level: '1',
-    reward_type: 'bonus', reward_value: '', reward_description: '',
+    reward_type: 'bonus', reward_value: '', reward_description: '', discount_percent: '',
   });
 
   const { data: items = [], isLoading } = useQuery({
@@ -60,6 +60,7 @@ export default function Store() {
         reward_type: form.reward_type,
         reward_value: form.reward_value || null,
         reward_description: form.reward_description || null,
+        discount_percent: parseInt(form.discount_percent) || 0,
       } as any);
       if (error) throw error;
     },
@@ -67,7 +68,7 @@ export default function Store() {
       queryClient.invalidateQueries({ queryKey: ['store_items'] });
       toast.success('Item criado');
       setOpen(false);
-      setForm({ name: '', description: '', image_url: '', price_coins: '', price_diamonds: '', price_xp: '', category: 'geral', stock: '', min_level: '1', reward_type: 'bonus', reward_value: '', reward_description: '' });
+      setForm({ name: '', description: '', image_url: '', price_coins: '', price_diamonds: '', price_xp: '', category: 'geral', stock: '', min_level: '1', reward_type: 'bonus', reward_value: '', reward_description: '', discount_percent: '' });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -187,6 +188,10 @@ export default function Store() {
               <div>
                 <Label className="text-xs">Preço (XP)</Label>
                 <Input type="number" value={form.price_xp} onChange={e => setForm(f => ({ ...f, price_xp: e.target.value }))} placeholder="0" className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Desconto (%)</Label>
+                <Input type="number" value={form.discount_percent} onChange={e => setForm(f => ({ ...f, discount_percent: e.target.value }))} placeholder="0" className="mt-1" min="0" max="100" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
