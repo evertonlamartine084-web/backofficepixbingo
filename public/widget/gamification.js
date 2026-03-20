@@ -2276,27 +2276,26 @@
             // Read balances fresh from platform DOM
             let sReal = 'R$ 0,00', sBonus = 'B$ 0,00';
             try {
-              // Bonus: .float-end.ms-2 has the bonus value (just a number like "4.279,46")
-              document.querySelectorAll('.float-end.ms-2, span.float-end.ms-2').forEach(el => {
-                if (el.closest('#pbg-widget-panel')) return;
-                const v = el.innerText.trim();
-                const m = v.match(/([\d]+[.,][\d.,]*[\d])/);
-                if (m && sBonus === 'B$ 0,00') sBonus = 'B$ ' + m[1];
+              // Primary: .popover-body h6 elements ("Saldo: 207,71", "Bonus: 4.279,46")
+              document.querySelectorAll('.popover-body h6').forEach(h6 => {
+                const label = h6.childNodes[0]?.textContent?.trim().toLowerCase() || '';
+                const span = h6.querySelector('span');
+                if (!span) return;
+                const val = span.innerText.trim();
+                const m = val.match(/([\d]+[.,][\d.,]*[\d])/);
+                if (!m) return;
+                if (label.includes('saldo') && !label.includes('bonus')) sReal = 'R$ ' + m[1];
+                else if (label.includes('bonus')) sBonus = 'B$ ' + m[1];
               });
-              // Real: scan for R$ pattern
-              document.querySelectorAll('.balance-value, [class*="saldo"], .menu-saldo-body').forEach(el => {
-                if (el.closest('#pbg-widget-panel')) return;
-                const txt = el.innerText.trim();
-                const realMatch = txt.match(/R\$\s*([\d.,]+)/);
-                if (realMatch && sReal === 'R$ 0,00') sReal = 'R$ ' + realMatch[1];
-              });
-              // Bonus fallback: B$ pattern
-              if (sBonus === 'B$ 0,00') {
+              // Fallback: .balance-value with R$/B$ text
+              if (sReal === 'R$ 0,00') {
                 document.querySelectorAll('.balance-value, [class*="saldo"]').forEach(el => {
                   if (el.closest('#pbg-widget-panel')) return;
                   const txt = el.innerText.trim();
-                  const bonusMatch = txt.match(/B\$\s*([\d.,]+)/);
-                  if (bonusMatch) sBonus = 'B$ ' + bonusMatch[1];
+                  const rm = txt.match(/R\$\s*([\d.,]+)/);
+                  if (rm && sReal === 'R$ 0,00') sReal = 'R$ ' + rm[1];
+                  const bm = txt.match(/B\$\s*([\d.,]+)/);
+                  if (bm && sBonus === 'B$ 0,00') sBonus = 'B$ ' + bm[1];
                 });
               }
             } catch {}
