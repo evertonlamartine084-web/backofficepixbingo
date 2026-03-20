@@ -168,7 +168,7 @@ export default async function handler(req: Request): Promise<Response> {
         .eq('active', true).order('probability', { ascending: false });
 
       // Fire all independent queries in a single Promise.all
-      const baseQueries: Promise<any>[] = [
+      const baseQueries: PromiseLike<any>[] = [
         applySegmentFilter(achievementsQ),          // 0
         applySegmentFilter(missionsQ),              // 1
         applySegmentFilter(tournamentsQ),           // 2

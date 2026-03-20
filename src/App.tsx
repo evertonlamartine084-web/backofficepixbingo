@@ -18,7 +18,6 @@ const Campaigns = lazy(() => import("@/pages/Campaigns"));
 const Popups = lazy(() => import("@/pages/Popups"));
 const PopupAssets = lazy(() => import("@/pages/assets/PopupAssets"));
 const Cashback = lazy(() => import("@/pages/Cashback"));
-const Partidas = lazy(() => import("@/pages/Partidas"));
 const ManageUsers = lazy(() => import("@/pages/admin/ManageUsers"));
 const AuditLog = lazy(() => import("@/pages/admin/AuditLog"));
 const PlatformConfig = lazy(() => import("@/pages/admin/PlatformConfig"));
@@ -38,8 +37,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
-      retryDelay: 1000,
+      retry: 0,
       refetchOnWindowFocus: false,
       staleTime: 5 * 60_000,
       networkMode: 'always',
@@ -65,7 +63,6 @@ const App = () => (
               <Route path="/assets/popups" element={<Popups />} />
               <Route path="/assets/html" element={<PopupAssets />} />
               <Route path="/cashback" element={<Cashback />} />
-              <Route path="/partidas" element={<Partidas />} />
               <Route path="/player" element={<PlayerLookup />} />
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/admin/manage-users" element={<ManageUsers />} />

@@ -7,6 +7,7 @@ import {
   Award, Target, Swords, RotateCw, Star, ShoppingBag,
   Bell, Inbox, Trophy,
 } from 'lucide-react';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import {
@@ -26,7 +27,6 @@ const navItems = [
   { to: '/segments', icon: ListFilter, label: 'Segmentos' },
   { to: '/campaigns', icon: Megaphone, label: 'Campanhas' },
   { to: '/cashback', icon: RotateCcw, label: 'Cashback' },
-  { to: '/partidas', icon: Gamepad2, label: 'Partidas' },
 ];
 
 const assetsItems = [

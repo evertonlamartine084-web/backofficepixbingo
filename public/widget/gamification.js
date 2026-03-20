@@ -67,7 +67,7 @@
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
     #pbg-widget-fab {
-      position: fixed !important; bottom: 24px !important; right: 24px !important; width: 68px !important; height: 68px !important;
+      position: fixed !important; bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px)) !important; right: 24px !important; width: 68px !important; height: 68px !important;
       border-radius: 50% !important; background: transparent !important;
       border: none !important; cursor: pointer !important; z-index: 2147483647 !important;
       display: flex !important; align-items: center !important; justify-content: center !important;
@@ -112,25 +112,25 @@
       font-family: 'Space Grotesk', system-ui, sans-serif;
     }
     .pbg-fab-coins {
-      position: absolute; bottom: -6px; right: -8px;
+      position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%);
       background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff;
-      font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
       font-family: 'Space Grotesk', system-ui, sans-serif;
       white-space: nowrap; line-height: 1.2;
     }
     .pbg-fab-diamonds {
-      position: absolute; top: -6px; right: -8px;
+      position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
       background: linear-gradient(135deg, #22d3ee, #0891b2); color: #fff;
-      font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 8px;
+      font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 8px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
       font-family: 'Space Grotesk', system-ui, sans-serif;
       white-space: nowrap; line-height: 1.2;
     }
 
     #pbg-widget-panel {
-      position: fixed !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) scale(0.95);
-      width: 420px; max-width: 95vw; height: 100vh;
+      position: fixed !important; top: 0 !important; left: 50% !important; transform: translateX(-50%) scale(0.95);
+      width: 420px; max-width: 95vw; height: 100dvh; max-height: 100vh;
       background: #0c0a1a !important; border: 1px solid rgba(139,92,246,0.2); border-radius: 20px;
       z-index: 2147483646 !important; transition: transform 0.3s ease, opacity 0.3s ease;
       font-family: 'Space Grotesk', system-ui, sans-serif;
@@ -138,83 +138,79 @@
       opacity: 0; pointer-events: none;
       box-shadow: 0 25px 60px rgba(0,0,0,0.5), 0 0 40px rgba(139,92,246,0.15);
     }
-    #pbg-widget-panel.open { transform: translate(-50%, -50%) scale(1) !important; opacity: 1 !important; pointer-events: auto !important; }
+    #pbg-widget-panel.open { transform: translateX(-50%) scale(1) !important; opacity: 1 !important; pointer-events: auto !important; }
     #pbg-widget-backdrop { position: fixed !important; inset: 0 !important; background: rgba(0,0,0,0.6) !important; z-index: 2147483645 !important; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
     #pbg-widget-backdrop.open { opacity: 1 !important; pointer-events: auto !important; }
 
-    .pbg-header {
-      padding: 14px 20px; background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(6,182,212,0.1));
-      border-bottom: 1px solid rgba(255,255,255,0.06); border-radius: 20px 20px 0 0;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .pbg-header h2 { font-size: 18px; font-weight: 700; color: #fff; margin: 0; display: flex; align-items: center; gap: 8px; }
-    .pbg-close {
-      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
-      color: #a1a1aa; width: 32px; height: 32px; border-radius: 8px;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      font-size: 18px; transition: all 0.2s;
-    }
-    .pbg-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
-
-    /* Level & Wallet bar */
-    .pbg-level-bar {
-      padding: 12px 16px 14px;
-      background: linear-gradient(180deg, rgba(139,92,246,0.08) 0%, rgba(0,0,0,0) 100%);
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .pbg-level-info { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-    .pbg-level-badge {
-      width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      font-weight: 800; line-height: 1;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }
-    .pbg-level-badge-num { font-size: 16px; }
-    .pbg-level-badge-lbl { font-size: 8px; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
-    .pbg-level-texts { flex: 1; min-width: 0; }
-    .pbg-level-name { font-size: 14px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pbg-level-sub { font-size: 11px; color: #71717a; margin-top: 1px; }
-    .pbg-level-xp-right { text-align: right; flex-shrink: 0; }
-    .pbg-level-xp-val { font-size: 12px; font-weight: 700; color: #fff; }
-    .pbg-level-xp-lbl { font-size: 10px; color: #52525b; margin-top: 1px; }
-    .pbg-xp-track {
-      height: 7px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden;
-      position: relative; margin-bottom: 12px;
-    }
-    .pbg-xp-fill {
-      height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(.4,0,.2,1);
+    /* ---- Smartico-style header ---- */
+    .pbg-smartico-header {
+      padding: max(14px, env(safe-area-inset-top)) 16px 12px; border-radius: 20px 20px 0 0;
+      background: linear-gradient(160deg, rgba(139,92,246,0.18) 0%, rgba(6,182,212,0.08) 100%);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
       position: relative;
     }
-    .pbg-xp-fill::after {
-      content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 20px;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35));
-      border-radius: 0 4px 4px 0;
+    .pbg-header-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .pbg-avatar {
+      width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, #8b5cf6, #6366f1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 800; color: #fff;
+      border: 2px solid rgba(139,92,246,0.6); overflow: hidden;
     }
-    .pbg-wallet-row { display: flex; gap: 8px; }
-    .pbg-wallet-chip {
-      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
-      padding: 8px 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);
-      background: rgba(255,255,255,0.03);
+    .pbg-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .pbg-user-info { flex: 1; min-width: 0; }
+    .pbg-username { font-size: 13px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .pbg-level-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+    .pbg-level-img { width: 48px; height: 48px; object-fit: contain; flex-shrink: 0; }
+    .pbg-level-name-lbl { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.85); }
+    .pbg-xp-track { height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 3px; }
+    .pbg-xp-fill { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+    .pbg-next-lvl-txt { font-size: 10px; color: #71717a; }
+    .pbg-next-lvl-txt span { color: #a78bfa; font-weight: 600; }
+    .pbg-close {
+      position: absolute; top: 12px; right: 12px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      color: #a1a1aa; width: 28px; height: 28px; border-radius: 8px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 16px; transition: all 0.2s; font-family: inherit; padding: 0;
     }
-    .pbg-wallet-chip-val { font-size: 13px; font-weight: 800; color: #fff; line-height: 1; }
-    .pbg-wallet-chip-lbl { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; opacity: 0.55; color: #fff; }
+    .pbg-close:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    .pbg-counters-row { display: flex; gap: 8px; }
+    .pbg-counter-chip {
+      flex: 1; display: flex; align-items: center; gap: 7px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 7px 10px;
+    }
+    .pbg-counter-val { font-size: 14px; font-weight: 800; color: #fff; line-height: 1; }
+    .pbg-counter-lbl { font-size: 9px; color: #71717a; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 1px; }
 
-    .pbg-tabs {
-      display: flex; padding: 0 8px; gap: 1px;
-      background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.06);
-      overflow-x: auto; -webkit-overflow-scrolling: touch;
+    /* ---- Smartico-style navbar ---- */
+    .pbg-smartico-nav {
+      display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      background: rgba(255,255,255,0.015); border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 0 2px;
     }
-    .pbg-tabs::-webkit-scrollbar { display: none; }
-    .pbg-tab {
-      padding: 9px 10px; font-size: 11px; font-weight: 600; color: #71717a;
-      background: none; border: none; cursor: pointer; white-space: nowrap;
-      border-bottom: 2px solid transparent; transition: all 0.2s; font-family: inherit;
+    .pbg-smartico-nav::-webkit-scrollbar { display: none; }
+    .pbg-nav-item {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 8px 11px; gap: 3px; cursor: pointer; flex-shrink: 0;
+      border-bottom: 2px solid transparent; transition: all 0.15s; position: relative;
+      min-width: 54px; background: none; border-left: none; border-right: none; border-top: none;
     }
-    .pbg-tab:hover { color: #a1a1aa; }
-    .pbg-tab.active { color: #8b5cf6; border-bottom-color: #8b5cf6; }
-    .pbg-tab-badge { background: #ef4444; color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 8px; margin-left: 3px; font-weight: 700; }
+    .pbg-nav-item:hover { background: rgba(255,255,255,0.03); }
+    .pbg-nav-item.active { border-bottom-color: #8b5cf6; }
+    .pbg-nav-icon { width: 20px; height: 20px; color: #52525b; transition: color 0.15s; display: flex; align-items: center; justify-content: center; }
+    .pbg-nav-item.active .pbg-nav-icon { color: #8b5cf6; }
+    .pbg-nav-lbl { font-size: 9px; font-weight: 600; color: #52525b; white-space: nowrap; letter-spacing: 0.2px; transition: color 0.15s; font-family: inherit; }
+    .pbg-nav-item.active .pbg-nav-lbl { color: #8b5cf6; }
+    .pbg-nav-badge {
+      position: absolute; top: 3px; right: 3px;
+      background: #ef4444; color: #fff; font-size: 8px; font-weight: 700;
+      min-width: 14px; height: 14px; border-radius: 7px; display: flex; align-items: center; justify-content: center; padding: 0 3px;
+    }
 
     .pbg-content { flex: 1; overflow-y: auto; padding: 16px; }
+    .pbg-content.pbg-no-pad { padding: 0; overflow: visible; }
     .pbg-content::-webkit-scrollbar { width: 4px; }
     .pbg-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
@@ -422,66 +418,120 @@
       background: rgba(255,255,255,0.04); color: #a1a1aa;
     }
 
-    /* Wheel — Premium Casino */
-    .pbg-wheel-container { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 0 6px; }
-    .pbg-wheel-stage {
-      position: relative; width: 280px; height: 280px; margin: 20px auto 0;
+    /* Wheel — Donald Bet Style */
+    .pbg-wheel-container {
+      display: flex; flex-direction: column; align-items: center; gap: 0;
+      background: radial-gradient(ellipse at 50% 30%, #0a2a5e 0%, #060e2a 55%, #020510 100%);
+      border-radius: 0 0 18px 18px; margin: 0; padding: 10px 16px 0; position: relative;
     }
-    /* Golden outer ring */
+    /* Stars overlay */
+    .pbg-wheel-container::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        radial-gradient(1px 1px at 15% 20%, rgba(255,255,255,0.7) 0%, transparent 100%),
+        radial-gradient(1px 1px at 75% 10%, rgba(255,255,255,0.5) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 35% 60%, rgba(255,255,255,0.4) 0%, transparent 100%),
+        radial-gradient(1px 1px at 85% 50%, rgba(255,255,255,0.6) 0%, transparent 100%),
+        radial-gradient(1px 1px at 60% 80%, rgba(255,255,255,0.3) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 10% 75%, rgba(255,255,255,0.5) 0%, transparent 100%),
+        radial-gradient(1px 1px at 90% 85%, rgba(255,255,255,0.4) 0%, transparent 100%),
+        radial-gradient(1px 1px at 50% 15%, rgba(255,255,255,0.6) 0%, transparent 100%),
+        radial-gradient(1px 1px at 25% 40%, rgba(255,255,255,0.35) 0%, transparent 100%),
+        radial-gradient(1px 1px at 70% 35%, rgba(255,255,255,0.5) 0%, transparent 100%);
+    }
+    .pbg-wheel-stage {
+      position: relative; width: 240px; height: 240px; margin: 10px auto 0;
+    }
+    /* Blue neon outer ring — rotates slowly (idle) */
     .pbg-wheel-ring-outer {
-      position: absolute; inset: -12px; border-radius: 50%;
-      background: linear-gradient(160deg, #d4a017 0%, #f7d86c 25%, #b8860b 50%, #f7d86c 75%, #d4a017 100%);
-      box-shadow: 0 0 24px rgba(212,160,23,0.35), inset 0 0 12px rgba(0,0,0,0.4);
+      position: absolute; inset: -14px; border-radius: 50%;
+      background: conic-gradient(#00d4ff, #0066ff, #00aaff, #0055cc, #00d4ff);
+      box-shadow: 0 0 30px rgba(0,180,255,0.7), 0 0 60px rgba(0,120,255,0.4), inset 0 0 20px rgba(0,0,0,0.5);
+      animation: pbg-ring-idle-rot 18s linear infinite, pbg-ring-pulse 2s ease-in-out infinite;
+    }
+    @keyframes pbg-ring-pulse {
+      0%,100% { box-shadow: 0 0 30px rgba(0,180,255,0.7), 0 0 60px rgba(0,120,255,0.4); }
+      50% { box-shadow: 0 0 44px rgba(0,220,255,1), 0 0 90px rgba(0,150,255,0.6); }
     }
     /* Dark inner ring */
     .pbg-wheel-ring-inner {
-      position: absolute; inset: -4px; border-radius: 50%;
-      background: #110d24;
-      box-shadow: inset 0 0 16px rgba(0,0,0,0.6);
+      position: absolute; inset: -5px; border-radius: 50%;
+      background: #05122b;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 8px rgba(0,100,255,0.3);
     }
-    /* Bulbs on the golden ring */
-    .pbg-wheel-bulbs { position: absolute; inset: -12px; border-radius: 50%; z-index: 3; pointer-events: none; }
+    /* Bulbs on the blue ring */
+    .pbg-wheel-bulbs { position: absolute; inset: -14px; border-radius: 50%; z-index: 3; pointer-events: none; }
     .pbg-bulb {
-      position: absolute; width: 9px; height: 9px; border-radius: 50%;
-      border: 1.5px solid rgba(0,0,0,0.25);
+      position: absolute; width: 8px; height: 8px; border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.3);
     }
-    .pbg-bulb-on { background: radial-gradient(circle at 35% 35%, #fff, #ffe066); box-shadow: 0 0 8px 2px rgba(255,224,102,0.7); }
-    .pbg-bulb-off { background: radial-gradient(circle at 35% 35%, #fff, #f0abfc); box-shadow: 0 0 8px 2px rgba(240,171,252,0.5); }
-    @keyframes pbg-bulb-a { 0%,100%{ opacity:1 } 50%{ opacity:0.25 } }
-    @keyframes pbg-bulb-b { 0%,100%{ opacity:0.25 } 50%{ opacity:1 } }
-    .pbg-wheel-bulbs.spin .pbg-bulb-on { animation: pbg-bulb-a 0.4s infinite; }
-    .pbg-wheel-bulbs.spin .pbg-bulb-off { animation: pbg-bulb-b 0.4s infinite; }
+    .pbg-bulb-on { background: radial-gradient(circle at 35% 35%, #fff, #00eeff); box-shadow: 0 0 8px 2px rgba(0,220,255,0.9); }
+    .pbg-bulb-off { background: radial-gradient(circle at 35% 35%, #aaeeff, #005599); box-shadow: 0 0 4px 1px rgba(0,100,200,0.4); }
+    @keyframes pbg-bulb-a { 0%,100%{ opacity:1 } 50%{ opacity:0.2 } }
+    @keyframes pbg-bulb-b { 0%,100%{ opacity:0.2 } 50%{ opacity:1 } }
+    .pbg-wheel-bulbs.spin .pbg-bulb-on { animation: pbg-bulb-a 0.3s infinite; }
+    .pbg-wheel-bulbs.spin .pbg-bulb-off { animation: pbg-bulb-b 0.3s infinite; }
     /* SVG wheel */
     .pbg-wheel-svg {
-      position: absolute; inset: 0; width: 280px; height: 280px; border-radius: 50%; z-index: 2;
-      transition: transform 5s cubic-bezier(0.12,0.68,0.08,1.00);
-      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; z-index: 2;
+      transition: transform 7s cubic-bezier(0.15, 0.85, 0.25, 1.00);
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.6));
     }
-    /* Pointer / flapper */
+    /* Idle: outer ring rotates slowly */
+    @keyframes pbg-ring-idle-rot {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    /* Pointer on the RIGHT side */
     .pbg-wheel-flap {
-      position: absolute; top: -8px; left: 50%; transform: translateX(-50%); z-index: 6;
+      position: absolute; top: 50%; right: -10px; transform: translateY(-50%); z-index: 6;
     }
-    .pbg-wheel-flap svg { filter: drop-shadow(0 3px 5px rgba(0,0,0,0.5)); }
-    /* Center hub */
+    .pbg-wheel-flap svg { filter: drop-shadow(0 3px 6px rgba(0,0,0,0.7)); }
+    /* Center hub — blue */
     .pbg-wheel-hub {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-      width: 56px; height: 56px; border-radius: 50%; z-index: 4;
-      background: linear-gradient(145deg, #f7d86c 0%, #d4a017 40%, #b8860b 100%);
-      border: 3px solid #1a1435;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.5), inset 0 2px 6px rgba(255,255,255,0.35);
+      width: 58px; height: 58px; border-radius: 50%; z-index: 4;
+      background: radial-gradient(circle at 40% 35%, #3b9eff, #005fcc 60%, #003d99 100%);
+      border: 3px solid rgba(255,255,255,0.2);
+      box-shadow: 0 4px 20px rgba(0,100,255,0.6), inset 0 2px 8px rgba(255,255,255,0.25), 0 0 0 4px rgba(0,80,200,0.3);
       display: flex; align-items: center; justify-content: center; flex-direction: column;
       cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
       user-select: none;
     }
-    .pbg-wheel-hub:hover { transform: translate(-50%,-50%) scale(1.06); box-shadow: 0 4px 24px rgba(212,160,23,0.5), inset 0 2px 6px rgba(255,255,255,0.35); }
-    .pbg-wheel-hub.off { opacity: 0.55; cursor: not-allowed; }
-    .pbg-wheel-hub.off:hover { transform: translate(-50%,-50%); box-shadow: 0 4px 18px rgba(0,0,0,0.5), inset 0 2px 6px rgba(255,255,255,0.35); }
-    .pbg-hub-text { font-size: 11px; font-weight: 800; color: #1a1435; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.1; text-align: center; font-family: inherit; }
-    .pbg-hub-icon { font-size: 18px; line-height: 1; }
+    .pbg-wheel-hub:hover { transform: translate(-50%,-50%) scale(1.08); box-shadow: 0 4px 28px rgba(0,150,255,0.8), inset 0 2px 8px rgba(255,255,255,0.3); }
+    .pbg-wheel-hub.off { opacity: 0.5; cursor: not-allowed; }
+    .pbg-wheel-hub.off:hover { transform: translate(-50%,-50%); }
+    .pbg-hub-text { font-size: 9px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1; font-family: inherit; }
+    .pbg-hub-icon { color: #fff; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; }
+    /* Spin info / timer */
+    .pbg-wheel-timer-banner {
+      text-align: center; padding: 10px 16px 4px; color: #fbbf24;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .pbg-wheel-timer-countdown {
+      display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px;
+    }
+    .pbg-timer-block {
+      background: rgba(0,0,0,0.5); border: 1px solid rgba(255,193,7,0.3);
+      border-radius: 6px; padding: 3px 8px; min-width: 36px; text-align: center;
+    }
+    .pbg-timer-num { font-size: 16px; font-weight: 800; color: #fbbf24; line-height: 1; }
+    .pbg-timer-lbl { font-size: 8px; color: #92400e; text-transform: uppercase; letter-spacing: 0.05em; }
+    .pbg-timer-sep { font-size: 18px; font-weight: 800; color: #fbbf24; line-height: 1; margin-top: -4px; }
+    /* ROLETA DIÁRIA banner */
+    .pbg-wheel-title-banner {
+      font-size: 20px; font-weight: 900; text-align: center; letter-spacing: 0.08em;
+      background: linear-gradient(180deg, #ffe566 0%, #d4a017 40%, #f7d86c 70%, #b8860b 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      text-shadow: none;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+      padding: 4px 0 0; margin: 0;
+      position: relative; z-index: 1;
+    }
     .pbg-spin-info {
       font-size: 11px; color: #a1a1aa; text-align: center;
       display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
-      margin-top: 4px;
+      margin-top: 4px; padding-bottom: 12px;
     }
     .pbg-spin-tag {
       display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px;
@@ -490,9 +540,9 @@
     }
     .pbg-spin-result {
       text-align: center; padding: 14px 16px; border-radius: 14px;
-      background: linear-gradient(135deg, rgba(212,160,23,0.10), rgba(139,92,246,0.08));
-      border: 1px solid rgba(212,160,23,0.2);
-      animation: pbg-scale-in 0.35s ease;
+      background: linear-gradient(135deg, rgba(212,160,23,0.15), rgba(0,100,255,0.08));
+      border: 1px solid rgba(212,160,23,0.3);
+      animation: pbg-scale-in 0.35s ease; margin: 0 0 8px;
     }
     .pbg-spin-result-prize { font-size: 22px; font-weight: 800; color: #f7d86c; margin-top: 4px; }
     .pbg-spin-cost-badge {
@@ -501,7 +551,7 @@
       background: rgba(245,158,11,0.08); color: #fbbf24; border: 1px solid rgba(245,158,11,0.15);
     }
     @media (max-width: 420px) {
-      .pbg-wheel-stage { width: 250px; height: 250px; }
+      .pbg-wheel-stage { width: 220px; height: 220px; }
     }
 
     /* Mini Games */
@@ -605,7 +655,6 @@
       #pbg-widget-panel { width: 100vw !important; height: 100vh !important; max-height: 100vh !important; border-radius: 0 !important; max-width: 100vw !important; }
       #pbg-widget-fab { bottom: 16px !important; right: 16px !important; width: 56px !important; height: 56px !important; min-width: 56px !important; min-height: 56px !important; }
       .pbg-header { border-radius: 0 !important; }
-      .pbg-wheel-stage { width: 250px; height: 250px; }
     }
   `;
 
@@ -747,11 +796,12 @@
           ? matchingSlots[Math.floor(Math.random() * matchingSlots.length)]
           : 0;
         const sliceAngle = 360 / dp.length;
-        // The pointer is at top (12 o'clock). Sector 0 starts at -90deg (top).
-        // To land on sector winIndex, we rotate so that sector's center aligns with top.
+        // Pointer is on the RIGHT (3 o'clock = 90° from top), so add 90° offset
         const sectorCenter = winIndex * sliceAngle + sliceAngle / 2;
-        const targetAngle = 360 - sectorCenter;
-        const totalRotation = (7 + Math.floor(Math.random() * 3)) * 360 + targetAngle;
+        const targetAngle = (360 - sectorCenter + 90) % 360;
+        const totalRotation = (12 + Math.floor(Math.random() * 4)) * 360 + targetAngle;
+        // Apply casino-style easing: fast start, long spin, slow deceleration
+        canvas.style.transition = 'transform 7s cubic-bezier(0.05, 0.95, 0.20, 1.00)';
         canvas.style.transform = `rotate(${totalRotation}deg)`;
       }
       setTimeout(() => {
@@ -759,7 +809,7 @@
         const b = document.getElementById('pbg-wheel-bulbs');
         if (b) b.classList.remove('spin');
         fetchData();
-      }, 5200);
+      }, 7500);
     } catch (e) { isSpinning = false; renderContent(); }
   }
 
@@ -1174,16 +1224,17 @@
     // Keep mapping to original for result
     const prizeMap = displayPrizes.map((p, i) => prizes[i % prizes.length]);
 
-    const size = 280; const cx = size / 2; const cy = size / 2; const r = size / 2 - 2;
+    const size = 270; const cx = size / 2; const cy = size / 2; const r = size / 2 - 2;
     const n = displayPrizes.length; const sliceAng = (2 * Math.PI) / n;
 
-    // High-contrast alternating palette
-    const palette = ['#7c3aed','#1e1b4b','#6d28d9','#0f172a','#8b5cf6','#1a1435','#a855f7','#0c0a1a','#6366f1','#1e1145'];
+    // Red/blue alternating palette — Donald Bet style
+    const paletteRed = ['#c0392b','#d63031','#e74c3c','#c0392b'];
+    const paletteBlue = ['#1a3a8a','#154480','#0d2b6a','#1e4799'];
 
-    let svg = `<defs>`;
-    // Inner shadow filter
-    svg += `<filter id="pbg-inner-shadow"><feGaussianBlur in="SourceAlpha" stdDeviation="3"/><feOffset dx="0" dy="2"/><feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1"/><feFlood flood-color="#000" flood-opacity="0.3"/><feComposite in2="SourceGraphic" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
-    svg += `</defs>`;
+    let svg = `<defs>
+      <linearGradient id="pbg-blu" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#00aaff"/><stop offset="100%" stop-color="#0044cc"/></linearGradient>
+      <radialGradient id="pbg-hub-center" cx="40%" cy="35%" r="60%"><stop offset="0%" stop-color="#60bbff"/><stop offset="100%" stop-color="#003a99"/></radialGradient>
+    </defs>`;
 
     for (let i = 0; i < n; i++) {
       const sa = i * sliceAng - Math.PI / 2;
@@ -1191,43 +1242,46 @@
       const x1 = cx + r * Math.cos(sa), y1 = cy + r * Math.sin(sa);
       const x2 = cx + r * Math.cos(ea), y2 = cy + r * Math.sin(ea);
       const la = sliceAng > Math.PI ? 1 : 0;
-      const color = displayPrizes[i].color || palette[i % palette.length];
+      // Always use red/blue palette (ignore DB colors)
+      const isRed = i % 2 === 0;
+      const color = isRed ? paletteRed[i % paletteRed.length] : paletteBlue[i % paletteBlue.length];
 
-      // Sector
-      svg += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${la},1 ${x2},${y2} Z" fill="${color}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`;
+      svg += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${la},1 ${x2},${y2} Z" fill="${color}" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>`;
 
-      // Horizontal text at the centroid of the sector — always readable
       const midA = sa + sliceAng / 2;
-      const label = displayPrizes[i].label.length > 14 ? displayPrizes[i].label.slice(0, 13) + '…' : displayPrizes[i].label;
-      const fs = n > 8 ? 8.5 : n > 5 ? 9.5 : 11;
-      const textR = r * 0.65;
+
+      // Text: rotate so it points from center outward; flip if upside-down
+      const label = displayPrizes[i].label.length > 10 ? displayPrizes[i].label.slice(0, 9) + '…' : displayPrizes[i].label;
+      const fs = n > 8 ? 8 : n > 5 ? 9 : 11;
+      const textR = r * 0.66;
       const tx = cx + textR * Math.cos(midA);
       const ty = cy + textR * Math.sin(midA);
-      svg += `<text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="${fs}" font-weight="700" font-family="Space Grotesk,sans-serif" style="paint-order:stroke;stroke:#000;stroke-width:3px;stroke-opacity:0.5">${label}</text>`;
+      let deg = (midA * 180 / Math.PI) + 90;
+      // Flip text that would appear upside-down (sectors on the bottom half)
+      if (deg > 90 && deg < 270) deg += 180;
+      svg += `<text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="${fs}" font-weight="800" font-family="Space Grotesk,sans-serif" transform="rotate(${deg},${tx},${ty})" style="paint-order:stroke;stroke:#000;stroke-width:3px;stroke-opacity:0.6">${label}</text>`;
     }
 
-    // Inner decorative ring
-    svg += `<circle cx="${cx}" cy="${cy}" r="36" fill="#110d24" stroke="none"/>`;
-    svg += `<circle cx="${cx}" cy="${cy}" r="36" fill="none" stroke="url(#pbg-gold)" stroke-width="3"/>`;
-    // Gold gradient for inner ring
-    svg = svg.replace('</defs>', `<linearGradient id="pbg-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f7d86c"/><stop offset="50%" stop-color="#b8860b"/><stop offset="100%" stop-color="#f7d86c"/></linearGradient></defs>`);
+    // Inner ring — dark blue hub area
+    svg += `<circle cx="${cx}" cy="${cy}" r="40" fill="#04112a" stroke="none"/>`;
+    svg += `<circle cx="${cx}" cy="${cy}" r="40" fill="none" stroke="url(#pbg-blu)" stroke-width="3"/>`;
+    svg += `<circle cx="${cx}" cy="${cy}" r="36" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>`;
 
-    // Separator lines (golden)
+    // Separator lines (white semi-transparent)
     for (let i = 0; i < n; i++) {
       const a = i * sliceAng - Math.PI / 2;
-      const lx1 = cx + 36 * Math.cos(a), ly1 = cy + 36 * Math.sin(a);
+      const lx1 = cx + 40 * Math.cos(a), ly1 = cy + 40 * Math.sin(a);
       const lx2 = cx + r * Math.cos(a), ly2 = cy + r * Math.sin(a);
-      svg += `<line x1="${lx1}" y1="${ly1}" x2="${lx2}" y2="${ly2}" stroke="rgba(247,216,108,0.25)" stroke-width="1.5"/>`;
+      svg += `<line x1="${lx1}" y1="${ly1}" x2="${lx2}" y2="${ly2}" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>`;
     }
 
-    // Outer decorative border on the SVG itself
-    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(247,216,108,0.15)" stroke-width="2"/>`;
+    // Outer glow ring on SVG
+    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(0,180,255,0.2)" stroke-width="3"/>`;
 
-    // Bulbs on golden ring
-    // Bulbs: container has inset:-12px on 280px = 304x304, center at 152,152
-    const numBulbs = Math.max(20, n * 3);
-    const bulbCenter = 152; // (280 + 12*2) / 2
-    const bulbR = 144; // radius where bulbs sit on the golden ring
+    // Bulbs
+    const numBulbs = Math.max(24, n * 3);
+    const bulbCenter = 149; // (270 + 14*2) / 2
+    const bulbR = 142;
     let bulbsHtml = '';
     for (let i = 0; i < numBulbs; i++) {
       const a = (i / numBulbs) * 2 * Math.PI - Math.PI / 2;
@@ -1236,17 +1290,47 @@
       bulbsHtml += `<div class="pbg-bulb ${i % 2 === 0 ? 'pbg-bulb-on' : 'pbg-bulb-off'}" style="left:${bx}px;top:${by}px;transform:translate(-50%,-50%)"></div>`;
     }
 
-    // Flapper / pointer SVG
-    const flapSvg = `<svg width="32" height="38" viewBox="0 0 32 38"><defs><linearGradient id="pfg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f7d86c"/><stop offset="100%" stop-color="#b8860b"/></linearGradient></defs><path d="M16 38 L2 6 A14 14 0 0 1 30 6 Z" fill="url(#pfg)" stroke="#8b6914" stroke-width="1.5"/><circle cx="16" cy="12" r="5" fill="#fff" opacity="0.25"/></svg>`;
+    // Pointer — diamond arrow pointing LEFT, on the right side
+    const flapSvg = `<svg width="36" height="28" viewBox="0 0 36 28"><defs><linearGradient id="pfg2" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#a0a0a0"/><stop offset="60%" stop-color="#ffffff"/><stop offset="100%" stop-color="#e8e8e8"/></linearGradient></defs><path d="M0 14 L26 2 L36 14 L26 26 Z" fill="url(#pfg2)" stroke="#888" stroke-width="1.5"/><circle cx="26" cy="14" r="4" fill="rgba(255,255,255,0.5)"/></svg>`;
 
     // Hub content
-    let hubContent = `<div class="pbg-hub-icon">${ICONS.slot}</div><div class="pbg-hub-text">GIRAR</div>`;
-    if (isSpinning) hubContent = `<div class="pbg-hub-icon" style="animation:pbg-bulb-a 0.3s infinite">${ICONS.sparkle}</div>`;
-    else if (maxReached) hubContent = `<div class="pbg-hub-icon">${ICONS.lock}</div><div class="pbg-hub-text" style="font-size:8px">LIMITE</div>`;
-    else if (!PLAYER_CPF) hubContent = `<div class="pbg-hub-icon">${ICONS.lock}</div><div class="pbg-hub-text" style="font-size:8px">LOGIN</div>`;
+    const hubSpin = `<div class="pbg-hub-icon" style="width:28px;height:28px">${inlIcon('refresh',28)}</div>`;
+    let hubContent = hubSpin;
+    if (isSpinning) hubContent = `<div class="pbg-hub-icon" style="animation:spin 0.6s linear infinite;width:28px;height:28px">${inlIcon('refresh',28)}</div>`;
+    else if (maxReached) hubContent = `<div class="pbg-hub-icon" style="width:22px;height:22px">${inlIcon('lock',22)}</div>`;
+    else if (!PLAYER_CPF) hubContent = `<div class="pbg-hub-icon" style="width:22px;height:22px">${inlIcon('lock',22)}</div>`;
+
+    // Timer until next free spin (midnight reset)
+    let timerHtml = '';
+    if (maxReached || (freeLeft === 0 && !isFree)) {
+      const now = new Date();
+      const midnight = new Date(now); midnight.setHours(24, 0, 0, 0);
+      const ms = midnight - now;
+      const hrs = Math.floor(ms / 3600000);
+      const mins = Math.floor((ms % 3600000) / 60000);
+      const secs = Math.floor((ms % 60000) / 1000);
+      timerHtml = `
+        <div class="pbg-wheel-timer-banner">⚠ JOGAR NOVAMENTE EM ⚠</div>
+        <div class="pbg-wheel-timer-countdown">
+          <div class="pbg-timer-block"><div class="pbg-timer-num">${String(hrs).padStart(2,'0')}</div><div class="pbg-timer-lbl">H</div></div>
+          <span class="pbg-timer-sep">:</span>
+          <div class="pbg-timer-block"><div class="pbg-timer-num">${String(mins).padStart(2,'0')}</div><div class="pbg-timer-lbl">M</div></div>
+          <span class="pbg-timer-sep">:</span>
+          <div class="pbg-timer-block"><div class="pbg-timer-num">${String(secs).padStart(2,'0')}</div><div class="pbg-timer-lbl">S</div></div>
+        </div>
+      `;
+    }
 
     return `
       <div class="pbg-wheel-container">
+        <div class="pbg-wheel-title-banner">ROLETA DIÁRIA</div>
+        ${spinResult && !isSpinning ? (spinResult.error
+          ? `<div class="pbg-modal-error" style="margin:0 0 8px">${spinResult.error}</div>`
+          : `<div class="pbg-spin-result">
+              <div style="font-size:12px;color:#a1a1aa">${inlIcon('party',14)} Você ganhou!</div>
+              <div class="pbg-spin-result-prize">${spinResult.type === 'nothing' ? inlIcon('sad',14)+' Tente de novo!' : spinResult.label}</div>
+            </div>`
+        ) : ''}
         <div class="pbg-wheel-stage">
           <div class="pbg-wheel-ring-outer"></div>
           <div class="pbg-wheel-bulbs ${isSpinning ? 'spin' : ''}" id="pbg-wheel-bulbs">${bulbsHtml}</div>
@@ -1255,14 +1339,8 @@
           <svg viewBox="0 0 ${size} ${size}" class="pbg-wheel-svg" id="pbg-wheel-canvas">${svg}</svg>
           <div class="pbg-wheel-hub ${btnDisabled ? 'off' : ''}" onclick="${btnDisabled ? '' : "window.__pbg('spin')"}">${hubContent}</div>
         </div>
-        ${spinResult && !isSpinning ? (spinResult.error
-          ? `<div class="pbg-modal-error">${spinResult.error}</div>`
-          : `<div class="pbg-spin-result">
-              <div style="font-size:12px;color:#a1a1aa">${inlIcon('party',14)} Você ganhou!</div>
-              <div class="pbg-spin-result-prize">${spinResult.type === 'nothing' ? inlIcon('sad',14)+' Tente de novo!' : spinResult.label}</div>
-            </div>`
-        ) : ''}
-        ${!isFree && cfg.spin_cost_coins > 0 && !maxReached && !isSpinning ? `<div class="pbg-spin-cost-badge">${inlIcon('coin',12)} Próximo giro: ${cfg.spin_cost_coins} moedas</div>` : ''}
+        ${timerHtml}
+        ${!isFree && cfg.spin_cost_coins > 0 && !maxReached && !isSpinning ? `<div class="pbg-spin-cost-badge" style="margin-top:8px">${inlIcon('coin',12)} Próximo giro: ${cfg.spin_cost_coins} moedas</div>` : ''}
         <div class="pbg-spin-info">
           <span class="pbg-spin-tag" style="color:${freeLeft > 0 ? '#34d399' : '#f87171'}">${inlIcon('ticket',12)} Grátis: ${freeLeft}/${cfg.free_spins_per_day || 1}</span>
           ${cfg.max_spins_per_day > 0 ? `<span class="pbg-spin-tag" style="color:${maxReached ? '#f87171' : '#a1a1aa'}">${inlIcon('dice',12)} ${spinsUsed}/${cfg.max_spins_per_day}</span>` : ''}
@@ -1603,6 +1681,75 @@
     `;
   }
 
+  // ---- USERNAME FROM DOM ----
+  function getPlayerUsername() {
+    const nomeEl = document.querySelector('#nome');
+    if (nomeEl && nomeEl.textContent.trim()) return nomeEl.textContent.trim().toUpperCase();
+    const usernameInput = document.querySelector('#username');
+    if (usernameInput && usernameInput.value.trim()) return usernameInput.value.trim().toUpperCase();
+    if (PLAYER_CPF) return PLAYER_CPF;
+    return 'Jogador';
+  }
+
+  // ---- HEADER RENDER ----
+  function renderHeader() {
+    const avatarEl = document.getElementById('pbg-avatar');
+    const usernameEl = document.getElementById('pbg-username');
+    const levelRowEl = document.getElementById('pbg-level-row');
+    const xpTrackEl = document.getElementById('pbg-xp-track');
+    const xpFillEl = document.getElementById('pbg-xp-fill');
+    const nextLvlEl = document.getElementById('pbg-next-lvl-txt');
+    const countersEl = document.getElementById('pbg-counters-row');
+    if (!avatarEl) return;
+
+    const username = getPlayerUsername();
+    const initial = username.charAt(0).toUpperCase();
+    if (usernameEl) usernameEl.textContent = username;
+    if (avatarEl) avatarEl.innerHTML = initial;
+
+    const fmt1k = n => n >= 1000 ? (n/1000).toFixed(1).replace('.',',')+'k' : n.toLocaleString('pt-BR');
+    const lvInfo = getLevelInfo();
+
+    if (lvInfo) {
+      const col = lvInfo.current.color || '#8b5cf6';
+      if (levelRowEl) levelRowEl.innerHTML = `
+        ${lvInfo.current.icon_url
+          ? `<img class="pbg-level-img" src="${lvInfo.current.icon_url}" style="filter:drop-shadow(0 1px 4px ${col}99)">`
+          : `<div style="width:22px;height:22px;border-radius:6px;background:${col}33;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${col}">${lvInfo.current.level_number}</div>`}
+        <span class="pbg-level-name-lbl">${lvInfo.current.name}</span>
+      `;
+      if (xpTrackEl) { xpTrackEl.style.display = 'block'; }
+      if (xpFillEl) { xpFillEl.style.width = lvInfo.pct + '%'; xpFillEl.style.background = `linear-gradient(90deg,${col}cc,${col})`; }
+      if (nextLvlEl) nextLvlEl.innerHTML = lvInfo.next
+        ? `0 / ${lvInfo.xpForNext.toLocaleString('pt-BR')} · Próximo nível é <span>${lvInfo.next.name}</span>`
+        : `<span>Nível máximo!</span>`;
+    } else {
+      if (levelRowEl) levelRowEl.innerHTML = `<div style="font-size:11px;color:#52525b">Sem nível configurado</div>`;
+      if (xpTrackEl) xpTrackEl.style.display = 'none';
+      if (nextLvlEl) nextLvlEl.textContent = '';
+    }
+
+    if (countersEl && data?.wallet) {
+      const coins = data.wallet.coins || 0;
+      const diamonds = data.wallet.diamonds || 0;
+      const xp = data.wallet.xp || 0;
+      countersEl.innerHTML = `
+        <div class="pbg-counter-chip">
+          <div style="color:#fbbf24;flex-shrink:0">${inlIcon('coin',18)}</div>
+          <div><div class="pbg-counter-val">${fmt1k(coins)}</div><div class="pbg-counter-lbl">Moedas</div></div>
+        </div>
+        <div class="pbg-counter-chip">
+          <div style="color:#22d3ee;flex-shrink:0">${inlIcon('diamond',18)}</div>
+          <div><div class="pbg-counter-val">${fmt1k(diamonds)}</div><div class="pbg-counter-lbl">Diamantes</div></div>
+        </div>
+        <div class="pbg-counter-chip">
+          <div style="color:#818cf8;flex-shrink:0">${inlIcon('star',18)}</div>
+          <div><div class="pbg-counter-val">${fmt1k(xp)}</div><div class="pbg-counter-lbl">XP</div></div>
+        </div>
+      `;
+    }
+  }
+
   // ---- MAIN RENDER ----
   function renderContent() {
     const el = document.getElementById('pbg-widget-content');
@@ -1611,82 +1758,14 @@
 
     const renderers = { missions: renderMissions, achievements: renderAchievements, tournaments: renderTournaments, wheel: renderWheel, games: renderMiniGames, store: renderStore, history: renderHistory, levels: renderLevels };
     el.innerHTML = (renderers[activeTab] || renderMissions)();
+    el.classList.toggle('pbg-no-pad', activeTab === 'wheel');
+    el.scrollTop = 0;
 
-    // Update tabs
-    document.querySelectorAll('.pbg-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.tab === activeTab));
+    // Update nav tabs
+    document.querySelectorAll('.pbg-nav-item').forEach(item => item.classList.toggle('active', item.dataset.tab === activeTab));
 
-    // Update level bar
-    const levelBar = document.getElementById('pbg-level-bar');
-    if (levelBar) {
-      const lvInfo = getLevelInfo();
-      if (lvInfo && data.wallet) {
-        levelBar.style.display = 'block';
-        const col = lvInfo.current.color || '#8b5cf6';
-        const xpLabel = lvInfo.next ? `${lvInfo.xpInLevel.toLocaleString('pt-BR')} / ${lvInfo.xpForNext.toLocaleString('pt-BR')} XP` : 'MAX';
-        const xpSub = lvInfo.next ? `faltam ${(lvInfo.xpForNext - lvInfo.xpInLevel).toLocaleString('pt-BR')} XP` : 'nível máximo';
-        const fmt1k = n => n >= 1000 ? (n/1000).toFixed(1).replace('.',',')+'k' : n.toLocaleString('pt-BR');
-        levelBar.innerHTML = `
-          <div class="pbg-level-info">
-            <div class="pbg-level-badge" style="background:${col}22;color:${col};border:1.5px solid ${col}55">
-              ${lvInfo.current.icon_url
-                ? `<img src="${lvInfo.current.icon_url}" style="width:22px;height:22px;object-fit:contain">`
-                : `<span class="pbg-level-badge-num">${lvInfo.current.level_number}</span><span class="pbg-level-badge-lbl">Nv</span>`}
-            </div>
-            <div class="pbg-level-texts">
-              <div class="pbg-level-name">${lvInfo.current.name}</div>
-              <div class="pbg-level-sub">${xpSub}</div>
-            </div>
-            <div class="pbg-level-xp-right">
-              <div class="pbg-level-xp-val" style="color:${col}">${xpLabel}</div>
-            </div>
-          </div>
-          <div class="pbg-xp-track">
-            <div class="pbg-xp-fill" style="width:${lvInfo.pct}%;background:linear-gradient(90deg,${col}cc,${col})"></div>
-          </div>
-          <div class="pbg-wallet-row">
-            <div class="pbg-wallet-chip">
-              <div style="color:#fbbf24;width:16px;height:16px">${inlIcon('coin',16)}</div>
-              <div class="pbg-wallet-chip-val">${fmt1k(data.wallet.coins||0)}</div>
-              <div class="pbg-wallet-chip-lbl">Moedas</div>
-            </div>
-            <div class="pbg-wallet-chip">
-              <div style="color:#22d3ee;width:16px;height:16px">${inlIcon('diamond',16)}</div>
-              <div class="pbg-wallet-chip-val">${fmt1k(data.wallet.diamonds||0)}</div>
-              <div class="pbg-wallet-chip-lbl">Diamantes</div>
-            </div>
-            <div class="pbg-wallet-chip">
-              <div style="color:#818cf8;width:16px;height:16px">${inlIcon('star',16)}</div>
-              <div class="pbg-wallet-chip-val">${fmt1k(data.wallet.xp||0)}</div>
-              <div class="pbg-wallet-chip-lbl">XP</div>
-            </div>
-          </div>
-        `;
-      } else if (data.wallet) {
-        levelBar.style.display = 'block';
-        const fmt1k2 = n => n >= 1000 ? (n/1000).toFixed(1).replace('.',',')+'k' : n.toLocaleString('pt-BR');
-        levelBar.innerHTML = `
-          <div class="pbg-wallet-row">
-            <div class="pbg-wallet-chip">
-              <div style="color:#fbbf24;width:16px;height:16px">${inlIcon('coin',16)}</div>
-              <div class="pbg-wallet-chip-val">${fmt1k2(data.wallet.coins||0)}</div>
-              <div class="pbg-wallet-chip-lbl">Moedas</div>
-            </div>
-            <div class="pbg-wallet-chip">
-              <div style="color:#22d3ee;width:16px;height:16px">${inlIcon('diamond',16)}</div>
-              <div class="pbg-wallet-chip-val">${fmt1k2(data.wallet.diamonds||0)}</div>
-              <div class="pbg-wallet-chip-lbl">Diamantes</div>
-            </div>
-            <div class="pbg-wallet-chip">
-              <div style="color:#818cf8;width:16px;height:16px">${inlIcon('star',16)}</div>
-              <div class="pbg-wallet-chip-val">${fmt1k2(data.wallet.xp||0)}</div>
-              <div class="pbg-wallet-chip-lbl">XP</div>
-            </div>
-          </div>
-        `;
-      } else {
-        levelBar.style.display = 'none';
-      }
-    }
+    // Update smartico header
+    renderHeader();
 
     // Update pending rewards badge
     const pendingCount = (data.pending_rewards || []).length;
@@ -1714,20 +1793,45 @@
     const panel = document.createElement('div');
     panel.id = 'pbg-widget-panel';
     panel.innerHTML = `
-      <div class="pbg-header">
-        <h2>${ICONS.trophy} Recompensas</h2>
+      <div class="pbg-smartico-header" id="pbg-smartico-header">
         <button class="pbg-close" onclick="window.__pbg('toggle',false)">&times;</button>
+        <div class="pbg-header-top">
+          <div class="pbg-avatar" id="pbg-avatar"></div>
+          <div class="pbg-user-info">
+            <div class="pbg-username" id="pbg-username">Jogador</div>
+            <div class="pbg-level-row" id="pbg-level-row"><div style="font-size:11px;color:#52525b">Carregando...</div></div>
+            <div class="pbg-xp-track" id="pbg-xp-track" style="display:none"><div class="pbg-xp-fill" id="pbg-xp-fill" style="width:0%"></div></div>
+            <div class="pbg-next-lvl-txt" id="pbg-next-lvl-txt"></div>
+          </div>
+        </div>
+        <div class="pbg-counters-row" id="pbg-counters-row"></div>
       </div>
-      <div id="pbg-level-bar" class="pbg-level-bar" style="display:none"></div>
-      <div class="pbg-tabs">
-        <button class="pbg-tab active" data-tab="missions" onclick="window.__pbg('tab','missions')">${inlIcon('target')} Missões</button>
-        <button class="pbg-tab" data-tab="achievements" onclick="window.__pbg('tab','achievements')">${inlIcon('trophy')} Conquistas</button>
-        <button class="pbg-tab" data-tab="tournaments" onclick="window.__pbg('tab','tournaments')">${inlIcon('swords')} Torneios</button>
-        <button class="pbg-tab" data-tab="wheel" onclick="window.__pbg('tab','wheel')">${inlIcon('wheel')} Roleta</button>
-        <button class="pbg-tab" data-tab="games" onclick="window.__pbg('tab','games')">${inlIcon('gamepad')} Jogos</button>
-        <button class="pbg-tab" data-tab="store" onclick="window.__pbg('tab','store')">${inlIcon('cart')} Loja</button>
-        <button class="pbg-tab" data-tab="levels" onclick="window.__pbg('tab','levels')">${inlIcon('medal')} Níveis</button>
-        <button class="pbg-tab" data-tab="history" onclick="window.__pbg('tab','history')">${inlIcon('clipboard')} Histórico<span id="pbg-pending-badge" class="pbg-tab-badge" style="display:none">0</span></button>
+      <div class="pbg-smartico-nav">
+        <div class="pbg-nav-item active" data-tab="missions" onclick="window.__pbg('tab','missions')">
+          <div class="pbg-nav-icon">${inlIcon('target',20)}</div><span class="pbg-nav-lbl">Missões</span>
+        </div>
+        <div class="pbg-nav-item" data-tab="achievements" onclick="window.__pbg('tab','achievements')">
+          <div class="pbg-nav-icon">${inlIcon('trophy',20)}</div><span class="pbg-nav-lbl">Conquistas</span>
+        </div>
+        <div class="pbg-nav-item" data-tab="tournaments" onclick="window.__pbg('tab','tournaments')">
+          <div class="pbg-nav-icon">${inlIcon('swords',20)}</div><span class="pbg-nav-lbl">Torneios</span>
+        </div>
+        <div class="pbg-nav-item" data-tab="wheel" onclick="window.__pbg('tab','wheel')">
+          <div class="pbg-nav-icon">${inlIcon('wheel',20)}</div><span class="pbg-nav-lbl">Roleta</span>
+        </div>
+        <div class="pbg-nav-item" data-tab="games" onclick="window.__pbg('tab','games')">
+          <div class="pbg-nav-icon">${inlIcon('gamepad',20)}</div><span class="pbg-nav-lbl">Jogos</span>
+        </div>
+        <div class="pbg-nav-item" data-tab="store" onclick="window.__pbg('tab','store')">
+          <div class="pbg-nav-icon">${inlIcon('cart',20)}</div><span class="pbg-nav-lbl">Loja</span>
+        </div>
+        <div class="pbg-nav-item" data-tab="levels" onclick="window.__pbg('tab','levels')">
+          <div class="pbg-nav-icon">${inlIcon('medal',20)}</div><span class="pbg-nav-lbl">Níveis</span>
+        </div>
+        <div class="pbg-nav-item" data-tab="history" onclick="window.__pbg('tab','history')">
+          <div class="pbg-nav-icon">${inlIcon('clipboard',20)}</div><span class="pbg-nav-lbl">Histórico</span>
+          <span id="pbg-pending-badge" class="pbg-nav-badge" style="display:none">0</span>
+        </div>
       </div>
       <div class="pbg-content" id="pbg-widget-content"></div>
     `;
@@ -1891,7 +1995,7 @@
     const fab = document.getElementById('pbg-widget-fab');
     if (panel) panel.classList.toggle('open', isOpen);
     if (backdrop) backdrop.classList.toggle('open', isOpen);
-    if (fab) fab.style.display = isOpen ? 'none' : 'flex';
+    if (fab) { if (isOpen) { fab.style.setProperty('display', 'none', 'important'); } else { fab.style.removeProperty('display'); } }
     if (isOpen && !data) fetchData();
   }
 
