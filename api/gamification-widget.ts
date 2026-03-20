@@ -554,8 +554,8 @@ export default async function handler(req: Request): Promise<Response> {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        const baseUrl = (config.site_url || 'https://pixbingobr.concurso.club').replace(/\/+$/, '');
-        const login = await platformLogin(baseUrl, config.username, config.password, config.login_url);
+        const loginDomain = (config.login_url || config.site_url || 'https://pixbingobr.concurso.club').replace(/\/+$/, '');
+        const login = await platformLogin(loginDomain, config.username, config.password, config.login_url);
         if (!login.success) {
           return new Response(JSON.stringify({ saldo: 0, bonus: 0, error: 'login' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -567,22 +567,13 @@ export default async function handler(req: Request): Promise<Response> {
           'X-Requested-With': 'XMLHttpRequest',
         };
         let saldo = 0, bonus = 0;
-        let debug: any = { loginOk: login.success, baseUrl };
-        // Quick test: try listing users to see if auth works
-        try {
-          const testRes = await fetch(`${baseUrl}/usuarios/listar?draw=1&start=0&length=1&busca_cpf=${playerCpf}`, {
-            headers: headers2, signal: AbortSignal.timeout(10000),
-          });
-          const testTxt = await testRes.text();
-          debug.listStatus = testRes.status;
-          debug.listSnippet = testTxt.slice(0, 300);
-        } catch (e: any) { debug.listError = e.message; }
+        let debug: any = { loginOk: login.success, loginDomain };
         // First find uuid by CPF
-        const uuid = await searchPlayerByCpf(baseUrl, headers2, playerCpf);
+        const uuid = await searchPlayerByCpf(loginDomain, headers2, playerCpf);
         debug.uuid = uuid;
         if (uuid) {
           // Fetch /usuarios/transacoes which returns carteiras
-          const txRes = await fetch(`${baseUrl}/usuarios/transacoes?id=${uuid}`, {
+          const txRes = await fetch(`${loginDomain}/usuarios/transacoes?id=${uuid}`, {
             headers: headers2, signal: AbortSignal.timeout(10000),
           });
           const txText = await txRes.text();
