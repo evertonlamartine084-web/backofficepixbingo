@@ -559,15 +559,22 @@ export default async function handler(req: Request): Promise<Response> {
           'X-Requested-With': 'XMLHttpRequest',
         };
         let saldo = 0, bonus = 0;
+        let debug: any = {};
         // First find uuid by CPF
         const uuid = await searchPlayerByCpf(baseUrl, headers2, playerCpf);
+        debug.uuid = uuid;
         if (uuid) {
           // Fetch /usuarios/transacoes which returns carteiras
           const txRes = await fetch(`${baseUrl}/usuarios/transacoes?id=${uuid}`, {
             headers: headers2, signal: AbortSignal.timeout(10000),
           });
-          const txData = await txRes.json();
+          const txText = await txRes.text();
+          let txData: any;
+          try { txData = JSON.parse(txText); } catch { txData = null; }
+          debug.txKeys = txData ? Object.keys(txData) : null;
+          debug.txSnippet = txText.slice(0, 500);
           const carteiras = txData?.carteiras;
+          debug.carteiras = carteiras;
           if (Array.isArray(carteiras)) {
             for (const c of carteiras) {
               const nome = (c.carteira || c.nome || c.tipo || '').toUpperCase();
@@ -581,7 +588,7 @@ export default async function handler(req: Request): Promise<Response> {
             bonus = Number(carteiras.bonus || carteiras.saldo_bonus || 0);
           }
         }
-        return new Response(JSON.stringify({ saldo, bonus }), {
+        return new Response(JSON.stringify({ saldo, bonus, debug }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } catch (e: any) {
