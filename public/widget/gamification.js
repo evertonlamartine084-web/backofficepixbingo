@@ -2394,9 +2394,24 @@
     setInterval(fetchData, 120_000);
   }
 
+  async function checkSegmentAndInit() {
+    // If no segment specified, show to everyone
+    if (!SEGMENT_ID) { initWidget(); return; }
+    // Need CPF to check segment membership
+    const cpf = getPlayerCpf();
+    if (!cpf) return; // no CPF = can't verify = don't show
+    try {
+      const res = await apiCall('check_segment');
+      if (res && res.belongs) initWidget();
+      // else: player not in segment, widget stays hidden
+    } catch {
+      // On error, don't show widget (fail-safe)
+    }
+  }
+
   function init() {
-    if (isUserLoggedIn()) initWidget();
-    else { const chk = setInterval(() => { if (isUserLoggedIn()) { clearInterval(chk); initWidget(); } }, 3000); }
+    if (isUserLoggedIn()) checkSegmentAndInit();
+    else { const chk = setInterval(() => { if (isUserLoggedIn()) { clearInterval(chk); checkSegmentAndInit(); } }, 3000); }
   }
 
   function updateFab(fabEl) {

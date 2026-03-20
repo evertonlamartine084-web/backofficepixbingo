@@ -579,6 +579,23 @@ export default async function handler(req: Request): Promise<Response> {
       });
     }
 
+    // Check if player belongs to segment
+    if (action === 'check_segment') {
+      if (!segmentId || !playerCpf) {
+        return new Response(JSON.stringify({ belongs: !segmentId }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const { data: match } = await supabase.from('segment_items')
+        .select('id')
+        .eq('segment_id', segmentId)
+        .eq('cpf', playerCpf)
+        .maybeSingle();
+      return new Response(JSON.stringify({ belongs: !!match }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Platform balance
     if (action === 'platform_balance') {
       if (!playerCpf) {
