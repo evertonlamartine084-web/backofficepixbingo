@@ -541,13 +541,13 @@ export default async function handler(req: Request): Promise<Response> {
       }
       try {
         const { data: config } = await supabase.from('platform_config').select('*').limit(1).maybeSingle();
-        if (!config?.admin_user || !config?.admin_password) {
+        if (!config?.username || !config?.password) {
           return new Response(JSON.stringify({ saldo: 0, bonus: 0, error: 'config' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
         const baseUrl = (config.site_url || 'https://pixbingobr.concurso.club').replace(/\/+$/, '');
-        const login = await platformLogin(baseUrl, config.admin_user, config.admin_password, config.login_url);
+        const login = await platformLogin(baseUrl, config.username, config.password, config.login_url);
         if (!login.success) {
           return new Response(JSON.stringify({ saldo: 0, bonus: 0, error: 'login' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
