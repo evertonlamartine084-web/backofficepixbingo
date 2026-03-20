@@ -32,6 +32,7 @@ const Tournaments = lazy(() => import("@/pages/gamification/Tournaments"));
 const DailyWheel = lazy(() => import("@/pages/gamification/DailyWheel"));
 const WidgetPreview = lazy(() => import("@/pages/gamification/WidgetPreview"));
 const MiniGames = lazy(() => import("@/pages/gamification/MiniGames"));
+const MiniGamesPlayer = lazy(() => import("@/pages/gamification/MiniGamesPlayer"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -80,6 +81,7 @@ const App = () => (
               <Route path="/gamification/wheel" element={<DailyWheel />} />
               <Route path="/gamification/widget" element={<WidgetPreview />} />
               <Route path="/gamification/mini-games" element={<MiniGames />} />
+              <Route path="/gamification/mini-games-player" element={<MiniGamesPlayer />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

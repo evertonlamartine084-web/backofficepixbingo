@@ -5,7 +5,7 @@ import {
   ArrowUpDown, ListFilter, ShieldCheck, Megaphone, Gamepad2,
   MessageSquare, Package, User, RotateCcw, ScrollText,
   Award, Target, Swords, RotateCw, Star, ShoppingBag,
-  Bell, Inbox, Trophy,
+  Bell, Inbox, Trophy, Gift,
 } from 'lucide-react';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,6 +40,7 @@ const gamificationItems = [
   { to: '/gamification/tournaments', icon: Swords, label: 'Torneios' },
   { to: '/gamification/wheel', icon: RotateCw, label: 'Roleta Diária' },
   { to: '/gamification/mini-games', icon: Gamepad2, label: 'Mini Games' },
+  { to: '/gamification/mini-games-player', icon: Gift, label: 'Baús & Prêmios' },
   { to: '/assets/levels', icon: Star, label: 'Níveis' },
   { to: '/assets/store', icon: ShoppingBag, label: 'Loja' },
   { to: '/assets/push', icon: Bell, label: 'Push Notifications' },

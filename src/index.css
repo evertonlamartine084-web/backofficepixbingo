@@ -117,6 +117,26 @@
   .animate-pulse-slow {
     animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px) rotate(-2deg); }
+  50% { transform: translateX(4px) rotate(2deg); }
+  75% { transform: translateX(-2px) rotate(-1deg); }
 }
 
 @layer utilities {
@@ -127,4 +147,393 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* =============================================
+   MINI GAMES - Page & Card Styles
+   Exact replica of reference design
+   ============================================= */
+
+.minigames-page {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.minigames-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+}
+
+.minigames-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+/* Category Tabs - pill style matching reference */
+.minigames-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 8px 0 24px;
+  flex-wrap: wrap;
+}
+
+.minigames-tab {
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 20, 35, 0.6);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.minigames-tab:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.minigames-tab--active {
+  border-color: #38bdf8;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.06);
+}
+
+/* Games Grid */
+.minigames-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+/* Game Card - exact match to reference */
+.minigame-card {
+  position: relative;
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(180deg, rgba(1, 6, 18, 0.4) 0%, rgba(11, 31, 79, 0.4) 100%);
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.minigame-card::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  border-radius: 15px;
+  background: linear-gradient(180deg, #131722 0%, #656565 100%);
+  z-index: -1;
+}
+
+.minigame-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Info button */
+.minigame-card-info {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.minigame-card-info:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Card image */
+.minigame-card-image {
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.minigame-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.minigame-card:hover .minigame-card-image img {
+  transform: scale(1.05);
+}
+
+/* Card text */
+.minigame-card-text {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.minigame-card-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.minigame-card-description {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 400;
+}
+
+/* Card actions */
+.minigame-card-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.minigame-badge-free {
+  flex: 0 0 auto;
+  padding: 10px 18px;
+  border-radius: 8px;
+  background: rgb(38, 45, 65);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: center;
+}
+
+.minigame-badge-free:hover {
+  background: rgb(48, 55, 80);
+}
+
+.minigame-btn-open {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #e85d3a, #f07040);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(232, 93, 58, 0.3);
+}
+
+.minigame-btn-open:hover {
+  background: linear-gradient(135deg, #f06a48, #f58050);
+  box-shadow: 0 4px 16px rgba(232, 93, 58, 0.45);
+  transform: translateY(-1px);
+}
+
+.minigame-btn-open:active {
+  transform: translateY(0);
+}
+
+/* =============================================
+   CHEST GAME - Dialog Styles
+   Exact replica of reference chest opening screen
+   ============================================= */
+
+.chest-game-dialog {
+  background: radial-gradient(ellipse at center 30%, rgba(30, 20, 10, 0.95) 0%, rgba(5, 5, 10, 0.98) 70%) !important;
+  backdrop-filter: blur(20px);
+}
+
+.chest-game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 24px 20px;
+  min-height: 400px;
+}
+
+/* Title */
+.chest-game-title {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.chest-game-title-main {
+  display: block;
+  font-size: 28px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.chest-game-title-highlight {
+  display: block;
+  font-size: 28px;
+  font-weight: 900;
+  color: #f5ae00;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Result messages */
+.chest-game-message {
+  margin-bottom: 24px;
+  min-height: 28px;
+}
+
+.chest-game-instruction {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.chest-game-win {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f5ae00;
+}
+
+.chest-game-lose {
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 3 Chests board */
+.chest-game-board {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.chest-game-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Keys counter */
+.chest-game-keys {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #f5ae00;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+}
+
+/* Replay button */
+.chest-game-replay {
+  padding: 8px 20px;
+  border-radius: 8px;
+  background: rgba(245, 174, 0, 0.15);
+  border: 1px solid rgba(245, 174, 0, 0.3);
+  color: #f5ae00;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 16px;
+}
+
+.chest-game-replay:hover {
+  background: rgba(245, 174, 0, 0.25);
+}
+
+/* Possible prizes toggle */
+.chest-game-prizes-toggle {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  transition: color 0.2s;
+}
+
+.chest-game-prizes-toggle:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Prize list */
+.chest-game-prizes-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 12px;
+  width: 100%;
+  max-width: 350px;
+  animation: fadeIn 0.3s ease;
+}
+
+.chest-game-prize-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.chest-game-prize-icon {
+  font-size: 16px;
+}
+
+.chest-game-prize-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+/* Chest animation */
+.animate-chest-shake {
+  animation: chestShake 0.6s ease-in-out infinite;
+}
+
+.animate-chest-glow {
+  filter: drop-shadow(0 0 12px rgba(245, 174, 0, 0.5));
+}
+
+@keyframes chestShake {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  20% { transform: translateY(-3px) rotate(-2deg); }
+  40% { transform: translateY(-5px) rotate(2deg); }
+  60% { transform: translateY(-3px) rotate(-1deg); }
+  80% { transform: translateY(-1px) rotate(1deg); }
 }
