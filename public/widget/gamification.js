@@ -2396,22 +2396,33 @@
 
   async function checkSegmentAndInit() {
     // If no segment specified, show to everyone
-    if (!SEGMENT_ID) { initWidget(); return; }
+    if (!SEGMENT_ID) { initWidget(); return true; }
     // Need CPF to check segment membership
-    const cpf = getPlayerCpf();
-    if (!cpf) return; // no CPF = can't verify = don't show
+    PLAYER_CPF = getPlayerCpf();
+    if (!PLAYER_CPF) return false; // no CPF yet = can't verify
     try {
       const res = await apiCall('check_segment');
-      if (res && res.belongs) initWidget();
-      // else: player not in segment, widget stays hidden
+      if (res && res.belongs) { initWidget(); return true; }
+      return true; // checked but not in segment = stop polling
     } catch {
-      // On error, don't show widget (fail-safe)
+      return false; // error = retry later
     }
   }
 
   function init() {
-    if (isUserLoggedIn()) checkSegmentAndInit();
-    else { const chk = setInterval(() => { if (isUserLoggedIn()) { clearInterval(chk); checkSegmentAndInit(); } }, 3000); }
+    // Keep polling until widget is initialized or segment check completes
+    const tryInit = async () => {
+      if (widgetInitialized) return true;
+      if (!isUserLoggedIn()) return false;
+      return await checkSegmentAndInit();
+    };
+    tryInit().then(done => {
+      if (!done) {
+        const chk = setInterval(() => {
+          tryInit().then(d => { if (d) clearInterval(chk); });
+        }, 3000);
+      }
+    });
   }
 
   function updateFab(fabEl) {

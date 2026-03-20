@@ -586,10 +586,12 @@ export default async function handler(req: Request): Promise<Response> {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      // Normalize CPF: remove dots, dashes, spaces
+      const cleanCpf = playerCpf.replace(/[\.\-\s\/]/g, '');
       const { data: match } = await supabase.from('segment_items')
         .select('id')
         .eq('segment_id', segmentId)
-        .eq('cpf', playerCpf)
+        .eq('cpf', cleanCpf)
         .maybeSingle();
       return new Response(JSON.stringify({ belongs: !!match }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
