@@ -526,13 +526,13 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
       text-shadow: none;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
-      padding: 0; margin: 0 0 30px;
+      padding: 0; margin: 0 0 50px;
       position: relative; z-index: 1;
     }
     .pbg-spin-info {
       font-size: 11px; color: #a1a1aa; text-align: center;
       display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
-      margin-top: 30px; padding-bottom: 0;
+      margin-top: 50px; padding-bottom: 0;
     }
     .pbg-spin-tag {
       display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px;
