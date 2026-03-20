@@ -784,9 +784,11 @@
       if (result.error) { spinResult = { error: result.error }; isSpinning = false; renderContent(); return; }
       spinResult = result.prize;
       const canvas = document.getElementById('pbg-wheel-canvas');
-      if (canvas && result.prizes) {
+      // Use data.wheel_prizes (same source as renderWheel) to calculate angle
+      const wheelPrizes = data?.wheel_prizes || result.prizes || [];
+      if (canvas && wheelPrizes.length) {
         // Rebuild displayPrizes same way as renderWheel
-        let dp = [...result.prizes];
+        let dp = [...wheelPrizes];
         while (dp.length < 6 && dp.length > 0) dp = dp.concat(result.prizes);
         // Find ALL matching slots and pick one randomly
         const matchingSlots = [];
