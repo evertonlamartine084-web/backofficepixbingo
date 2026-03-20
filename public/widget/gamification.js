@@ -2260,6 +2260,32 @@
       }
     });
 
+    // MutationObserver: capture platform balance popover whenever it appears in DOM
+    try {
+      const observer = new MutationObserver((mutations) => {
+        for (const mut of mutations) {
+          for (const node of mut.addedNodes) {
+            if (node.nodeType !== 1) continue;
+            const el = node;
+            const popover = el.classList?.contains('popover-body') ? el : el.querySelector?.('.popover-body');
+            if (popover) {
+              popover.querySelectorAll('h6').forEach(h6 => {
+                const label = h6.childNodes[0]?.textContent?.trim().toLowerCase() || '';
+                const span = h6.querySelector('span');
+                if (!span) return;
+                const val = span.innerText.trim();
+                const m = val.match(/([\d]+[.,][\d.,]*[\d])/);
+                if (!m) return;
+                if (label.includes('saldo') && !label.includes('bonus')) window.__pbg_platform_saldo = 'R$ ' + m[1];
+                else if (label.includes('bonus')) window.__pbg_platform_bonus = 'B$ ' + m[1];
+              });
+            }
+          }
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    } catch {}
+
     // Pre-fetch data so FAB shows level ring immediately
     if (PLAYER_CPF && !data) fetchData();
 
@@ -2273,10 +2299,11 @@
           cr.classList.toggle('open');
           dd.classList.toggle('open');
           if (opening) {
-            // Read balances fresh from platform DOM
-            let sReal = 'R$ 0,00', sBonus = 'B$ 0,00';
+            // Read from cached platform balances (populated by MutationObserver)
+            let sReal = window.__pbg_platform_saldo || 'R$ 0,00';
+            let sBonus = window.__pbg_platform_bonus || 'B$ 0,00';
+            // Also try reading live from DOM
             try {
-              // Primary: .popover-body h6 elements ("Saldo: 207,71", "Bonus: 4.279,46")
               document.querySelectorAll('.popover-body h6').forEach(h6 => {
                 const label = h6.childNodes[0]?.textContent?.trim().toLowerCase() || '';
                 const span = h6.querySelector('span');
@@ -2284,20 +2311,9 @@
                 const val = span.innerText.trim();
                 const m = val.match(/([\d]+[.,][\d.,]*[\d])/);
                 if (!m) return;
-                if (label.includes('saldo') && !label.includes('bonus')) sReal = 'R$ ' + m[1];
-                else if (label.includes('bonus')) sBonus = 'B$ ' + m[1];
+                if (label.includes('saldo') && !label.includes('bonus')) { sReal = 'R$ ' + m[1]; window.__pbg_platform_saldo = sReal; }
+                else if (label.includes('bonus')) { sBonus = 'B$ ' + m[1]; window.__pbg_platform_bonus = sBonus; }
               });
-              // Fallback: .balance-value with R$/B$ text
-              if (sReal === 'R$ 0,00') {
-                document.querySelectorAll('.balance-value, [class*="saldo"]').forEach(el => {
-                  if (el.closest('#pbg-widget-panel')) return;
-                  const txt = el.innerText.trim();
-                  const rm = txt.match(/R\$\s*([\d.,]+)/);
-                  if (rm && sReal === 'R$ 0,00') sReal = 'R$ ' + rm[1];
-                  const bm = txt.match(/B\$\s*([\d.,]+)/);
-                  if (bm && sBonus === 'B$ 0,00') sBonus = 'B$ ' + bm[1];
-                });
-              }
             } catch {}
             // Update dropdown values
             const realEl = dd.querySelector('#pbg-dd-saldo-real .pbg-wallet-dd-val');
