@@ -22,9 +22,14 @@
     currentScript = allScripts.length > 0 ? allScripts[allScripts.length - 1] : null;
   }
 
-  const SEGMENT_ID = currentScript ? currentScript.getAttribute('data-segment') : null;
-  const REQUIRE_LOGIN = currentScript ? currentScript.getAttribute('data-require-login') : null;
-  const AUTH_SELECTOR = currentScript ? currentScript.getAttribute('data-auth-selector') : null;
+  // Read config from: 1) data-* attributes on script tag, 2) window.__pbgConfig (set by GTM before script loads), 3) URL params on script src
+  const scriptSrc = currentScript?.getAttribute('src') || '';
+  const srcParams = new URLSearchParams(scriptSrc.split('?')[1] || '');
+  const cfg = window.__pbgConfig || {};
+
+  const SEGMENT_ID = currentScript?.getAttribute('data-segment') || cfg.segment || srcParams.get('segment') || null;
+  const REQUIRE_LOGIN = currentScript?.getAttribute('data-require-login') || cfg.requireLogin || srcParams.get('require-login') || null;
+  const AUTH_SELECTOR = currentScript?.getAttribute('data-auth-selector') || cfg.authSelector || srcParams.get('auth-selector') || null;
 
   // CPF: 1) data-player attribute, 2) localStorage __pbr_cpf
   function getPlayerCpf() {
