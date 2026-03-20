@@ -210,7 +210,7 @@
     }
 
     .pbg-content { flex: 1; overflow-y: auto; padding: 16px; min-height: 0; }
-    .pbg-content.pbg-no-pad { padding: 0; overflow-y: auto; overflow-x: hidden; }
+    .pbg-content.pbg-no-pad { padding: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
     .pbg-content::-webkit-scrollbar { width: 4px; }
     .pbg-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
@@ -422,8 +422,8 @@
     .pbg-wheel-container {
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
       background: radial-gradient(ellipse at 50% 30%, #0a2a5e 0%, #060e2a 55%, #020510 100%);
-      margin: 0; padding: 16px 16px 20px; position: relative;
-      min-height: 100%;
+      margin: 0; padding: 20px 16px; position: relative;
+      flex: 1; box-sizing: border-box;
     }
     /* Stars overlay */
     .pbg-wheel-container::before {
