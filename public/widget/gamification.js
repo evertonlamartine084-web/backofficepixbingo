@@ -2260,32 +2260,6 @@
       }
     });
 
-    // MutationObserver: capture platform balance popover whenever it appears in DOM
-    try {
-      const observer = new MutationObserver((mutations) => {
-        for (const mut of mutations) {
-          for (const node of mut.addedNodes) {
-            if (node.nodeType !== 1) continue;
-            const el = node;
-            const popover = el.classList?.contains('popover-body') ? el : el.querySelector?.('.popover-body');
-            if (popover) {
-              popover.querySelectorAll('h6').forEach(h6 => {
-                const label = h6.childNodes[0]?.textContent?.trim().toLowerCase() || '';
-                const span = h6.querySelector('span');
-                if (!span) return;
-                const val = span.innerText.trim();
-                const m = val.match(/([\d]+[.,][\d.,]*[\d])/);
-                if (!m) return;
-                if (label.includes('saldo') && !label.includes('bonus')) window.__pbg_platform_saldo = 'R$ ' + m[1];
-                else if (label.includes('bonus')) window.__pbg_platform_bonus = 'B$ ' + m[1];
-              });
-            }
-          }
-        }
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-    } catch {}
-
     // Pre-fetch data so FAB shows level ring immediately
     if (PLAYER_CPF && !data) fetchData();
 
@@ -2299,22 +2273,22 @@
           cr.classList.toggle('open');
           dd.classList.toggle('open');
           if (opening) {
-            // Read from cached platform balances (populated by MutationObserver)
+            // Fetch platform balance from API
             let sReal = window.__pbg_platform_saldo || 'R$ 0,00';
             let sBonus = window.__pbg_platform_bonus || 'B$ 0,00';
-            // Also try reading live from DOM
-            try {
-              document.querySelectorAll('.popover-body h6').forEach(h6 => {
-                const label = h6.childNodes[0]?.textContent?.trim().toLowerCase() || '';
-                const span = h6.querySelector('span');
-                if (!span) return;
-                const val = span.innerText.trim();
-                const m = val.match(/([\d]+[.,][\d.,]*[\d])/);
-                if (!m) return;
-                if (label.includes('saldo') && !label.includes('bonus')) { sReal = 'R$ ' + m[1]; window.__pbg_platform_saldo = sReal; }
-                else if (label.includes('bonus')) { sBonus = 'B$ ' + m[1]; window.__pbg_platform_bonus = sBonus; }
-              });
-            } catch {}
+            if (PLAYER_CPF) {
+              apiCall('platform_balance').then(res => {
+                if (res && !res.error) {
+                  const fmtBRL = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                  window.__pbg_platform_saldo = 'R$ ' + fmtBRL(res.saldo || 0);
+                  window.__pbg_platform_bonus = 'B$ ' + fmtBRL(res.bonus || 0);
+                  const realEl = document.querySelector('#pbg-dd-saldo-real .pbg-wallet-dd-val');
+                  const bonusEl = document.querySelector('#pbg-dd-saldo-bonus .pbg-wallet-dd-val');
+                  if (realEl) realEl.textContent = window.__pbg_platform_saldo;
+                  if (bonusEl) bonusEl.textContent = window.__pbg_platform_bonus;
+                }
+              }).catch(() => {});
+            }
             // Update dropdown values
             const realEl = dd.querySelector('#pbg-dd-saldo-real .pbg-wallet-dd-val');
             const bonusEl = dd.querySelector('#pbg-dd-saldo-bonus .pbg-wallet-dd-val');

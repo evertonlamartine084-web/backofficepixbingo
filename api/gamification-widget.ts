@@ -532,6 +532,58 @@ export default async function handler(req: Request): Promise<Response> {
       });
     }
 
+    // Platform balance
+    if (action === 'platform_balance') {
+      if (!playerCpf) {
+        return new Response(JSON.stringify({ saldo: 0, bonus: 0 }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      try {
+        const { data: config } = await supabase.from('platform_config').select('*').limit(1).maybeSingle();
+        if (!config?.admin_user || !config?.admin_password) {
+          return new Response(JSON.stringify({ saldo: 0, bonus: 0, error: 'config' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const baseUrl = (config.site_url || 'https://pixbingobr.concurso.club').replace(/\/+$/, '');
+        const login = await platformLogin(baseUrl, config.admin_user, config.admin_password, config.login_url);
+        if (!login.success) {
+          return new Response(JSON.stringify({ saldo: 0, bonus: 0, error: 'login' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const headers2: Record<string, string> = {
+          'Cookie': login.cookies,
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        };
+        // Fetch financeiro-geral for this player
+        const fgParams = new URLSearchParams({
+          'columns[0][data]': 'cpf', 'columns[0][search][value]': playerCpf,
+          'start': '0', 'length': '1',
+        });
+        let saldo = 0, bonus = 0;
+        const fgRes = await fetch(`${baseUrl}/financeiro-geral/listar?${fgParams.toString()}`, {
+          headers: headers2, signal: AbortSignal.timeout(10000),
+        });
+        const fgData = await fgRes.json();
+        const totais = fgData?.totais;
+        const totaisObj = Array.isArray(totais) ? totais[0] : totais;
+        if (totaisObj) {
+          saldo = Number(totaisObj.saldo || totaisObj.credito || 0);
+          bonus = Number(totaisObj.bonus || totaisObj.saldo_bonus || 0);
+        }
+        return new Response(JSON.stringify({ saldo, bonus }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ saldo: 0, bonus: 0, error: e.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // Store purchase
     if (action === 'store_buy') {
       if (!playerCpf) {
