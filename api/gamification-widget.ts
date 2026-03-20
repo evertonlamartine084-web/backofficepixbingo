@@ -560,7 +560,7 @@ export default async function handler(req: Request): Promise<Response> {
         };
         let saldo = 0, bonus = 0;
         // First find uuid by CPF
-        const uuid = await findPlayerUuid(baseUrl, headers2, playerCpf);
+        const uuid = await searchPlayerByCpf(baseUrl, headers2, playerCpf);
         if (uuid) {
           // Fetch /usuarios/transacoes which returns carteiras
           const txRes = await fetch(`${baseUrl}/usuarios/transacoes?id=${uuid}`, {
