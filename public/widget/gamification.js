@@ -441,7 +441,7 @@
         radial-gradient(1px 1px at 70% 35%, rgba(255,255,255,0.5) 0%, transparent 100%);
     }
     .pbg-wheel-stage {
-      position: relative; width: 250px; height: 250px; margin: 10px auto 20px;
+      position: relative; width: 250px; height: 250px; margin: 10px auto 28px;
     }
     /* Blue neon outer ring — rotates slowly (idle) */
     .pbg-wheel-ring-outer {
@@ -526,7 +526,7 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
       text-shadow: none;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
-      padding: 0; margin: 10px 0 30px;
+      padding: 0; margin: 14px 0 40px;
       position: relative; z-index: 1;
     }
     .pbg-spin-info {
@@ -543,7 +543,7 @@
       text-align: center; padding: 8px 12px; border-radius: 10px;
       background: linear-gradient(135deg, rgba(212,160,23,0.15), rgba(0,100,255,0.08));
       border: 1px solid rgba(212,160,23,0.3);
-      animation: pbg-scale-in 0.35s ease; margin: 0 0 16px;
+      animation: pbg-scale-in 0.35s ease; margin: 0 0 24px;
     }
     .pbg-spin-result-prize { font-size: 18px; font-weight: 800; color: #f7d86c; margin-top: 2px; }
     .pbg-spin-cost-badge {
@@ -1281,16 +1281,14 @@
     // Outer glow ring on SVG
     svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(0,180,255,0.2)" stroke-width="3"/>`;
 
-    // Bulbs
+    // Bulbs — use percentage positioning so they scale with container
     const numBulbs = Math.max(24, n * 3);
-    const bulbCenter = 139; // (250 + 14*2) / 2
-    const bulbR = 132;
     let bulbsHtml = '';
     for (let i = 0; i < numBulbs; i++) {
       const a = (i / numBulbs) * 2 * Math.PI - Math.PI / 2;
-      const bx = bulbCenter + bulbR * Math.cos(a);
-      const by = bulbCenter + bulbR * Math.sin(a);
-      bulbsHtml += `<div class="pbg-bulb ${i % 2 === 0 ? 'pbg-bulb-on' : 'pbg-bulb-off'}" style="left:${bx}px;top:${by}px;transform:translate(-50%,-50%)"></div>`;
+      const bxPct = 50 + 47.5 * Math.cos(a);
+      const byPct = 50 + 47.5 * Math.sin(a);
+      bulbsHtml += `<div class="pbg-bulb ${i % 2 === 0 ? 'pbg-bulb-on' : 'pbg-bulb-off'}" style="left:${bxPct}%;top:${byPct}%;transform:translate(-50%,-50%)"></div>`;
     }
 
     // Pointer — diamond arrow pointing LEFT, on the right side
