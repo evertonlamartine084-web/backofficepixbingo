@@ -332,19 +332,68 @@
     .pbg-segment-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 5px; font-size: 9px; font-weight: 600; background: rgba(139,92,246,0.12); color: #a78bfa; }
 
     /* Tournament — Smartico style */
+    /* ---- Tournament Hero Banner ---- */
+    .pbg-t-hero { position: relative; border-radius: 14px; overflow: hidden; margin-bottom: 14px; }
+    .pbg-t-hero-img { width: 100%; height: 160px; object-fit: cover; display: block; }
+    .pbg-t-hero-grad { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(12,10,26,0.95) 0%, rgba(12,10,26,0.4) 40%, transparent 70%); }
+    .pbg-t-hero-body { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 14px; display: flex; align-items: flex-end; gap: 10px; z-index: 1; flex-wrap: wrap; }
+    .pbg-t-hero-info { flex: 1; min-width: 0; }
+    .pbg-t-hero-name { font-size: 14px; font-weight: 800; color: #fff; text-transform: uppercase; margin: 0 0 2px; }
+    .pbg-t-hero-prize { font-size: 12px; color: #a1a1aa; }
+    .pbg-t-hero-prize span { color: #22d3ee; font-weight: 700; }
+    .pbg-t-hero-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .pbg-t-hero-cd { display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.5); border-radius: 8px; padding: 6px 10px; }
+    .pbg-t-hero-cd-num { font-size: 12px; font-weight: 800; color: #fff; min-width: 18px; text-align: center; }
+    .pbg-t-hero-cd-lbl { font-size: 7px; color: #71717a; text-transform: uppercase; }
+    .pbg-t-hero-cd-sep { color: #52525b; font-weight: 800; font-size: 12px; }
+    .pbg-t-hero-btn {
+      padding: 8px 16px; border: none; border-radius: 8px; font-size: 11px; font-weight: 800;
+      font-family: inherit; cursor: pointer; text-transform: uppercase; letter-spacing: 0.04em;
+      background: linear-gradient(135deg, #f97316, #ea580c); color: #fff;
+      display: flex; align-items: center; gap: 4px; white-space: nowrap;
+    }
+    .pbg-t-hero-btn:hover { filter: brightness(1.1); }
+    /* Filter tabs */
+    .pbg-t-filters { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px; }
+    .pbg-t-filters::-webkit-scrollbar { display: none; }
+    .pbg-t-filter {
+      padding: 7px 14px; border-radius: 20px; font-size: 10px; font-weight: 700;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      color: #a1a1aa; cursor: pointer; white-space: nowrap; transition: all 0.2s; font-family: inherit;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .pbg-t-filter:hover { background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.2); }
+    .pbg-t-filter.active { background: linear-gradient(135deg, #8b5cf6, #6366f1); border-color: transparent; color: #fff; }
+    /* Section header */
+    .pbg-t-section { display: flex; align-items: center; gap: 8px; margin: 16px 0 10px; }
+    .pbg-t-section-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(139,92,246,0.1); }
+    .pbg-t-section-title { font-size: 14px; font-weight: 700; color: #fff; flex: 1; }
+    /* Card grid — horizontal scroll on mobile */
+    .pbg-t-grid { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+    .pbg-t-grid::-webkit-scrollbar { display: none; }
     .pbg-t-card {
       background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 14px; overflow: hidden; margin-bottom: 12px; cursor: pointer;
-      transition: border-color 0.2s, transform 0.15s;
+      border-radius: 14px; overflow: hidden; cursor: pointer; flex-shrink: 0;
+      width: 180px; transition: border-color 0.2s, transform 0.15s;
     }
-    .pbg-t-card:hover { border-color: rgba(139,92,246,0.3); transform: translateY(-1px); }
+    .pbg-t-card:hover { border-color: rgba(139,92,246,0.3); transform: translateY(-2px); }
     .pbg-t-banner {
-      position: relative; height: 90px; background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(6,182,212,0.15));
-      display: flex; align-items: flex-end; padding: 10px 14px;
+      position: relative; height: 110px; background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(6,182,212,0.15));
     }
     .pbg-t-banner img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-    .pbg-t-banner-overlay { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(12,10,26,0.85) 0%, transparent 60%); }
-    .pbg-t-banner-content { position: relative; z-index: 1; width: 100%; }
+    .pbg-t-banner-overlay { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(12,10,26,0.6) 0%, transparent 50%); }
+    .pbg-t-banner-content { position: relative; z-index: 1; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 8px; }
+    .pbg-t-type-badge {
+      display: inline-flex; padding: 3px 8px; border-radius: 4px; font-size: 8px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.06em; align-self: flex-start;
+    }
+    .pbg-t-type-daily { background: #16a34a; color: #fff; }
+    .pbg-t-type-weekly { background: #2563eb; color: #fff; }
+    .pbg-t-type-monthly { background: #9333ea; color: #fff; }
+    .pbg-t-players-badge {
+      display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 4px;
+      background: rgba(0,0,0,0.6); font-size: 9px; font-weight: 700; color: #fff; align-self: flex-end;
+    }
     .pbg-t-status {
       display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
       border-radius: 6px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
@@ -352,9 +401,26 @@
     .pbg-t-status-live { background: rgba(16,185,129,0.2); color: #34d399; }
     .pbg-t-status-soon { background: rgba(245,158,11,0.2); color: #fbbf24; }
     .pbg-t-status-ended { background: rgba(113,113,122,0.2); color: #a1a1aa; }
-    .pbg-t-body { padding: 12px 14px; }
-    .pbg-t-title { font-size: 15px; font-weight: 700; color: #fff; margin: 0 0 6px; }
+    .pbg-t-body { padding: 10px; }
+    .pbg-t-title { font-size: 12px; font-weight: 800; color: #fff; margin: 0 0 6px; text-transform: uppercase; text-align: center; }
     .pbg-t-desc { font-size: 11px; color: #71717a; margin: 0 0 10px; line-height: 1.4; }
+    .pbg-t-top3 { display: flex; justify-content: center; gap: 6px; font-size: 9px; color: #a1a1aa; margin-bottom: 8px; flex-wrap: wrap; }
+    .pbg-t-top3-item { display: flex; align-items: center; gap: 2px; }
+    .pbg-t-card-footer { display: flex; align-items: center; gap: 6px; }
+    .pbg-t-pool-badge {
+      flex: 1; padding: 6px; border-radius: 6px; text-align: center;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+    }
+    .pbg-t-pool-lbl { font-size: 7px; color: #71717a; text-transform: uppercase; letter-spacing: 0.05em; }
+    .pbg-t-pool-val { font-size: 11px; font-weight: 800; color: #22d3ee; margin-top: 1px; }
+    .pbg-t-part-btn {
+      padding: 6px 12px; border: none; border-radius: 6px; font-size: 10px; font-weight: 800;
+      font-family: inherit; cursor: pointer; text-transform: uppercase;
+      background: linear-gradient(135deg, #f97316, #ea580c); color: #fff;
+      display: flex; align-items: center; gap: 3px; white-space: nowrap;
+    }
+    .pbg-t-part-btn:hover { filter: brightness(1.1); }
+    /* Stats row in detail */
     .pbg-t-stats { display: flex; gap: 6px; }
     .pbg-t-stat {
       flex: 1; background: rgba(255,255,255,0.04); border-radius: 8px;
@@ -402,10 +468,10 @@
     .pbg-t-join-btn {
       width: 100%; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700;
       font-family: inherit; cursor: pointer; transition: all 0.2s;
-      background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #fff;
-      box-shadow: 0 4px 16px rgba(139,92,246,0.3);
+      background: linear-gradient(135deg, #f97316, #ea580c); color: #fff;
+      box-shadow: 0 4px 16px rgba(249,115,22,0.3);
     }
-    .pbg-t-join-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(139,92,246,0.4); }
+    .pbg-t-join-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(249,115,22,0.4); }
     .pbg-t-joined {
       width: 100%; padding: 10px; border-radius: 10px; text-align: center;
       background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.15);
@@ -1172,37 +1238,124 @@
       `;
     }
 
-    // --- Tournament list ---
-    return data.tournaments.map((t, idx) => {
+    // --- Tournament list with hero + filters + sections ---
+    const allT = data.tournaments;
+    const entries = data.tournament_entries || [];
+    const now = Date.now();
+
+    // Categorize
+    const available = allT.filter(t => new Date(t.end_date) > now && !entries.find(e => e.tournament_id === t.id));
+    const joined = allT.filter(t => new Date(t.end_date) > now && entries.find(e => e.tournament_id === t.id));
+    const ended = allT.filter(t => new Date(t.end_date) <= now);
+    const active = allT.filter(t => new Date(t.end_date) > now);
+
+    // Filter state
+    const tFilter = window.__pbg_t_filter || 'all';
+    let filtered;
+    if (tFilter === 'available') filtered = available;
+    else if (tFilter === 'joined') filtered = joined;
+    else if (tFilter === 'ended') filtered = ended;
+    else filtered = allT;
+
+    // Hero — first active tournament
+    const hero = active[0];
+    const heroIdx = hero ? allT.indexOf(hero) : -1;
+    const heroCd = hero ? getCountdown(hero.end_date) : null;
+    const heroPool = hero ? (hero.prizes||[]).reduce((s,p) => s + Number(p.value||0), 0) : 0;
+
+    // Type label
+    const typeLabel = (t) => {
+      if (t.recurrence === 'daily') return '<span class="pbg-t-type-badge pbg-t-type-daily">DIÁRIO</span>';
+      if (t.recurrence === 'weekly') return '<span class="pbg-t-type-badge pbg-t-type-weekly">SEMANAL</span>';
+      if (t.recurrence === 'monthly') return '<span class="pbg-t-type-badge pbg-t-type-monthly">MENSAL</span>';
+      return '';
+    };
+
+    // Render card
+    const renderCard = (t, idx) => {
       const prizes = t.prizes || [];
       const pool = prizes.reduce((s,p) => s + Number(p.value||0), 0);
-      const cd = getCountdown(t.end_date);
       const lb = data.leaderboards?.[t.id] || [];
-      const myEntry = (data.tournament_entries||[]).find(e => e.tournament_id === t.id);
+      const cd = getCountdown(t.end_date);
+      const top3 = prizes.slice(0, 3);
+      const realIdx = allT.indexOf(t);
 
       return `
-        <div class="pbg-t-card" onclick="window.__pbg('openTournament',${idx})">
+        <div class="pbg-t-card" onclick="window.__pbg('openTournament',${realIdx})">
           <div class="pbg-t-banner">
             ${t.image_url ? `<img src="${t.image_url}" alt="">` : ''}
             <div class="pbg-t-banner-overlay"></div>
-            <div class="pbg-t-banner-content" style="display:flex;justify-content:space-between;align-items:flex-end">
-              <div class="pbg-t-status ${cd.total > 0 ? 'pbg-t-status-live' : 'pbg-t-status-ended'}">${cd.total > 0 ? '● AO VIVO' : '● ENCERRADO'}</div>
-              ${cd.total > 0 ? `<div style="font-size:11px;color:#fff;font-weight:700">${cd.d > 0 ? cd.d+'d ' : ''}${cd.h}h ${cd.m}m</div>` : ''}
+            <div class="pbg-t-banner-content">
+              ${typeLabel(t)}
+              <div class="pbg-t-players-badge">${inlIcon('users',10)} ${lb.length.toLocaleString('pt-BR')}</div>
             </div>
           </div>
           <div class="pbg-t-body">
-            <div class="pbg-t-title">${t.name} ${segmentBadge(t)}</div>
-            ${t.description ? `<div class="pbg-t-desc">${t.description}</div>` : ''}
-            <div class="pbg-t-stats">
-              <div class="pbg-t-stat"><div class="pbg-t-stat-label">Prize Pool</div><div class="pbg-t-stat-val" style="color:#34d399;font-size:13px">${fmt(pool)}</div></div>
-              <div class="pbg-t-stat"><div class="pbg-t-stat-label">Jogadores</div><div class="pbg-t-stat-val">${lb.length}</div></div>
-              <div class="pbg-t-stat"><div class="pbg-t-stat-label">Entrada</div><div class="pbg-t-stat-val" style="font-size:12px;color:${t.buy_in_cost > 0 ? '#fbbf24' : '#34d399'}">${t.buy_in_cost > 0 ? inlIcon('coin',12)+' '+t.buy_in_cost : 'Grátis'}</div></div>
+            <div class="pbg-t-title">${t.name}</div>
+            <div class="pbg-t-top3">
+              ${top3.map((p,i) => `<span class="pbg-t-top3-item">${inlIcon(['gold','silver','bronze'][i],12)} ${fmt(p.value)}</span>`).join('')}
             </div>
-            ${myEntry ? `<div style="margin-top:8px;padding:6px 10px;background:rgba(16,185,129,0.08);border-radius:6px;font-size:11px;color:#34d399;font-weight:600;text-align:center">${inlIcon('check',12)} Inscrito${myEntry.score > 0 ? ' · '+Number(myEntry.score).toLocaleString('pt-BR')+' pts' : ''}</div>` : ''}
+            <div class="pbg-t-card-footer">
+              <div class="pbg-t-pool-badge">
+                <div class="pbg-t-pool-lbl">PRÊMIO TOTAL</div>
+                <div class="pbg-t-pool-val">${fmt(pool)}</div>
+              </div>
+              ${cd.total > 0 ? `<button class="pbg-t-part-btn" onclick="event.stopPropagation();window.__pbg('openTournament',${realIdx})">PARTICIPAR →</button>` : `<span style="font-size:9px;color:#71717a;font-weight:600">ENCERRADO</span>`}
+            </div>
           </div>
         </div>
       `;
-    }).join('');
+    };
+
+    // Build sections for "all" filter
+    const buildSections = () => {
+      let html = '';
+      if (available.length + joined.length > 0) {
+        html += `<div class="pbg-t-section"><div class="pbg-t-section-icon">${inlIcon('trophy',18)}</div><div class="pbg-t-section-title">Disponíveis</div></div>`;
+        html += `<div class="pbg-t-grid">${[...joined, ...available].map(t => renderCard(t)).join('')}</div>`;
+      }
+      if (ended.length > 0) {
+        html += `<div class="pbg-t-section"><div class="pbg-t-section-icon" style="background:rgba(113,113,122,0.1)">${inlIcon('trophy',18)}</div><div class="pbg-t-section-title">Finalizados</div></div>`;
+        html += `<div class="pbg-t-grid">${ended.map(t => renderCard(t)).join('')}</div>`;
+      }
+      return html;
+    };
+
+    return `
+      ${hero ? `
+        <div class="pbg-t-hero" onclick="window.__pbg('openTournament',${heroIdx})" style="cursor:pointer">
+          ${hero.image_url ? `<img class="pbg-t-hero-img" src="${hero.image_url}" alt="">` : `<div class="pbg-t-hero-img" style="background:linear-gradient(135deg,rgba(139,92,246,0.3),rgba(6,182,212,0.15))"></div>`}
+          <div class="pbg-t-hero-grad"></div>
+          <div class="pbg-t-hero-body">
+            <div class="pbg-t-hero-info">
+              <div class="pbg-t-hero-name">${hero.name}</div>
+              <div class="pbg-t-hero-prize">Prêmio total <span>${fmt(heroPool)}</span></div>
+            </div>
+            <div class="pbg-t-hero-right">
+              <div class="pbg-t-hero-cd">
+                <div><div class="pbg-t-hero-cd-num">${String(heroCd.d).padStart(2,'0')}</div><div class="pbg-t-hero-cd-lbl">DIAS</div></div>
+                <div><div class="pbg-t-hero-cd-num">${String(heroCd.h).padStart(2,'0')}</div><div class="pbg-t-hero-cd-lbl">HORAS</div></div>
+                <div><div class="pbg-t-hero-cd-num">${String(heroCd.m).padStart(2,'0')}</div><div class="pbg-t-hero-cd-lbl">MINS</div></div>
+                <div><div class="pbg-t-hero-cd-num">${String(heroCd.s).padStart(2,'0')}</div><div class="pbg-t-hero-cd-lbl">SEGS</div></div>
+              </div>
+              <button class="pbg-t-hero-btn" onclick="event.stopPropagation();window.__pbg('openTournament',${heroIdx})">PARTICIPAR →</button>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="pbg-t-filters">
+        <button class="pbg-t-filter ${tFilter === 'all' ? 'active' : ''}" onclick="window.__pbg_t_filter='all';window.__pbg('tab','tournaments')">Todos</button>
+        <button class="pbg-t-filter ${tFilter === 'available' ? 'active' : ''}" onclick="window.__pbg_t_filter='available';window.__pbg('tab','tournaments')">Disponíveis</button>
+        <button class="pbg-t-filter ${tFilter === 'joined' ? 'active' : ''}" onclick="window.__pbg_t_filter='joined';window.__pbg('tab','tournaments')">Participando</button>
+        <button class="pbg-t-filter ${tFilter === 'ended' ? 'active' : ''}" onclick="window.__pbg_t_filter='ended';window.__pbg('tab','tournaments')">Finalizados</button>
+      </div>
+
+      ${tFilter === 'all' ? buildSections() : `
+        <div class="pbg-t-grid">${filtered.map(t => renderCard(t)).join('')}</div>
+        ${filtered.length === 0 ? `<div style="text-align:center;padding:30px;color:#52525b;font-size:12px">Nenhum torneio nesta categoria</div>` : ''}
+      `}
+    `;
   }
 
   function renderWheel() {
