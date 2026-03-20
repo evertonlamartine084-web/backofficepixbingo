@@ -526,13 +526,13 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
       text-shadow: none;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
-      padding: 0; margin: 0 0 14px;
+      padding: 0; margin: 0 0 24px;
       position: relative; z-index: 1;
     }
     .pbg-spin-info {
       font-size: 11px; color: #a1a1aa; text-align: center;
       display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
-      margin-top: 10px; padding-bottom: 0;
+      margin-top: 16px; padding-bottom: 0;
     }
     .pbg-spin-tag {
       display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px;
@@ -1281,8 +1281,8 @@
 
     // Bulbs
     const numBulbs = Math.max(24, n * 3);
-    const bulbCenter = 149; // (270 + 14*2) / 2
-    const bulbR = 142;
+    const bulbCenter = 139; // (250 + 14*2) / 2
+    const bulbR = 132;
     let bulbsHtml = '';
     for (let i = 0; i < numBulbs; i++) {
       const a = (i / numBulbs) * 2 * Math.PI - Math.PI / 2;
