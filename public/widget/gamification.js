@@ -441,7 +441,7 @@
         radial-gradient(1px 1px at 70% 35%, rgba(255,255,255,0.5) 0%, transparent 100%);
     }
     .pbg-wheel-stage {
-      position: relative; width: 270px; height: 270px; margin: 10px auto 14px;
+      position: relative; width: 270px; height: 270px; margin: 8px auto 18px;
     }
     /* Blue neon outer ring — rotates slowly (idle) */
     .pbg-wheel-ring-outer {
@@ -526,7 +526,7 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
       text-shadow: none;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
-      padding: 4px 0 0; margin: 0;
+      padding: 0; margin: 16px 0 8px;
       position: relative; z-index: 1;
     }
     .pbg-spin-info {
