@@ -2084,12 +2084,20 @@
       `;
 
       // Populate dropdown
-      // Try to read platform balances from page DOM
-      let saldoReal = '—';
-      let saldoBonus = '—';
+      // Read platform balances from .currency-dropdown > .balance-item elements
+      let saldoReal = 'R$ 0,00';
+      let saldoBonus = 'B$ 0,00';
       try {
-        const balEls = document.querySelectorAll('.balance-value, .saldo-valor, [class*="saldo"]');
-        if (balEls.length >= 2) { saldoReal = balEls[0].textContent.trim(); saldoBonus = balEls[1].textContent.trim(); }
+        const balItems = document.querySelectorAll('.currency-dropdown .balance-item');
+        balItems.forEach(el => {
+          const val = el.querySelector('.balance-value');
+          const lbl = el.querySelector('.balance-label');
+          if (val && lbl) {
+            const label = lbl.textContent.trim().toUpperCase();
+            if (label.includes('REAL')) saldoReal = val.textContent.trim();
+            else if (label.includes('BÔNUS') || label.includes('BONUS')) saldoBonus = val.textContent.trim();
+          }
+        });
       } catch {}
 
       const ddEl = document.getElementById('pbg-wallet-dropdown');
