@@ -2276,34 +2276,37 @@
             // Read balances fresh from platform DOM
             let sReal = 'R$ 0,00', sBonus = 'B$ 0,00';
             try {
-              // Method 1: .balance-item
-              document.querySelectorAll('.currency-dropdown .balance-item, .balance-item').forEach(el => {
-                const v = el.querySelector('.balance-value');
-                const l = el.querySelector('.balance-label');
-                if (v && l) {
-                  const lbl = l.innerText.trim().toUpperCase();
-                  const val = v.innerText.trim().replace(/\s+/g, ' ');
-                  if (lbl.includes('REAL') && val) sReal = val;
-                  else if ((lbl.includes('BÔNUS') || lbl.includes('BONUS')) && val) sBonus = val;
-                }
+              // Scan all elements outside our widget for R$/B$ values
+              const allEls = document.querySelectorAll('.balance-value, .balance-item .balance-value, [class*="saldo"], [class*="balance-value"], .menu-saldo-body, .float-end');
+              allEls.forEach(el => {
+                if (el.closest('#pbg-widget-panel')) return;
+                const txt = el.innerText.trim();
+                // Match "R$ 207,71" or "R$207,71" patterns
+                const realMatch = txt.match(/R\$\s*([\d.,]+)/);
+                const bonusMatch = txt.match(/B\$\s*([\d.,]+)/);
+                if (realMatch && sReal === 'R$ 0,00') sReal = 'R$ ' + realMatch[1];
+                if (bonusMatch && sBonus === 'B$ 0,00') sBonus = 'B$ ' + bonusMatch[1];
               });
-              // Method 2: .float-end.ms-2 for bonus
+              // Fallback: .float-end.ms-2 often has bonus
               if (sBonus === 'B$ 0,00') {
-                const be = document.querySelector('.float-end.ms-2, span.float-end');
-                if (be && !be.closest('#pbg-widget-panel')) {
-                  const bv = be.innerText.trim().replace(/\s+/g, '');
-                  if (bv.match(/[\d.,]+/)) sBonus = 'B$ ' + bv;
-                }
+                document.querySelectorAll('.float-end.ms-2, span.float-end').forEach(el => {
+                  if (el.closest('#pbg-widget-panel')) return;
+                  const v = el.innerText.trim();
+                  const m = v.match(/([\d]+[.,][\d.,]*[\d])/);
+                  if (m) sBonus = 'B$ ' + m[1];
+                });
               }
-              // Method 3: menu-saldo-body for real balance
+              // Fallback: menu-saldo-body
               if (sReal === 'R$ 0,00') {
                 const ms = document.querySelector('.menu-saldo-body');
                 if (ms) {
-                  const txt = ms.innerText.trim();
-                  if (txt.match(/[\d.,]+/)) sReal = 'R$ ' + txt.match(/[\d.,]+/)[0];
+                  const m = ms.innerText.match(/([\d]+[.,][\d.,]*[\d])/);
+                  if (m) sReal = 'R$ ' + m[1];
                 }
               }
             } catch {}
+            // Debug: log found values
+            console.log('[PBG] Saldo real:', sReal, 'Saldo bonus:', sBonus);
             // Update dropdown values
             const realEl = dd.querySelector('#pbg-dd-saldo-real .pbg-wallet-dd-val');
             const bonusEl = dd.querySelector('#pbg-dd-saldo-bonus .pbg-wallet-dd-val');
