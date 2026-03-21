@@ -898,16 +898,15 @@
     .pbg-chest-rays-el { animation: pbg-chest-rays 1s ease-out forwards; }
     .pbg-prize-text { animation: pbg-prize-reveal 0.6s ease-out forwards; }
     /* Roulette wheel — premium style */
-    .pbg-roulette-container { position: relative; width: 260px; height: 260px; margin: 0 auto; }
-    .pbg-roulette-outer { position: absolute; inset: -16px; border-radius: 50%; background: conic-gradient(from 0deg, #fbbf24, #f59e0b, #d97706, #fbbf24, #f59e0b, #d97706, #fbbf24, #f59e0b, #d97706, #fbbf24, #f59e0b, #d97706, #fbbf24); padding: 4px; box-shadow: 0 0 30px rgba(251,191,36,0.3), 0 0 60px rgba(251,191,36,0.1); }
-    .pbg-roulette-outer-inner { width: 100%; height: 100%; border-radius: 50%; background: #1a1a2e; padding: 6px; }
-    .pbg-roulette-wheel { width: 260px; height: 260px; border-radius: 50%; position: relative; overflow: hidden; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
-    .pbg-roulette-pointer { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); z-index: 10; width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent; border-top: 30px solid #fbbf24; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6)) drop-shadow(0 0 8px rgba(251,191,36,0.5)); }
-    .pbg-roulette-pointer::after { content: ''; position: absolute; top: -30px; left: -10px; width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 20px solid #fff3; }
-    .pbg-roulette-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 52px; height: 52px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #fbbf24 0%, #d97706 50%, #92400e 100%); border: 3px solid #fde68a; z-index: 5; box-shadow: 0 0 15px rgba(251,191,36,0.4), inset 0 2px 4px rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-size: 22px; }
-    .pbg-roulette-bulbs { position: absolute; inset: -12px; border-radius: 50%; z-index: 3; pointer-events: none; }
-    .pbg-roulette-bulb { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #fff 0%, #fbbf24 60%); box-shadow: 0 0 8px #fbbf24, 0 0 3px #fff; }
-    .pbg-roulette-bulb.alt { background: radial-gradient(circle at 30% 30%, #fff 0%, #f87171 60%); box-shadow: 0 0 8px #f87171, 0 0 3px #fff; }
+    .pbg-roulette-container { position: relative; width: 290px; height: 290px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
+    .pbg-roulette-outer { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, #fbbf24, #f59e0b, #d97706, #fbbf24, #f59e0b, #d97706, #fbbf24, #f59e0b, #d97706, #fbbf24, #f59e0b, #d97706, #fbbf24); padding: 4px; box-shadow: 0 0 30px rgba(251,191,36,0.3), 0 0 60px rgba(251,191,36,0.1); }
+    .pbg-roulette-outer-inner { width: 100%; height: 100%; border-radius: 50%; background: #1a1a2e; padding: 6px; display: flex; align-items: center; justify-content: center; }
+    .pbg-roulette-wheel { width: 260px; height: 260px; border-radius: 50%; overflow: hidden; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); flex-shrink: 0; }
+    .pbg-roulette-pointer { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); z-index: 10; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 28px solid #fbbf24; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6)) drop-shadow(0 0 8px rgba(251,191,36,0.5)); }
+    .pbg-roulette-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 48px; height: 48px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #fbbf24 0%, #d97706 50%, #92400e 100%); border: 3px solid #fde68a; z-index: 5; box-shadow: 0 0 15px rgba(251,191,36,0.4), inset 0 2px 4px rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; }
+    .pbg-roulette-bulbs { position: absolute; inset: -4px; border-radius: 50%; z-index: 3; pointer-events: none; }
+    .pbg-roulette-bulb { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #fff 0%, #fbbf24 60%); box-shadow: 0 0 6px #fbbf24, 0 0 3px #fff; }
+    .pbg-roulette-bulb.alt { background: radial-gradient(circle at 30% 30%, #fff 0%, #f87171 60%); box-shadow: 0 0 6px #f87171, 0 0 3px #fff; }
     @keyframes pbg-bulb-blink { 0%, 100% { opacity: 1; transform: translate(-50%,-50%) scale(1.2); } 50% { opacity: 0.2; transform: translate(-50%,-50%) scale(0.8); } }
     @keyframes pbg-roulette-glow { 0%, 100% { box-shadow: 0 0 30px rgba(251,191,36,0.3), 0 0 60px rgba(251,191,36,0.1); } 50% { box-shadow: 0 0 40px rgba(251,191,36,0.5), 0 0 80px rgba(251,191,36,0.2); } }
     .pbg-roulette-spinning .pbg-roulette-bulb { animation: pbg-bulb-blink 0.25s ease-in-out infinite; }
@@ -2132,7 +2131,7 @@
           const rColors = isDiamondRoulette
             ? ['#0891b2','#06b6d4','#0e7490','#22d3ee','#0c4a6e','#0ea5e9','#155e75','#38bdf8','#164e63','#67e8f9']
             : ['#15803d','#22c55e','#166534','#4ade80','#065f46','#34d399','#047857','#6ee7b7','#064e3b','#86efac'];
-          const rCenterIcon = isDiamondRoulette ? '💎' : '💚';
+          const rCenterSvg = isDiamondRoulette ? inlIcon('diamond',22) : inlIcon('gem',22);
           const rGlow = isDiamondRoulette ? 'rgba(34,211,238,0.5)' : 'rgba(131,245,57,0.5)';
           const rTextColor = isDiamondRoulette ? '#22d3ee' : '#81ff61';
           const rPrizes = gamePrizes.filter(p => p.type !== 'nothing');
@@ -2161,10 +2160,11 @@
             const ma = ((i+0.5)*segAngle-90)*Math.PI/180;
             const tx = cx + R*0.62*Math.cos(ma); const ty = cy + R*0.62*Math.sin(ma);
             const rot = (i+0.5)*segAngle;
-            const gemEmoji = isDiamondRoulette ? '💎' : '💚';
-            // Icon position (closer to center)
+            const gemIconSvg = isDiamondRoulette
+              ? '<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M6 3h12l4 6-10 13L2 9Z" fill="#22d3ee" stroke="#06b6d4" stroke-width="2"/><path d="M11 3 8 9l4 13 4-13-3-6" fill="rgba(255,255,255,0.2)" stroke="#06b6d4" stroke-width="1"/><path d="M2 9h20" stroke="#06b6d4" stroke-width="2"/></svg>'
+              : '<svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M6 3h12l4 6-10 13L2 9Z" fill="#22c55e"/><path d="M11 3 8 9l4 13 4-13-3-6" fill="rgba(255,255,255,0.2)"/><path d="M2 9h20"/></svg>';
             const ix = cx + R*0.38*Math.cos(ma); const iy = cy + R*0.38*Math.sin(ma);
-            svgSegments += `<text x="${ix.toFixed(1)}" y="${iy.toFixed(1)}" font-size="14" text-anchor="middle" dominant-baseline="middle" transform="rotate(${rot},${ix.toFixed(1)},${iy.toFixed(1)})">${gemEmoji}</text>`;
+            svgSegments += `<foreignObject x="${(ix-8).toFixed(1)}" y="${(iy-8).toFixed(1)}" width="16" height="16" transform="rotate(${rot},${ix.toFixed(1)},${iy.toFixed(1)})">${gemIconSvg}</foreignObject>`;
             svgSegments += `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" fill="#fff" font-size="11" font-weight="900" text-anchor="middle" dominant-baseline="middle" transform="rotate(${rot},${tx.toFixed(1)},${ty.toFixed(1)})" style="text-shadow:0 1px 4px rgba(0,0,0,0.8);letter-spacing:0.5px">${segments[i].label}</text>`;
           }
           // Inner circle overlay for depth
@@ -2193,7 +2193,7 @@
                 <div class="pbg-roulette-wheel" id="pbg-roulette-wheel" style="transform:rotate(${spinPhase >= 2 ? currentDeg : 0}deg)">${wheelSvg}</div>
               </div></div>
               <div class="pbg-roulette-pointer"></div>
-              <div class="pbg-roulette-center">${rCenterIcon}</div>
+              <div class="pbg-roulette-center" style="color:${rTextColor}">${rCenterSvg}</div>
               <div class="pbg-roulette-bulbs">${bulbsHtml}</div>
             </div>
           `;
@@ -2355,7 +2355,7 @@
           const r2Colors = isDiamondR2
             ? ['#0e7490','#155e75','#164e63','#0c4a6e','#075985','#0369a1','#0284c7','#0ea5e9','#22d3ee','#06b6d4']
             : ['#166534','#15803d','#16a34a','#22c55e','#4ade80','#065f46','#047857','#059669','#10b981','#34d399'];
-          const r2Icon = isDiamondR2 ? '💎' : '💚';
+          const r2CenterSvg = isDiamondR2 ? inlIcon('diamond',22) : inlIcon('gem',22);
           const r2TextColor = isDiamondR2 ? '#22d3ee' : '#81ff61';
           const r2Prizes = gamePrizes.filter(p => p.type !== 'nothing');
           const r2Segments = r2Prizes.length > 0 ? r2Prizes : [{label:'1 Gema'},{label:'2 Gemas'},{label:'3 Gemas'},{label:'4 Gemas'},{label:'5 Gemas'},{label:'6 Gemas'},{label:'7 Gemas'},{label:'8 Gemas'}];
@@ -2369,7 +2369,9 @@
           }
           r2Defs += '</defs>';
           let r2Svg = '';
-          const r2Emoji = isDiamondR2 ? '💎' : '💚';
+          const r2GemIcon = isDiamondR2
+            ? '<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M6 3h12l4 6-10 13L2 9Z" fill="#22d3ee" stroke="#06b6d4" stroke-width="2"/><path d="M11 3 8 9l4 13 4-13-3-6" fill="rgba(255,255,255,0.2)" stroke="#06b6d4" stroke-width="1"/><path d="M2 9h20" stroke="#06b6d4" stroke-width="2"/></svg>'
+            : '<svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M6 3h12l4 6-10 13L2 9Z" fill="#22c55e"/><path d="M11 3 8 9l4 13 4-13-3-6" fill="rgba(255,255,255,0.2)"/><path d="M2 9h20"/></svg>';
           for (let i = 0; i < r2n; i++) {
             const sa = (i * r2Angle - 90) * Math.PI / 180;
             const ea = ((i + 1) * r2Angle - 90) * Math.PI / 180;
@@ -2381,7 +2383,7 @@
             const ix = cx2+R2*0.38*Math.cos(ma); const iy = cy2+R2*0.38*Math.sin(ma);
             const tx = cx2+R2*0.62*Math.cos(ma); const ty = cy2+R2*0.62*Math.sin(ma);
             const rot = (i+0.5)*r2Angle;
-            r2Svg += `<text x="${ix.toFixed(1)}" y="${iy.toFixed(1)}" font-size="14" text-anchor="middle" dominant-baseline="middle" transform="rotate(${rot},${ix.toFixed(1)},${iy.toFixed(1)})">${r2Emoji}</text>`;
+            r2Svg += `<foreignObject x="${(ix-8).toFixed(1)}" y="${(iy-8).toFixed(1)}" width="16" height="16" transform="rotate(${rot},${ix.toFixed(1)},${iy.toFixed(1)})">${r2GemIcon}</foreignObject>`;
             r2Svg += `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" fill="#fff" font-size="11" font-weight="900" text-anchor="middle" dominant-baseline="middle" transform="rotate(${rot},${tx.toFixed(1)},${ty.toFixed(1)})" style="text-shadow:0 1px 4px rgba(0,0,0,0.8)">${r2Segments[i].label}</text>`;
           }
           let r2Bulbs = '';
@@ -2399,7 +2401,7 @@
                   <div class="pbg-roulette-wheel"><svg viewBox="0 0 260 260" width="260" height="260">${r2Defs}${r2Svg}</svg></div>
                 </div></div>
                 <div class="pbg-roulette-pointer"></div>
-                <div class="pbg-roulette-center">${r2Emoji}</div>
+                <div class="pbg-roulette-center" style="color:${r2TextColor}">${r2CenterSvg}</div>
                 <div class="pbg-roulette-bulbs">${r2Bulbs}</div>
               </div>
               <div style="margin-top:16px">
