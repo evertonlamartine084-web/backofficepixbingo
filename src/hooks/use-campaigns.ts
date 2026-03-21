@@ -264,6 +264,10 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
     if (!silent) toast.info(`Processamento automático iniciado para "${campaign.name}"`);
     setAutoProcessing(prev => new Set(prev).add(campaign.id));
 
+    let totalCredited = 0;
+    let totalErrors = 0;
+    let consecutiveErrors = 0;
+
     const runIteration = async () => {
       try {
         const _res = await fetch('/api/process-campaign', {
@@ -274,22 +278,42 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
         const data = await _res.json();
         if (!data?.success) throw new Error(data?.error || 'Erro');
 
+        consecutiveErrors = 0;
         const result = data.data;
+        totalCredited += result.credited || 0;
+        totalErrors += result.errors || 0;
+
         const { data: campData } = await supabase
           .from('campaigns').select('status, popup_id').eq('id', campaign.id).single();
 
         if (campData?.status !== 'ATIVA') {
           stopAutoProcess(campaign.id);
-          if (result.credited > 0) {
-            toast.success(`Processamento concluído: ${result.credited} creditados, ${result.errors} erros`);
-          }
+          toast.success(`Processamento concluído: ${totalCredited} creditados, ${totalErrors} erros`);
           return;
         }
-        const timer = setTimeout(runIteration, 15000);
-        autoProcessRef.current.set(campaign.id, timer);
+
+        // If there are remaining participants, continue immediately (small delay to avoid hammering)
+        if (result.remaining > 0) {
+          const timer = setTimeout(runIteration, 1500);
+          autoProcessRef.current.set(campaign.id, timer);
+        } else {
+          // All done for now, check again in 30s for new participants
+          stopAutoProcess(campaign.id);
+          if (totalCredited > 0 || totalErrors > 0) {
+            toast.success(`Lote concluído: ${totalCredited} creditados, ${totalErrors} erros`);
+          }
+        }
       } catch (e: any) {
         console.error('Erro no processamento automático:', e.message);
-        const timer = setTimeout(runIteration, 30000);
+        consecutiveErrors++;
+        if (consecutiveErrors >= 5) {
+          stopAutoProcess(campaign.id);
+          toast.error(`Processamento parado após 5 erros seguidos: ${e.message}`);
+          return;
+        }
+        // Retry with backoff
+        const delay = Math.min(5000 * consecutiveErrors, 30000);
+        const timer = setTimeout(runIteration, delay);
         autoProcessRef.current.set(campaign.id, timer);
       }
     };
@@ -319,19 +343,36 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
       return;
     }
     setProcessing(true);
+    let totalProcessed = 0, totalCredited = 0, totalErrors = 0;
     try {
-      const _res = await fetch('/api/process-campaign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaign_id: campaign.id, username: creds.username, password: creds.password }),
-      });
-      const data = await _res.json();
-      if (!data?.success) throw new Error(data?.error || 'Erro ao processar campanha');
-      const result = data.data;
-      toast.success(`Processado: ${result.processed} jogadores | Elegíveis: ${result.eligible} | Creditados: ${result.credited} | Erros: ${result.errors}`);
+      let remaining = 1;
+      while (remaining > 0) {
+        const _res = await fetch('/api/process-campaign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ campaign_id: campaign.id, username: creds.username, password: creds.password }),
+        });
+        const data = await _res.json();
+        if (!data?.success) throw new Error(data?.error || 'Erro ao processar campanha');
+        const result = data.data;
+        totalProcessed += result.processed || 0;
+        totalCredited += result.credited || 0;
+        totalErrors += result.errors || 0;
+        remaining = result.remaining || 0;
+
+        if (remaining > 0) {
+          toast.info(`Processando... ${totalProcessed} feitos, ${remaining} restantes`);
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+      toast.success(`Concluído: ${totalProcessed} processados | ${totalCredited} creditados | ${totalErrors} erros`);
       onDone?.();
     } catch (e: any) {
-      toast.error(e.message || 'Erro ao processar');
+      if (totalProcessed > 0) {
+        toast.warning(`Parcial: ${totalProcessed} processados, ${totalCredited} creditados antes do erro: ${e.message}`);
+      } else {
+        toast.error(e.message || 'Erro ao processar');
+      }
     } finally {
       setProcessing(false);
     }

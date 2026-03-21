@@ -274,13 +274,16 @@ export default async function handler(req: Request): Promise<Response> {
         .upsert(participantsToUpsert.slice(i, i + 500), { onConflict: 'campaign_id,cpf', ignoreDuplicates: true });
     }
 
+    const BATCH_LIMIT = 5; // Process max 5 per call to avoid 504 timeout
+
     const { data: participants } = await supabase
       .from('campaign_participants').select('*')
       .eq('campaign_id', campaign_id).eq('prize_credited', false)
-      .in('status', ['PENDENTE', 'NAO_ELEGIVEL']);
+      .in('status', ['PENDENTE', 'NAO_ELEGIVEL'])
+      .limit(BATCH_LIMIT);
 
     if (!participants?.length) {
-      return new Response(JSON.stringify({ success: true, data: { processed: 0, eligible: 0, credited: 0, errors: 0, waiting_for_optins: !!campaign.popup_id, message: 'Todos já foram processados' } }),
+      return new Response(JSON.stringify({ success: true, data: { processed: 0, eligible: 0, credited: 0, errors: 0, remaining: 0, waiting_for_optins: !!campaign.popup_id, message: 'Todos já foram processados' } }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -363,9 +366,15 @@ export default async function handler(req: Request): Promise<Response> {
       await new Promise(r => setTimeout(r, 300));
     }
 
+    // Check how many still remain
+    const { count: remaining } = await supabase
+      .from('campaign_participants').select('id', { count: 'exact', head: true })
+      .eq('campaign_id', campaign_id).eq('prize_credited', false)
+      .in('status', ['PENDENTE', 'NAO_ELEGIVEL']);
+
     return new Response(JSON.stringify({
       success: true,
-      data: { processed, eligible, credited, errors, total: participants.length },
+      data: { processed, eligible, credited, errors, total: participants.length, remaining: remaining || 0 },
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
