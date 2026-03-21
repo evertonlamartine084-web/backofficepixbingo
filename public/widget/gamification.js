@@ -2116,18 +2116,30 @@
                 </div>
               `;
             } else if (animPhase >= 3 || isOpened) {
-              // Phase 3 — Prize revealed
+              // Phase 3 — Prize revealed with popup style
               const prizeLabel = miniGameResult.prize?.label || '';
               const prizeType = miniGameResult.prize?.type || '';
               const prizeColor = prizeType === 'nothing' ? 'rgba(255,255,255,0.5)' : glowColor;
+              const isDiamondPrize = game.name && game.name.toLowerCase().includes('diamante');
+              const revealIcon = isDiamondPrize ? inlIcon('diamond',44) : inlIcon('gem',44);
+              const revealIconColor = isDiamondPrize ? '#22d3ee' : '#81ff61';
+              const revealGlow = isDiamondPrize ? 'rgba(34,211,238,0.5)' : 'rgba(131,245,57,0.5)';
               html += `
                 <div style="position:relative;display:flex;align-items:center;justify-content:center">
                   <div style="position:absolute;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,${glowColor}55 0%,${glowColor}18 50%,transparent 70%);animation:pbg-glow-pulse 2s ease-in-out infinite"></div>
-                  <img src="${CHEST_IMG_URL}" width="130" height="130" style="filter:saturate(0.8) brightness(1.1) drop-shadow(0 0 24px ${glowColor});object-fit:contain;position:relative;z-index:2" alt="chest open"/>
+                  <img src="${CHEST_IMG_URL}" width="110" height="110" style="filter:saturate(0.8) brightness(1.1) drop-shadow(0 0 24px ${glowColor});object-fit:contain;position:relative;z-index:2" alt="chest open"/>
                 </div>
-                <div class="pbg-prize-text" style="font-size:24px;font-weight:900;color:${prizeColor};margin-top:16px;letter-spacing:0.03em;text-shadow:0 0 20px ${prizeColor}44">
-                  ${prizeType === 'nothing' ? 'Tente novamente!' : prizeLabel + '!'}
+                ${prizeType !== 'nothing' ? `
+                <div class="pbg-prize-text" style="margin-top:18px;background:linear-gradient(145deg,rgba(20,20,30,0.97),rgba(10,10,18,0.95));border:1.5px solid ${revealGlow};border-radius:16px;padding:18px 24px;box-shadow:0 4px 30px ${revealGlow}44,0 0 60px ${revealGlow}18;display:flex;flex-direction:column;align-items:center;gap:10px;animation:pbg-prize-reveal 0.6s ease-out">
+                  <div style="width:56px;height:56px;display:flex;align-items:center;justify-content:center;color:${revealIconColor};filter:drop-shadow(0 0 12px ${revealGlow});animation:pbg-glow-pulse 2s ease-in-out infinite">${revealIcon}</div>
+                  <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.03em;text-shadow:0 0 20px ${revealGlow}">${prizeLabel}!</div>
+                  <div style="font-size:11px;color:${revealIconColor};font-weight:600;text-transform:uppercase;letter-spacing:0.1em">${isDiamondPrize ? 'Diamantes' : 'Gemas'} adicionados à sua carteira</div>
                 </div>
+                ` : `
+                <div class="pbg-prize-text" style="font-size:20px;font-weight:700;color:${prizeColor};margin-top:16px;letter-spacing:0.03em">
+                  Tente novamente!
+                </div>
+                `}
               `;
             }
             html += `</div>`;
@@ -2180,9 +2192,33 @@
           `;
         }
 
-        // Possible Prizes link (for gift_box games)
+        // Possible Prizes popup (for gift_box games)
         if (isChestGame && gamePrizes.length > 0) {
-          html += `<div style="text-align:center;margin-top:12px"><button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'flex':'none'" style="background:none;border:none;color:rgba(255,255,255,0.35);font-size:10px;font-weight:700;letter-spacing:0.1em;text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-family:inherit;text-transform:uppercase">POSSIBLE PRIZES</button><div style="display:none;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px">${gamePrizes.filter(p=>p.type!=='nothing').map(p=>`<span style="font-size:10px;padding:4px 8px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.6)">${p.icon||''} ${p.label}</span>`).join('')}</div></div>`;
+          const isDiamondGame = game.name && game.name.toLowerCase().includes('diamante');
+          const prizeIcon = isDiamondGame ? inlIcon('diamond',36) : inlIcon('gem',36);
+          const prizeGlow = isDiamondGame ? 'rgba(34,211,238,0.5)' : 'rgba(131,245,57,0.5)';
+          const prizeBorder = isDiamondGame ? 'rgba(34,211,238,0.35)' : 'rgba(131,245,57,0.35)';
+          const prizeBg = isDiamondGame ? 'rgba(34,211,238,0.08)' : 'rgba(131,245,57,0.08)';
+          const prizeTextColor = isDiamondGame ? '#22d3ee' : '#81ff61';
+          const validPrizes = gamePrizes.filter(p=>p.type!=='nothing');
+          html += `
+            <div style="text-align:center;margin-top:16px">
+              <button onclick="var el=document.getElementById('pbg-prizes-popup-${game.id}');el.style.display=el.style.display==='flex'?'none':'flex'" style="background:linear-gradient(135deg,${prizeBg},rgba(255,255,255,0.03));border:1px solid ${prizeBorder};color:${prizeTextColor};font-size:12px;font-weight:700;letter-spacing:0.08em;cursor:pointer;font-family:inherit;text-transform:uppercase;padding:8px 20px;border-radius:10px;transition:all 0.2s">
+                ${inlIcon('gift',14)} POSSÍVEIS PRÊMIOS
+              </button>
+              <div id="pbg-prizes-popup-${game.id}" style="display:none;flex-direction:column;margin-top:14px;background:rgba(15,15,20,0.97);border:1.5px solid ${prizeBorder};border-radius:16px;padding:20px 16px;box-shadow:0 8px 40px rgba(0,0,0,0.6),0 0 30px ${prizeGlow}22">
+                <div style="font-size:16px;font-weight:900;color:#fff;margin-bottom:16px;letter-spacing:0.03em">Possíveis prêmios</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+                  ${validPrizes.map(p => `
+                    <div style="background:linear-gradient(145deg,rgba(30,30,40,0.95),rgba(20,20,28,0.9));border:1px solid ${prizeBorder};border-radius:12px;padding:14px 6px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform 0.2s;position:relative;overflow:hidden">
+                      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,${prizeTextColor},transparent);opacity:0.6"></div>
+                      <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:${prizeTextColor};filter:drop-shadow(0 0 8px ${prizeGlow})">${prizeIcon}</div>
+                      <div style="font-size:12px;font-weight:800;color:#fff;text-align:center;line-height:1.3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">${p.label}</div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>`;
         }
 
         // Play again button
