@@ -897,6 +897,18 @@
     .pbg-chest-burst { animation: pbg-chest-burst 0.8s ease-out forwards; }
     .pbg-chest-rays-el { animation: pbg-chest-rays 1s ease-out forwards; }
     .pbg-prize-text { animation: pbg-prize-reveal 0.6s ease-out forwards; }
+    /* Roulette wheel */
+    .pbg-roulette-container { position: relative; width: 240px; height: 240px; margin: 0 auto; }
+    .pbg-roulette-wheel { width: 240px; height: 240px; border-radius: 50%; position: relative; overflow: hidden; border: 6px solid #555; box-shadow: 0 0 20px rgba(0,0,0,0.5), inset 0 0 15px rgba(0,0,0,0.3), 0 0 40px rgba(139,92,246,0.2); transition: none; }
+    .pbg-roulette-wheel.spinning { transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99); }
+    .pbg-roulette-pointer { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); z-index: 10; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 24px solid #fff; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+    .pbg-roulette-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle, #666 0%, #333 70%, #222 100%); border: 3px solid #888; z-index: 5; box-shadow: 0 0 10px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
+    .pbg-roulette-bulbs { position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px; border-radius: 50%; z-index: 3; pointer-events: none; }
+    .pbg-roulette-bulb { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 6px #fbbf24; }
+    .pbg-roulette-bulb.alt { background: #fff; box-shadow: 0 0 4px #fff; }
+    @keyframes pbg-bulb-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .pbg-roulette-wheel.spinning ~ .pbg-roulette-bulbs .pbg-roulette-bulb { animation: pbg-bulb-blink 0.3s ease-in-out infinite; }
+    .pbg-roulette-wheel.spinning ~ .pbg-roulette-bulbs .pbg-roulette-bulb.alt { animation: pbg-bulb-blink 0.3s 0.15s ease-in-out infinite; }
     .pbg-gift-icon { font-size: 32px; transition: transform 0.3s; }
     .pbg-gift-box:hover .pbg-gift-icon { transform: rotate(-10deg) scale(1.1); }
     .pbg-gift-label { font-size: 9px; color: #a1a1aa; margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -2016,6 +2028,7 @@
       const nameFirst = nameParts[0] || '';
       const nameRest = nameParts.slice(1).join(' ');
       const isChestGame = game.type === 'gift_box';
+      const isRouletteGame = game.name && game.name.toLowerCase().includes('roleta');
 
       let html = `
         <button onclick="window.__pbg('closeMiniGame')" style="background:none;border:none;color:#a1a1aa;font-size:13px;cursor:pointer;font-family:inherit;padding:0;margin-bottom:10px">← Voltar</button>
@@ -2073,8 +2086,113 @@
           }
         }
 
+        // ROULETTE GAME — spinning wheel
+        if (isRouletteGame && game.type === 'gift_box' && miniGameResult.game_data?.boxes) {
+          const isDiamondRoulette = game.name.toLowerCase().includes('diamante');
+          const rColors = isDiamondRoulette
+            ? ['#0e7490','#155e75','#164e63','#0c4a6e','#075985','#0369a1','#0284c7','#0ea5e9','#22d3ee','#06b6d4']
+            : ['#166534','#15803d','#16a34a','#22c55e','#4ade80','#065f46','#047857','#059669','#10b981','#34d399'];
+          const rIcon = isDiamondRoulette ? '💎' : '💚';
+          const rGlow = isDiamondRoulette ? 'rgba(34,211,238,0.5)' : 'rgba(131,245,57,0.5)';
+          const rTextColor = isDiamondRoulette ? '#22d3ee' : '#81ff61';
+          const rPrizes = gamePrizes.filter(p => p.type !== 'nothing');
+          const segments = rPrizes.length > 0 ? rPrizes : [{label:'1 Gema',value:1},{label:'2 Gemas',value:2},{label:'3 Gemas',value:3},{label:'4 Gemas',value:4},{label:'5 Gemas',value:5},{label:'6 Gemas',value:6},{label:'7 Gemas',value:7},{label:'8 Gemas',value:8}];
+          const n = segments.length;
+          const segAngle = 360 / n;
+
+          // Build SVG wheel segments
+          const R = 120; const cx = 120; const cy = 120;
+          let svgSegments = '';
+          for (let i = 0; i < n; i++) {
+            const startAngle = (i * segAngle - 90) * Math.PI / 180;
+            const endAngle = ((i + 1) * segAngle - 90) * Math.PI / 180;
+            const x1 = cx + R * Math.cos(startAngle);
+            const y1 = cy + R * Math.sin(startAngle);
+            const x2 = cx + R * Math.cos(endAngle);
+            const y2 = cy + R * Math.sin(endAngle);
+            const largeArc = segAngle > 180 ? 1 : 0;
+            const color = rColors[i % rColors.length];
+            svgSegments += `<path d="M${cx},${cy} L${x1},${y1} A${R},${R} 0 ${largeArc},1 ${x2},${y2} Z" fill="${color}" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>`;
+            // Text label
+            const midAngle = ((i + 0.5) * segAngle - 90) * Math.PI / 180;
+            const textR = R * 0.68;
+            const tx = cx + textR * Math.cos(midAngle);
+            const ty = cy + textR * Math.sin(midAngle);
+            const textRotate = (i + 0.5) * segAngle;
+            svgSegments += `<text x="${tx}" y="${ty}" fill="#fff" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle" transform="rotate(${textRotate},${tx},${ty})" style="text-shadow:0 1px 3px rgba(0,0,0,0.6)">${segments[i].label}</text>`;
+          }
+
+          // Bulbs around the wheel
+          let bulbsHtml = '';
+          for (let i = 0; i < 20; i++) {
+            const angle = (i * 18) * Math.PI / 180;
+            const bx = 50 + 49 * Math.cos(angle);
+            const by = 50 + 49 * Math.sin(angle);
+            bulbsHtml += `<div class="pbg-roulette-bulb ${i % 2 ? 'alt' : ''}" style="left:${bx}%;top:${by}%;transform:translate(-50%,-50%)"></div>`;
+          }
+
+          const wheelSvg = `<svg viewBox="0 0 240 240" width="240" height="240">${svgSegments}</svg>`;
+          const spinPhase = window.__pbg_roulette_phase || 0; // 0=idle, 1=spinning, 2=done
+
+          html += `<div style="display:flex;flex-direction:column;align-items:center;padding:16px 0;min-height:280px;justify-content:center">`;
+
+          if (spinPhase === 0) {
+            // Idle — tap to spin
+            html += `
+              <div class="pbg-roulette-container" onclick="window.__pbg('spinRoulette','${game.id}')" style="cursor:pointer">
+                <div class="pbg-roulette-pointer"></div>
+                <div class="pbg-roulette-wheel" id="pbg-roulette-wheel">${wheelSvg}</div>
+                <div class="pbg-roulette-center" style="color:${rTextColor}">${rIcon}</div>
+                <div class="pbg-roulette-bulbs">${bulbsHtml}</div>
+              </div>
+              <div style="font-size:14px;color:rgba(255,255,255,0.5);margin-top:14px">Toque na roleta para girar</div>
+            `;
+          } else if (spinPhase === 1) {
+            // Spinning
+            const targetDeg = window.__pbg_roulette_deg || 1800;
+            html += `
+              <div class="pbg-roulette-container">
+                <div class="pbg-roulette-pointer"></div>
+                <div class="pbg-roulette-wheel spinning" id="pbg-roulette-wheel" style="transform:rotate(${targetDeg}deg)">${wheelSvg}</div>
+                <div class="pbg-roulette-center" style="color:${rTextColor}">${rIcon}</div>
+                <div class="pbg-roulette-bulbs">${bulbsHtml}</div>
+              </div>
+              <div style="font-size:14px;color:rgba(255,255,255,0.5);margin-top:14px;animation:pbg-glow-pulse 1s ease-in-out infinite">Girando...</div>
+            `;
+          } else if (spinPhase >= 2) {
+            // Stopped — show result
+            const finalDeg = window.__pbg_roulette_deg || 0;
+            const prizeLabel = miniGameResult.prize?.label || '';
+            const prizeType = miniGameResult.prize?.type || '';
+            const revealIcon = isDiamondRoulette ? inlIcon('diamond',44) : inlIcon('gem',44);
+            html += `
+              <div class="pbg-roulette-container">
+                <div class="pbg-roulette-pointer"></div>
+                <div class="pbg-roulette-wheel" id="pbg-roulette-wheel" style="transform:rotate(${finalDeg}deg)">${wheelSvg}</div>
+                <div class="pbg-roulette-center" style="color:${rTextColor}">${rIcon}</div>
+                <div class="pbg-roulette-bulbs">${bulbsHtml}</div>
+              </div>
+              ${prizeType !== 'nothing' ? `
+              <div class="pbg-prize-text" style="margin-top:18px;background:linear-gradient(145deg,rgba(20,20,30,0.97),rgba(10,10,18,0.95));border:1.5px solid ${rGlow};border-radius:16px;padding:16px 22px;box-shadow:0 4px 30px ${rGlow}44;display:flex;flex-direction:column;align-items:center;gap:8px;animation:pbg-prize-reveal 0.6s ease-out">
+                <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:${rTextColor};filter:drop-shadow(0 0 12px ${rGlow})">${revealIcon}</div>
+                <div style="font-size:22px;font-weight:900;color:#fff;text-shadow:0 0 20px ${rGlow}">${prizeLabel}!</div>
+                <div style="font-size:11px;color:${rTextColor};font-weight:600;text-transform:uppercase;letter-spacing:0.1em">${isDiamondRoulette ? 'Diamantes' : 'Gemas'} adicionados</div>
+              </div>
+              ` : `
+              <div style="font-size:20px;font-weight:700;color:rgba(255,255,255,0.5);margin-top:16px">Tente novamente!</div>
+              `}
+            `;
+          }
+          html += `</div>`;
+
+          // Keys remaining
+          const rPurchasedLeft = att?.purchased_attempts || 0;
+          const rKeysLeft = Math.max(0, freeAtt - attToday) + rPurchasedLeft;
+          html += `<div class="pbg-gift-keys">${inlIcon('key',14)} <span>${rKeysLeft} CHAVES RESTANTES</span></div>`;
+        }
+
         // Gift box game — Chest style matching reference
-        if (game.type === 'gift_box' && miniGameResult.game_data?.boxes) {
+        else if (game.type === 'gift_box' && miniGameResult.game_data?.boxes) {
           const boxes = miniGameResult.game_data.boxes.slice(0, 3);
           const CHEST_IMG_URL = game.config?.chest_image || 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
           const glowColor = game.config?.color || 'rgba(255,215,0,0.7)';
@@ -2234,7 +2352,56 @@
         `;
       } else if (!miniGamePlaying) {
         // Show play button (initial state)
-        if (isChestGame) {
+        if (isRouletteGame && isChestGame) {
+          // Roulette initial state — show static wheel with play button
+          const isDiamondR2 = game.name.toLowerCase().includes('diamante');
+          const r2Colors = isDiamondR2
+            ? ['#0e7490','#155e75','#164e63','#0c4a6e','#075985','#0369a1','#0284c7','#0ea5e9','#22d3ee','#06b6d4']
+            : ['#166534','#15803d','#16a34a','#22c55e','#4ade80','#065f46','#047857','#059669','#10b981','#34d399'];
+          const r2Icon = isDiamondR2 ? '💎' : '💚';
+          const r2TextColor = isDiamondR2 ? '#22d3ee' : '#81ff61';
+          const r2Prizes = gamePrizes.filter(p => p.type !== 'nothing');
+          const r2Segments = r2Prizes.length > 0 ? r2Prizes : [{label:'1 Gema'},{label:'2 Gemas'},{label:'3 Gemas'},{label:'4 Gemas'},{label:'5 Gemas'},{label:'6 Gemas'},{label:'7 Gemas'},{label:'8 Gemas'}];
+          const r2n = r2Segments.length;
+          const r2Angle = 360 / r2n;
+          const R2 = 120; const cx2 = 120; const cy2 = 120;
+          let r2Svg = '';
+          for (let i = 0; i < r2n; i++) {
+            const sa = (i * r2Angle - 90) * Math.PI / 180;
+            const ea = ((i + 1) * r2Angle - 90) * Math.PI / 180;
+            const x1 = cx2 + R2 * Math.cos(sa); const y1 = cy2 + R2 * Math.sin(sa);
+            const x2 = cx2 + R2 * Math.cos(ea); const y2 = cy2 + R2 * Math.sin(ea);
+            r2Svg += `<path d="M${cx2},${cy2} L${x1},${y1} A${R2},${R2} 0 ${r2Angle>180?1:0},1 ${x2},${y2} Z" fill="${r2Colors[i%r2Colors.length]}" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>`;
+            const ma = ((i+0.5)*r2Angle-90)*Math.PI/180;
+            const tx = cx2+R2*0.68*Math.cos(ma); const ty = cy2+R2*0.68*Math.sin(ma);
+            r2Svg += `<text x="${tx}" y="${ty}" fill="#fff" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle" transform="rotate(${(i+0.5)*r2Angle},${tx},${ty})" style="text-shadow:0 1px 3px rgba(0,0,0,0.6)">${r2Segments[i].label}</text>`;
+          }
+          let r2Bulbs = '';
+          for (let i = 0; i < 20; i++) {
+            const a = (i*18)*Math.PI/180;
+            r2Bulbs += `<div class="pbg-roulette-bulb ${i%2?'alt':''}" style="left:${50+49*Math.cos(a)}%;top:${50+49*Math.sin(a)}%;transform:translate(-50%,-50%)"></div>`;
+          }
+          const initPurchased2 = att?.purchased_attempts || 0;
+          const initKeysLeft2 = Math.max(0, freeAtt - attToday) + initPurchased2;
+          const initCanPlay2 = initKeysLeft2 > 0 || (game.attempt_cost_coins > 0 && coins >= game.attempt_cost_coins);
+          html += `
+            <div style="text-align:center;padding:10px 0 16px;display:flex;flex-direction:column;align-items:center">
+              <div class="pbg-roulette-container" style="opacity:0.7;filter:saturate(0.5)">
+                <div class="pbg-roulette-pointer"></div>
+                <div class="pbg-roulette-wheel"><svg viewBox="0 0 240 240" width="240" height="240">${r2Svg}</svg></div>
+                <div class="pbg-roulette-center" style="color:${r2TextColor}">${r2Icon}</div>
+                <div class="pbg-roulette-bulbs">${r2Bulbs}</div>
+              </div>
+              <div class="pbg-gift-keys" style="margin-top:14px">${inlIcon('key',14)} <span>${initKeysLeft2} GIROS RESTANTES</span></div>
+              <div style="margin-top:16px">
+                <button class="pbg-modal-btn" ${!PLAYER_CPF || maxReached || !initCanPlay2 ? 'disabled' : ''}
+                        onclick="window.__pbg('playMiniGame','${game.id}')">
+                  ${!PLAYER_CPF ? 'Faça login' : maxReached ? 'Limite atingido' : !initCanPlay2 ? 'Compre na Loja' : inlIcon('refresh',14)+' Girar Roleta'}
+                </button>
+              </div>
+            </div>
+          `;
+        } else if (isChestGame) {
           const initChestImg = game.config?.chest_image || 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
           const INIT_CHEST_SVG = `<img src="${initChestImg}" width="100" height="100" style="filter:saturate(0) brightness(0.55) contrast(1.2);object-fit:contain;cursor:pointer;transition:transform 0.3s" alt="chest"/>`;
           const initPurchased = att?.purchased_attempts || 0;
@@ -2250,7 +2417,7 @@
               <div style="margin-top:16px">
                 <button class="pbg-modal-btn" ${!PLAYER_CPF || maxReached || !initCanPlay ? 'disabled' : ''}
                         onclick="window.__pbg('playMiniGame','${game.id}')">
-                  ${!PLAYER_CPF ? 'Faça login' : maxReached ? 'Limite atingido' : !initCanPlay ? 'Compre na Loja' : inlIcon('key',14)+' Jogar'}
+                  ${!PLAYER_CPF ? 'Faça login' : maxReached ? 'Limite atingido' : !initCanPlay ? 'Compre na Loja' : inlIcon('key',14)+' Abrir Baú'}
                 </button>
               </div>
               ${!isFree && game.attempt_cost_coins > 0 && !maxReached ? `<div style="font-size:11px;color:#fbbf24;margin-top:8px">${inlIcon('coin',12)} Custo: ${game.attempt_cost_coins} moedas</div>` : ''}
@@ -2916,10 +3083,10 @@
         selectedMiniGame = arg; miniGameResult = null; miniGamePlaying = false; scratchRevealed = []; giftBoxOpened = null; renderContent();
       }
       else if (action === 'closeMiniGame') {
-        selectedMiniGame = null; miniGameResult = null; miniGamePlaying = false; scratchRevealed = []; giftBoxOpened = null; window.__pbg_chest_phase = 0; renderContent();
+        selectedMiniGame = null; miniGameResult = null; miniGamePlaying = false; scratchRevealed = []; giftBoxOpened = null; window.__pbg_chest_phase = 0; window.__pbg_roulette_phase = 0; window.__pbg_roulette_deg = 0; renderContent();
       }
       else if (action === 'playMiniGame') {
-        miniGameResult = null; miniGamePlaying = true; scratchRevealed = []; giftBoxOpened = null; window.__pbg_chest_phase = 0; renderContent();
+        miniGameResult = null; miniGamePlaying = true; scratchRevealed = []; giftBoxOpened = null; window.__pbg_chest_phase = 0; window.__pbg_roulette_phase = 0; window.__pbg_roulette_deg = 0; renderContent();
         try {
           const result = await apiCall('play_mini_game', { game_id: arg });
           miniGamePlaying = false;
@@ -2948,6 +3115,37 @@
             renderContent();
           }, 900);
         }, 1000);
+      }
+      else if (action === 'spinRoulette') {
+        // Spin roulette: calculate target angle based on prize
+        if (!miniGameResult || !miniGameResult.prize) return;
+        const game = games.find(g => g.id === arg);
+        const rPrizes = prizes.filter(p => p.game_id === arg && p.type !== 'nothing');
+        const segments = rPrizes.length > 0 ? rPrizes : [{label:'1'},{label:'2'},{label:'3'},{label:'4'},{label:'5'},{label:'6'},{label:'7'},{label:'8'}];
+        const n = segments.length;
+        const segAngle = 360 / n;
+        // Find winning segment index
+        let winIdx = 0;
+        const prizeLabel = miniGameResult.prize?.label || '';
+        for (let i = 0; i < segments.length; i++) {
+          if (segments[i].label === prizeLabel || segments[i].id === miniGameResult.prize?.prize_id) { winIdx = i; break; }
+        }
+        // The pointer is at top (0°/360°). Segment 0 starts at top-center.
+        // To land on segment winIdx, the wheel must rotate so that segment's midpoint aligns with top.
+        // Segment midpoint angle = (winIdx + 0.5) * segAngle
+        // We need to rotate: -(midAngle) + N*360 for multiple full spins
+        const midAngle = (winIdx + 0.5) * segAngle;
+        const fullSpins = 5 + Math.floor(Math.random() * 3); // 5-7 full spins
+        const targetDeg = fullSpins * 360 + (360 - midAngle);
+        window.__pbg_roulette_phase = 1;
+        window.__pbg_roulette_deg = targetDeg;
+        renderContent();
+        // After spin animation completes (4s CSS transition), show result
+        setTimeout(() => {
+          window.__pbg_roulette_phase = 2;
+          giftBoxOpened = 0;
+          renderContent();
+        }, 4200);
       }
       else if (action === 'openGiftBox') {
         if (giftBoxOpened === null) {
