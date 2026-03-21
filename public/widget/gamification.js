@@ -899,16 +899,16 @@
     .pbg-prize-text { animation: pbg-prize-reveal 0.6s ease-out forwards; }
     /* Roulette wheel — premium style */
     .pbg-roulette-container { position: relative; width: 290px; height: 290px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
-    .pbg-roulette-outer { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, #fbbf24, #f59e0b, #d97706, #fbbf24, #f59e0b, #d97706, #fbbf24, #f59e0b, #d97706, #fbbf24, #f59e0b, #d97706, #fbbf24); padding: 4px; box-shadow: 0 0 30px rgba(251,191,36,0.3), 0 0 60px rgba(251,191,36,0.1); }
+    .pbg-roulette-outer { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, #4ade80, #22c55e, #16a34a, #4ade80, #22c55e, #16a34a, #4ade80, #22c55e, #16a34a, #4ade80, #22c55e, #16a34a, #4ade80); padding: 4px; box-shadow: 0 0 30px rgba(74,222,128,0.3), 0 0 60px rgba(74,222,128,0.1); }
     .pbg-roulette-outer-inner { width: 100%; height: 100%; border-radius: 50%; background: #1a1a2e; padding: 6px; display: flex; align-items: center; justify-content: center; }
     .pbg-roulette-wheel { width: 260px; height: 260px; border-radius: 50%; overflow: hidden; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); flex-shrink: 0; }
-    .pbg-roulette-pointer { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); z-index: 10; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 28px solid #fbbf24; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6)) drop-shadow(0 0 8px rgba(251,191,36,0.5)); }
-    .pbg-roulette-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 48px; height: 48px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #fbbf24 0%, #d97706 50%, #92400e 100%); border: 3px solid #fde68a; z-index: 5; box-shadow: 0 0 15px rgba(251,191,36,0.4), inset 0 2px 4px rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; }
+    .pbg-roulette-pointer { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); z-index: 10; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 28px solid #4ade80; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6)) drop-shadow(0 0 8px rgba(74,222,128,0.5)); }
+    .pbg-roulette-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 48px; height: 48px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #4ade80 0%, #16a34a 50%, #064e3b 100%); border: 3px solid #86efac; z-index: 5; box-shadow: 0 0 15px rgba(74,222,128,0.4), inset 0 2px 4px rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; }
     .pbg-roulette-bulbs { position: absolute; inset: -4px; border-radius: 50%; z-index: 3; pointer-events: none; }
-    .pbg-roulette-bulb { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #fff 0%, #fbbf24 60%); box-shadow: 0 0 6px #fbbf24, 0 0 3px #fff; }
-    .pbg-roulette-bulb.alt { background: radial-gradient(circle at 30% 30%, #fff 0%, #f87171 60%); box-shadow: 0 0 6px #f87171, 0 0 3px #fff; }
+    .pbg-roulette-bulb { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #fff 0%, #4ade80 60%); box-shadow: 0 0 6px #4ade80, 0 0 3px #fff; }
+    .pbg-roulette-bulb.alt { background: radial-gradient(circle at 30% 30%, #fff 0%, #22c55e 60%); box-shadow: 0 0 6px #22c55e, 0 0 3px #fff; }
     @keyframes pbg-bulb-blink { 0%, 100% { opacity: 1; transform: translate(-50%,-50%) scale(1.2); } 50% { opacity: 0.2; transform: translate(-50%,-50%) scale(0.8); } }
-    @keyframes pbg-roulette-glow { 0%, 100% { box-shadow: 0 0 30px rgba(251,191,36,0.3), 0 0 60px rgba(251,191,36,0.1); } 50% { box-shadow: 0 0 40px rgba(251,191,36,0.5), 0 0 80px rgba(251,191,36,0.2); } }
+    @keyframes pbg-roulette-glow { 0%, 100% { box-shadow: 0 0 30px rgba(74,222,128,0.3), 0 0 60px rgba(74,222,128,0.1); } 50% { box-shadow: 0 0 40px rgba(74,222,128,0.5), 0 0 80px rgba(74,222,128,0.2); } }
     .pbg-roulette-spinning .pbg-roulette-bulb { animation: pbg-bulb-blink 0.25s ease-in-out infinite; }
     .pbg-roulette-spinning .pbg-roulette-bulb.alt { animation: pbg-bulb-blink 0.25s 0.125s ease-in-out infinite; }
     .pbg-roulette-spinning .pbg-roulette-outer { animation: pbg-roulette-glow 0.5s ease-in-out infinite; }
