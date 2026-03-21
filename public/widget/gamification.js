@@ -261,62 +261,158 @@
     .pbg-card-desc { font-size: 12px; color: #71717a; margin: 0; line-height: 1.4; }
     .pbg-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; }
 
-    /* Mission Smartico Style */
-    .pbg-m-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px; }
-    .pbg-m-tabs::-webkit-scrollbar { display: none; }
-    .pbg-m-tab {
-      padding: 7px 14px; border-radius: 20px; font-size: 11px; font-weight: 700;
-      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-      color: #a1a1aa; cursor: pointer; white-space: nowrap; transition: all 0.2s; font-family: inherit;
+    /* Mission Reference Style */
+    .pbg-m-section-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; margin-top: 4px;
     }
-    .pbg-m-tab:hover { background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.2); }
-    .pbg-m-tab.active { background: linear-gradient(135deg, #8b5cf6, #6366f1); border-color: transparent; color: #fff; }
-    .pbg-m-tab-count { background: rgba(255,255,255,0.15); padding: 1px 6px; border-radius: 10px; font-size: 9px; margin-left: 4px; }
-    .pbg-m-card {
-      position: relative; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 14px; overflow: hidden; margin-bottom: 10px; cursor: pointer;
-      transition: all 0.2s;
+    .pbg-m-section-header:first-child { margin-top: 0; }
+    .pbg-m-section-left { display: flex; align-items: center; gap: 8px; }
+    .pbg-m-section-icon { color: #a1a1aa; display: flex; align-items: center; }
+    .pbg-m-section-title { font-size: 15px; font-weight: 800; color: #fff; }
+    .pbg-m-section-more {
+      font-size: 10px; font-weight: 700; color: #8b5cf6; cursor: pointer; text-transform: uppercase;
+      letter-spacing: 0.05em; background: none; border: none; font-family: inherit; padding: 4px 8px;
     }
-    .pbg-m-card:hover { border-color: rgba(139,92,246,0.25); transform: translateY(-1px); }
-    .pbg-m-card.completed { opacity: 0.55; }
-    .pbg-m-card.completed:hover { opacity: 0.75; }
-    .pbg-m-body { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
-    .pbg-m-icon {
-      width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
-      font-size: 22px; flex-shrink: 0;
+    .pbg-m-section-more:hover { color: #a78bfa; }
+    .pbg-m-scroll {
+      display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch; margin: 0 -16px; padding-left: 16px; padding-right: 16px;
     }
-    .pbg-m-info { flex: 1; min-width: 0; }
-    .pbg-m-name { font-size: 13px; font-weight: 700; color: #fff; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pbg-m-desc { font-size: 11px; color: #71717a; margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pbg-m-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
-    .pbg-m-reward-chip {
-      padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700;
-      background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); color: #34d399;
+    .pbg-m-scroll::-webkit-scrollbar { height: 3px; }
+    .pbg-m-scroll::-webkit-scrollbar-track { background: transparent; }
+    .pbg-m-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    /* Available mission card */
+    .pbg-m-avail-card {
+      flex: 0 0 185px; min-width: 185px; scroll-snap-align: start;
+      background: linear-gradient(180deg, #141a30 0%, #0e1228 100%);
+      border: 1px solid rgba(60,80,140,0.3); border-radius: 12px; overflow: hidden;
+      transition: all 0.2s; position: relative;
     }
-    .pbg-m-progress-ring {
-      width: 38px; height: 38px; position: relative;
+    .pbg-m-avail-card:hover { border-color: rgba(80,100,180,0.5); transform: translateY(-2px); }
+    .pbg-m-day-label {
+      font-size: 8px; font-weight: 800; color: rgba(255,255,255,0.5); text-transform: uppercase;
+      letter-spacing: 0.1em; padding: 8px 12px 0; text-align: center;
     }
-    .pbg-m-progress-ring svg { width: 38px; height: 38px; transform: rotate(-90deg); }
-    .pbg-m-progress-ring .bg { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 3; }
-    .pbg-m-progress-ring .fg { fill: none; stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset 0.5s ease; }
-    .pbg-m-progress-pct {
-      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-      font-size: 9px; font-weight: 800; color: #fff;
+    .pbg-m-avail-img {
+      width: 100%; height: 90px; object-fit: cover; display: block;
     }
-    .pbg-m-footer {
-      display: flex; align-items: center; gap: 6px; padding: 0 14px 10px;
-      flex-wrap: wrap;
+    .pbg-m-avail-img-wrap {
+      width: 100%; height: 90px; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(180deg, rgba(30,35,60,0.5) 0%, transparent 100%);
+      overflow: hidden; position: relative;
     }
-    .pbg-m-tag {
-      display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px;
-      border-radius: 5px; font-size: 9px; font-weight: 600;
+    .pbg-m-avail-body { padding: 10px 12px 12px; }
+    .pbg-m-avail-name {
+      font-size: 12px; font-weight: 800; color: #fff; margin: 0 0 2px;
+      text-transform: uppercase; line-height: 1.2;
+      overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
     }
-    .pbg-m-timer { background: rgba(239,68,68,0.1); color: #f87171; }
-    .pbg-m-optin-tag { background: rgba(245,158,11,0.1); color: #fbbf24; }
-    .pbg-m-rec { background: rgba(139,92,246,0.1); color: #a78bfa; }
-    .pbg-m-complete-tag { background: rgba(16,185,129,0.12); color: #34d399; }
+    .pbg-m-avail-desc {
+      font-size: 9px; color: rgba(255,255,255,0.45); margin: 0 0 8px; line-height: 1.3;
+      overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    .pbg-m-avail-prize {
+      display: flex; align-items: center; gap: 5px; margin-bottom: 10px;
+      padding: 5px 8px; background: rgba(245,158,11,0.12); border-radius: 8px;
+    }
+    .pbg-m-avail-prize-icon { display: flex; align-items: center; color: #f59e0b; flex-shrink: 0; }
+    .pbg-m-avail-prize-text { font-size: 10px; font-weight: 700; color: #fbbf24; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pbg-m-avail-btns { display: flex; gap: 6px; margin-bottom: 8px; }
+    .pbg-m-btn-participar {
+      flex: 1; padding: 6px 0; border-radius: 8px; font-size: 10px; font-weight: 700;
+      background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none;
+      cursor: pointer; font-family: inherit; text-align: center; transition: all 0.2s;
+    }
+    .pbg-m-btn-participar:hover { filter: brightness(1.15); }
+    .pbg-m-btn-regras {
+      padding: 6px 10px; border-radius: 8px; font-size: 10px; font-weight: 600;
+      background: transparent; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.15);
+      cursor: pointer; font-family: inherit; transition: all 0.2s;
+    }
+    .pbg-m-btn-regras:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+    .pbg-m-avail-games {
+      font-size: 9px; color: rgba(255,255,255,0.35); cursor: pointer; display: flex; align-items: center; gap: 4px;
+    }
+    .pbg-m-avail-games:hover { color: rgba(255,255,255,0.6); }
+    /* Participating mission card - reference layout */
+    .pbg-m-part-card {
+      flex: 0 0 210px; min-width: 210px; scroll-snap-align: start;
+      background: linear-gradient(180deg, #1a2444 0%, #151d3a 50%, #111832 100%);
+      border: 1px solid rgba(60,90,180,0.35); border-radius: 14px; overflow: hidden;
+      transition: all 0.2s; position: relative; cursor: pointer;
+    }
+    .pbg-m-part-card:hover { border-color: rgba(80,120,220,0.5); transform: translateY(-2px); }
+    .pbg-m-badge-emalta {
+      display: block; text-align: center; margin: 0; padding: 10px 12px 6px;
+    }
+    .pbg-m-badge-emalta span {
+      display: inline-block; padding: 4px 20px; border-radius: 6px; font-size: 9px; font-weight: 800;
+      background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6); text-transform: uppercase;
+      letter-spacing: 0.06em; border: 1px solid rgba(255,255,255,0.08);
+    }
+    .pbg-m-part-top {
+      display: flex; align-items: flex-start; gap: 10px; padding: 0 12px 8px;
+    }
+    .pbg-m-part-img-wrap {
+      width: 72px; height: 72px; flex-shrink: 0; border-radius: 10px; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pbg-m-part-img-wrap img {
+      width: 100%; height: 100%; object-fit: contain;
+    }
+    .pbg-m-part-info { flex: 1; min-width: 0; }
+    .pbg-m-part-name {
+      font-size: 14px; font-weight: 900; color: #fff; margin: 0 0 4px; text-transform: uppercase;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.3;
+    }
+    .pbg-m-part-desc {
+      font-size: 10px; color: rgba(255,255,255,0.45); margin: 0; line-height: 1.4;
+      overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    }
+    .pbg-m-part-duration {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 6px 12px; background: rgba(0,0,0,0.3); margin: 0;
+    }
+    .pbg-m-part-duration-label {
+      font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .pbg-m-part-duration-time {
+      display: flex; align-items: center; gap: 5px;
+    }
+    .pbg-m-part-duration-time svg { flex-shrink: 0; }
+    .pbg-m-part-duration-time span { color: #fff; font-weight: 800; font-size: 13px; }
+    .pbg-m-part-prize-row {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 8px 12px; background: rgba(40,60,120,0.25);
+    }
+    .pbg-m-part-prize-text { font-size: 13px; font-weight: 800; color: #fff; }
+    .pbg-m-part-progress-wrap { padding: 8px 10px 4px; }
+    .pbg-m-part-progress-inner {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .pbg-m-part-progress-icon { flex-shrink: 0; display: flex; align-items: center; }
+    .pbg-m-part-progress-bar-wrap { flex: 1; position: relative; }
+    .pbg-m-part-progress-bar {
+      height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;
+    }
+    .pbg-m-part-progress-fill {
+      height: 100%; border-radius: 3px; background: rgb(0, 201, 255);
+      transition: width 0.5s ease; min-width: 2px;
+    }
+    .pbg-m-part-progress-pct {
+      display: block; text-align: center; font-size: 11px; font-weight: 800;
+      color: rgba(255,255,255,0.6); margin-top: 4px;
+    }
+    .pbg-m-part-games {
+      display: flex; align-items: center; gap: 6px; padding: 6px 12px 10px;
+      font-size: 10px; color: rgba(255,255,255,0.35); cursor: pointer;
+    }
+    .pbg-m-part-games:hover { color: rgba(255,255,255,0.6); }
+    .pbg-m-part-games-thumb {
+      width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.1);
+    }
     .pbg-m-claim-btn {
-      padding: 4px 12px; border-radius: 8px; font-size: 10px; font-weight: 700;
+      width: calc(100% - 24px); margin: 0 12px 8px; padding: 7px 0; border-radius: 8px; font-size: 11px; font-weight: 700;
       background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none;
       cursor: pointer; font-family: inherit; animation: pbg-pulse-green 1.5s infinite;
     }
@@ -346,6 +442,14 @@
     }
     .pbg-m-detail-stat-value { font-size: 16px; font-weight: 800; color: #fff; }
     .pbg-m-detail-stat-label { font-size: 9px; color: #71717a; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+    .pbg-m-tag {
+      display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px;
+      border-radius: 5px; font-size: 9px; font-weight: 600;
+    }
+    .pbg-m-timer { background: rgba(239,68,68,0.1); color: #f87171; }
+    .pbg-m-optin-tag { background: rgba(245,158,11,0.1); color: #fbbf24; }
+    .pbg-m-rec { background: rgba(139,92,246,0.1); color: #a78bfa; }
+    .pbg-m-complete-tag { background: rgba(16,185,129,0.12); color: #34d399; }
     .pbg-badge-bonus { background: rgba(16,185,129,0.15); color: #34d399; }
     .pbg-badge-coins { background: rgba(245,158,11,0.15); color: #fbbf24; }
     .pbg-badge-diamonds { background: rgba(34,211,238,0.15); color: #22d3ee; }
@@ -721,21 +825,78 @@
     .pbg-scratch-inner.lose { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
 
     /* Gift Box — Chest game (reference design) */
-    .pbg-gift-grid { display: flex; justify-content: center; gap: 12px; max-width: 320px; margin: 0 auto; }
+    .pbg-gift-grid { display: flex; justify-content: center; gap: 8px; max-width: 360px; margin: 0 auto; }
     .pbg-gift-box {
-      width: 90px; height: 90px; border-radius: 14px; cursor: pointer; position: relative;
-      background: linear-gradient(145deg, rgba(80,80,90,0.3), rgba(40,40,50,0.4));
-      border: 2px solid rgba(120,120,130,0.3);
+      width: 110px; height: 110px; border-radius: 14px; cursor: pointer; position: relative;
+      background: transparent;
+      border: none;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      transition: transform 0.2s, box-shadow 0.2s;
+      overflow: hidden;
     }
-    .pbg-gift-box:hover { transform: scale(1.06); box-shadow: 0 4px 16px rgba(200,200,210,0.15); }
-    .pbg-gift-box.opened {
-      background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08);
-      cursor: default; transform: none;
+    .pbg-gift-box img {
+      animation: pbg-chest-float 3s ease-in-out infinite;
+      transition: filter 0.3s ease;
     }
-    .pbg-gift-box.opened:hover { transform: none; box-shadow: none; }
-    .pbg-gift-box.won { background: rgba(245,174,0,0.1); border-color: rgba(245,174,0,0.4); box-shadow: 0 0 20px rgba(245,174,0,0.2); }
+    .pbg-gift-box:nth-child(1) img { animation-delay: 0s; }
+    .pbg-gift-box:nth-child(2) img { animation-delay: 1s; }
+    .pbg-gift-box:nth-child(3) img { animation-delay: 2s; }
+    .pbg-gift-box:hover img { filter: saturate(0) brightness(0.7) contrast(1.2) drop-shadow(0 4px 16px rgba(245,174,0,0.4)); }
+    .pbg-gift-box.opened img { animation: none; }
+    .pbg-gift-box.opened:hover img { filter: none; }
+    .pbg-gift-box.won img { animation: pbg-chest-win 0.8s ease forwards; }
+    @keyframes pbg-chest-float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    @keyframes pbg-chest-win {
+      0% { transform: scale(1) rotate(0deg); }
+      25% { transform: scale(1.15) rotate(-4deg); }
+      50% { transform: scale(1.2) rotate(3deg); }
+      75% { transform: scale(1.15) rotate(-2deg); }
+      100% { transform: scale(1.1) rotate(0deg); }
+    }
+    @keyframes pbg-glow-pulse {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.15); }
+    }
+    /* Chest opening animation phases */
+    @keyframes pbg-chest-shake {
+      0%, 100% { transform: rotate(0deg) scale(1); }
+      10% { transform: rotate(-8deg) scale(1.02); }
+      20% { transform: rotate(8deg) scale(1.04); }
+      30% { transform: rotate(-10deg) scale(1.06); }
+      40% { transform: rotate(10deg) scale(1.08); }
+      50% { transform: rotate(-12deg) scale(1.1); }
+      60% { transform: rotate(12deg) scale(1.08); }
+      70% { transform: rotate(-8deg) scale(1.06); }
+      80% { transform: rotate(6deg) scale(1.04); }
+      90% { transform: rotate(-3deg) scale(1.02); }
+    }
+    @keyframes pbg-chest-burst {
+      0% { transform: scale(1); filter: saturate(0) brightness(0.55) contrast(1.2); }
+      30% { transform: scale(1.3); filter: saturate(1) brightness(2) contrast(1); }
+      50% { transform: scale(1.15); filter: saturate(0.8) brightness(1.3) contrast(1.1); }
+      100% { transform: scale(1.1); filter: saturate(0.8) brightness(1.1) contrast(1); }
+    }
+    @keyframes pbg-chest-rays {
+      0% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+      40% { opacity: 1; transform: scale(1.5) rotate(45deg); }
+      100% { opacity: 0.5; transform: scale(1.2) rotate(90deg); }
+    }
+    @keyframes pbg-chest-sparkle {
+      0%, 100% { opacity: 0; transform: scale(0) translateY(0); }
+      20% { opacity: 1; transform: scale(1) translateY(-10px); }
+      80% { opacity: 0.8; transform: scale(0.8) translateY(-40px); }
+    }
+    @keyframes pbg-prize-reveal {
+      0% { opacity: 0; transform: translateY(20px) scale(0.5); }
+      60% { opacity: 1; transform: translateY(-5px) scale(1.1); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .pbg-chest-opening { animation: pbg-chest-shake 1s ease-in-out forwards; }
+    .pbg-chest-burst { animation: pbg-chest-burst 0.8s ease-out forwards; }
+    .pbg-chest-rays-el { animation: pbg-chest-rays 1s ease-out forwards; }
+    .pbg-prize-text { animation: pbg-prize-reveal 0.6s ease-out forwards; }
     .pbg-gift-icon { font-size: 32px; transition: transform 0.3s; }
     .pbg-gift-box:hover .pbg-gift-icon { transform: rotate(-10deg) scale(1.1); }
     .pbg-gift-label { font-size: 9px; color: #a1a1aa; margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -747,7 +908,7 @@
     @keyframes pbg-chest-shake { 0%,100%{transform:translateY(0) rotate(0)} 20%{transform:translateY(-3px) rotate(-2deg)} 40%{transform:translateY(-5px) rotate(2deg)} 60%{transform:translateY(-3px) rotate(-1deg)} 80%{transform:translateY(-1px) rotate(1deg)} }
     .pbg-chest-shaking { animation: pbg-chest-shake 0.5s ease-in-out; }
 
-    /* Store — Redesign */
+    /* Store — Redesign v2 (matching reference) */
     .pbg-store-filters { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
     .pbg-store-filters::-webkit-scrollbar { display: none; }
     .pbg-store-filter {
@@ -759,60 +920,73 @@
     .pbg-store-filter:hover { background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.2); }
     .pbg-store-filter.active { background: linear-gradient(135deg, #8b5cf6, #6366f1); border-color: transparent; color: #fff; }
     .pbg-store-section { display: flex; align-items: center; gap: 10px; margin: 20px 0 12px; }
-    .pbg-store-section-icon { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(99,102,241,0.15)); color: #a78bfa; }
+    .pbg-store-section-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
     .pbg-store-section-title { font-size: 15px; font-weight: 700; color: #f1f1f1; flex: 1; }
-    .pbg-store-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+    .pbg-store-section-more { font-size: 11px; font-weight: 600; color: #71717a; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 10px; background: none; font-family: inherit; }
+    .pbg-store-section-more:hover { color: #a1a1aa; border-color: rgba(255,255,255,0.2); }
+    .pbg-store-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x mandatory; }
     .pbg-store-scroll::-webkit-scrollbar { display: none; }
     .pbg-store-item {
-      background: linear-gradient(165deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
-      border: 1.5px solid rgba(255,255,255,0.12);
-      border-radius: 14px; overflow: hidden; cursor: pointer; flex-shrink: 0;
-      width: 165px; transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s; position: relative;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+      border-radius: 12px; overflow: hidden; cursor: pointer; flex-shrink: 0;
+      width: 155px; transition: transform 0.15s, box-shadow 0.2s; position: relative;
+      scroll-snap-align: start;
     }
-    .pbg-store-item:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
-    .pbg-store-item.pbg-store-coins { border-color: rgba(251,191,36,0.45); }
-    .pbg-store-item.pbg-store-coins:hover { border-color: rgba(251,191,36,0.7); box-shadow: 0 4px 20px rgba(251,191,36,0.15); }
-    .pbg-store-item.pbg-store-diamonds { border-color: rgba(34,211,238,0.45); }
-    .pbg-store-item.pbg-store-diamonds:hover { border-color: rgba(34,211,238,0.7); box-shadow: 0 4px 20px rgba(34,211,238,0.15); }
-    .pbg-store-item.pbg-store-gems { border-color: rgba(74,222,128,0.45); }
-    .pbg-store-item.pbg-store-gems:hover { border-color: rgba(74,222,128,0.7); box-shadow: 0 4px 20px rgba(74,222,128,0.15); }
+    .pbg-store-item:hover { transform: translateY(-3px); }
+    /* Coins card — orange tint */
+    .pbg-store-item.pbg-store-coins {
+      background: linear-gradient(165deg, rgba(246,106,0,0.15) 0%, rgba(246,106,0,0.05) 50%, rgba(10,10,18,0.95) 100%);
+      border: 1.5px solid rgba(255,155,80,0.35);
+      box-shadow: 0 2px 12px rgba(246,106,0,0.1);
+    }
+    .pbg-store-item.pbg-store-coins:hover { box-shadow: 0 6px 24px rgba(246,106,0,0.2); border-color: rgba(255,155,80,0.55); }
+    /* Diamonds card — cyan tint */
+    .pbg-store-item.pbg-store-diamonds {
+      background: linear-gradient(165deg, rgba(0,201,255,0.12) 0%, rgba(0,201,255,0.04) 50%, rgba(10,10,18,0.95) 100%);
+      border: 1.5px solid rgba(0,201,255,0.3);
+      box-shadow: 0 2px 12px rgba(0,201,255,0.08);
+    }
+    .pbg-store-item.pbg-store-diamonds:hover { box-shadow: 0 6px 24px rgba(0,201,255,0.18); border-color: rgba(0,201,255,0.5); }
+    /* Gems card — green tint */
+    .pbg-store-item.pbg-store-gems {
+      background: linear-gradient(165deg, rgba(131,245,57,0.12) 0%, rgba(131,245,57,0.04) 50%, rgba(10,10,18,0.95) 100%);
+      border: 1.5px solid rgba(129,255,161,0.3);
+      box-shadow: 0 2px 12px rgba(131,245,57,0.08);
+    }
+    .pbg-store-item.pbg-store-gems:hover { box-shadow: 0 6px 24px rgba(131,245,57,0.18); border-color: rgba(129,255,161,0.5); }
     .pbg-store-item.greyed { opacity: 0.45; }
     .pbg-store-item-img {
-      width: 100%; height: 130px; display: flex; align-items: center; justify-content: center;
-      background: linear-gradient(180deg, rgba(139,92,246,0.08) 0%, rgba(255,255,255,0.02) 100%);
-      padding: 10px;
+      width: 100%; height: 110px; display: flex; align-items: center; justify-content: center;
+      padding: 12px;
     }
-    .pbg-store-item-img img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4)); }
+    .pbg-store-item-img img { max-width: 90px; max-height: 90px; object-fit: contain; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5)); }
     .pbg-store-item-discount {
-      position: absolute; top: 8px; right: 8px; padding: 4px 10px; border-radius: 6px;
-      font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+      position: absolute; top: 8px; right: 8px; padding: 3px 8px; border-radius: 5px;
+      font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
       background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff;
-      box-shadow: 0 2px 8px rgba(220,38,38,0.4);
+      box-shadow: 0 2px 6px rgba(220,38,38,0.4);
     }
-    .pbg-store-item-body { padding: 10px 12px; }
-    .pbg-store-item-name { font-size: 13px; font-weight: 700; color: #f1f1f1; margin: 0 0 4px; line-height: 1.3; }
-    .pbg-store-item-desc { font-size: 10px; color: #a1a1aa; margin: 0 0 10px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-    .pbg-store-item-footer { display: flex; align-items: center; gap: 8px; }
+    .pbg-store-item-body { padding: 8px 10px 10px; }
+    .pbg-store-item-name { font-size: 12px; font-weight: 700; color: #f1f1f1; margin: 0 0 3px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pbg-store-item-desc { font-size: 9px; color: #8a8a96; margin: 0 0 8px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .pbg-store-item-footer { display: flex; align-items: center; gap: 6px; }
     .pbg-store-item-price {
-      flex: 1; display: flex; align-items: center; gap: 5px; padding: 6px 10px;
-      border-radius: 8px; background: rgba(255,255,255,0.07);
+      flex: 1; display: flex; align-items: center; gap: 4px; padding: 5px 8px;
+      border-radius: 6px; min-width: 0;
     }
-    .pbg-store-item-price-val { font-size: 13px; font-weight: 800; }
-    .pbg-store-item-price-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; }
-    .pbg-store-item-price-old { font-size: 10px; font-weight: 600; text-decoration: line-through; opacity: 0.5; }
+    .pbg-store-item-price.pbg-store-price-coins { background: rgba(246,106,0,0.18); color: rgb(255,155,80); }
+    .pbg-store-item-price.pbg-store-price-diamonds { background: rgba(0,201,255,0.15); color: rgb(0,201,255); }
+    .pbg-store-item-price.pbg-store-price-gems { background: rgba(131,245,57,0.15); color: rgb(129,255,161); }
+    .pbg-store-item-price-val { font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .pbg-store-item-price-lbl { font-size: 8px; font-weight: 700; text-transform: uppercase; }
+    .pbg-store-item-price-old { font-size: 9px; font-weight: 600; text-decoration: line-through; opacity: 0.5; }
     .pbg-store-cart-btn {
-      width: 36px; height: 36px; border-radius: 8px; border: none; cursor: pointer;
+      width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      background: linear-gradient(135deg, #f97316, #ea580c); color: #fff;
+      background: radial-gradient(circle at 30% 30%, #FF704A, #FF3400); color: #fff;
       transition: filter 0.2s, transform 0.15s; flex-shrink: 0;
-      box-shadow: 0 2px 8px rgba(249,115,22,0.4);
+      box-shadow: 0 2px 8px rgba(255,52,0,0.35);
     }
-    .pbg-store-cart-btn:hover { filter: brightness(1.15); transform: scale(1.05); }
-    /* Price color variants */
-    .pbg-store-price-coins { color: #fbbf24; }
-    .pbg-store-price-diamonds { color: #22d3ee; }
-    .pbg-store-price-gems { color: #4ade80; }
+    .pbg-store-cart-btn:hover { filter: brightness(1.15); transform: scale(1.08); }
     .pbg-store-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
     /* Modal */
@@ -903,6 +1077,7 @@
     timer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="12" y2="8"/><circle cx="12" cy="14" r="8"/></svg>',
     hourglass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>',
     diamond: '<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9Z" fill="#22d3ee" stroke="#06b6d4" stroke-width="2"/><path d="M11 3 8 9l4 13 4-13-3-6" fill="rgba(255,255,255,0.2)" stroke="#06b6d4" stroke-width="1"/><path d="M2 9h20" stroke="#06b6d4" stroke-width="2"/></svg>',
+    cartPlus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/><line x1="16" y1="9" x2="16" y2="15"/><line x1="13" y1="12" x2="19" y2="12"/></svg>',
   };
 
   // Inline icon helper: wraps SVG in a small inline span
@@ -1018,6 +1193,30 @@
   // Mission sub-tab state
   let missionTab = 'all';
 
+  function getDayName(dateStr) {
+    if (!dateStr) {
+      const days = ['DOMINGO','SEGUNDA-FEIRA','TERÇA-FEIRA','QUARTA-FEIRA','QUINTA-FEIRA','SEXTA-FEIRA','SÁBADO'];
+      return days[new Date().getDay()];
+    }
+    const days = ['DOMINGO','SEGUNDA-FEIRA','TERÇA-FEIRA','QUARTA-FEIRA','QUINTA-FEIRA','SEXTA-FEIRA','SÁBADO'];
+    return days[new Date(dateStr).getDay()];
+  }
+
+  function getCountdown(endDate) {
+    if (!endDate) return '';
+    const diff = new Date(endDate).getTime() - Date.now();
+    if (diff <= 0) return '00:00:00';
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  function getMissionRewardLabel(m) {
+    const labels = { bonus: fmt(m.reward_value), free_bet: fmt(m.reward_value), cartelas: `${m.reward_value} Cartelas`, coins: `${String(m.reward_value).padStart(2,'0')} Fichas Douradas`, xp: `${m.reward_value} XP`, diamonds: `${m.reward_value} Diamantes`, spins: `${m.reward_value} Giros na Roleta` };
+    return labels[m.reward_type] || `${m.reward_value} ${m.reward_type}`;
+  }
+
   function renderMissions() {
     if (!data?.missions?.length) return `<div style="text-align:center;padding:40px;color:#52525b"><div style="width:40px;height:40px;margin:0 auto 12px;opacity:0.5;color:#71717a">${ICONS.target}</div><div style="font-size:13px">Nenhuma missão disponível</div></div>`;
 
@@ -1067,19 +1266,12 @@
             <div class="pbg-m-detail-section">
               <div class="pbg-m-detail-section-title">${inlIcon('chart',14)} Progresso</div>
               <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">
-                <div class="pbg-m-progress-ring">
-                  <svg viewBox="0 0 38 38">
-                    <circle class="bg" cx="19" cy="19" r="15" />
-                    <circle class="fg" cx="19" cy="19" r="15" stroke="${isCompleted ? '#34d399' : color}" stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}" />
-                  </svg>
-                  <div class="pbg-m-progress-pct">${pct}%</div>
-                </div>
                 <div style="flex:1">
                   <div class="pbg-m-detail-progress-bar">
                     <div class="pbg-m-detail-progress-fill" style="width:${pct}%;background:${isCompleted ? '#34d399' : `linear-gradient(90deg, ${color}, ${color}cc)`}"></div>
                   </div>
                   <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px">
-                    <span style="color:#71717a">Atual</span>
+                    <span style="color:#71717a">${pct}%</span>
                     <span style="color:#fff;font-weight:700">${progress ? `${progress.progress} / ${progress.target}` : '0 / ?'}</span>
                   </div>
                 </div>
@@ -1123,83 +1315,243 @@
       `;
     }
 
-    // Mission list with sub-tabs
-    const tabs = [
-      { key: 'all', label: 'Todas', count: data.missions.length },
-      { key: 'daily', label: inlIcon('zap')+' Diárias', count: data.missions.filter(m => m.type === 'daily').length },
-      { key: 'weekly', label: inlIcon('calendar')+' Semanais', count: data.missions.filter(m => m.type === 'weekly').length },
-      { key: 'monthly', label: inlIcon('refresh')+' Mensais', count: data.missions.filter(m => m.type === 'monthly').length },
-      { key: 'one_time', label: inlIcon('target')+' Únicas', count: data.missions.filter(m => m.type === 'one_time').length },
-    ].filter(t => t.count > 0);
-
-    let html = `<div class="pbg-m-tabs">`;
-    tabs.forEach(t => {
-      html += `<button class="pbg-m-tab ${missionTab === t.key ? 'active' : ''}" onclick="window.__pbg('missionFilter','${t.key}')">${t.label}<span class="pbg-m-tab-count">${t.count}</span></button>`;
+    // Separate missions into available (not participating) and participating (opted_in or has progress)
+    const available = data.missions.filter(m => {
+      const p = getMissionProgress(m.id);
+      return !p?.opted_in && !p?.completed;
     });
-    html += `</div>`;
+    const participating = data.missions.filter(m => {
+      const p = getMissionProgress(m.id);
+      return p?.opted_in && !p?.completed;
+    });
+    const completed = data.missions.filter(m => {
+      const p = getMissionProgress(m.id);
+      return p?.completed;
+    });
 
-    const filtered = missionTab === 'all' ? data.missions : data.missions.filter(m => m.type === missionTab);
+    let html = '';
 
-    // Separate active vs completed
-    const active = filtered.filter(m => { const p = getMissionProgress(m.id); return !p?.completed; });
-    const completed = filtered.filter(m => { const p = getMissionProgress(m.id); return p?.completed; });
+    // --- DISPONÍVEIS section ---
+    if (available.length > 0) {
+      html += `
+        <div class="pbg-m-section-header">
+          <div class="pbg-m-section-left">
+            <div class="pbg-m-section-icon">${inlIcon('target',18)}</div>
+            <div class="pbg-m-section-title">Disponíveis</div>
+          </div>
+          <button class="pbg-m-section-more">VER MAIS</button>
+        </div>
+        <div class="pbg-m-scroll">
+      `;
+      available.forEach((m, _i) => {
+        const globalIdx = data.missions.indexOf(m);
+        const dayLabel = getDayName(m.start_date);
+        const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
+        const imgSrc = m.icon_url || defaultImg;
+        const rewardLabel = getMissionRewardLabel(m);
 
-    const renderCard = (m) => {
-      const globalIdx = data.missions.indexOf(m);
-      const progress = getMissionProgress(m.id);
-      const pct = progress ? Math.min(100, Math.round((progress.progress / progress.target) * 100)) : 0;
-      const isCompleted = progress?.completed;
-      const isClaimed = progress?.claimed;
-      const isOptedIn = progress?.opted_in;
-      const color = typeColors[m.type] || '#8b5cf6';
-      const dashOffset = circumference - (circumference * pct / 100);
-      const rewardText = m.reward_type === 'bonus' || m.reward_type === 'free_bet' || m.reward_type === 'cartelas' ? fmt(m.reward_value) : `${m.reward_value} ${{coins:inlIcon('coin',12),xp:inlIcon('star',12),diamonds:inlIcon('diamond',12),spins:inlIcon('wheel',12)}[m.reward_type] || m.reward_type}`;
-
-      return `
-        <div class="pbg-m-card ${isCompleted ? 'completed' : ''}" onclick="window.__pbg('openMission',${globalIdx})">
-          <div class="pbg-m-body">
-            <div class="pbg-m-icon" style="background:${color}15">
-              ${m.icon_url ? `<img src="${m.icon_url}" style="width:28px;height:28px;border-radius:6px" alt="">` : `<span>${typeIcons[m.type] || inlIcon('target',22)}</span>`}
+        html += `
+          <div class="pbg-m-avail-card">
+            <div class="pbg-m-day-label">${dayLabel}</div>
+            <div class="pbg-m-avail-img-wrap">
+              <img class="pbg-m-avail-img" src="${imgSrc}" alt="${m.name}" onerror="this.src='${defaultImg}'"/>
             </div>
-            <div class="pbg-m-info">
-              <div class="pbg-m-name">${m.name}</div>
-              <div class="pbg-m-desc">${conditionText(m.condition_type, m.condition_value)}</div>
-            </div>
-            <div class="pbg-m-right">
-              ${PLAYER_CPF ? `
-                <div class="pbg-m-progress-ring">
-                  <svg viewBox="0 0 38 38">
-                    <circle class="bg" cx="19" cy="19" r="15" />
-                    <circle class="fg" cx="19" cy="19" r="15" stroke="${isCompleted ? '#34d399' : color}" stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}" />
-                  </svg>
-                  <div class="pbg-m-progress-pct">${isCompleted ? inlIcon('check',14) : `${pct}%`}</div>
-                </div>
-              ` : `
-                <div class="pbg-m-reward-chip">${rewardText}</div>
-              `}
+            <div class="pbg-m-avail-body">
+              <div class="pbg-m-avail-name">${m.name}</div>
+              <div class="pbg-m-avail-desc">${m.description || conditionText(m.condition_type, m.condition_value)}</div>
+              <div class="pbg-m-avail-prize">
+                <div class="pbg-m-avail-prize-icon">${inlIcon('gift',14)}</div>
+                <div class="pbg-m-avail-prize-text">${rewardLabel}</div>
+              </div>
+              <div class="pbg-m-avail-btns">
+                ${m.require_optin && PLAYER_CPF ? `
+                  <button class="pbg-m-btn-participar" onclick="event.stopPropagation();window.__pbg('missionOptin','${m.id}')">${inlIcon('hand',11)} Participar</button>
+                ` : `
+                  <button class="pbg-m-btn-participar" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">${inlIcon('hand',11)} Participar</button>
+                `}
+                <button class="pbg-m-btn-regras" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">Regras</button>
+              </div>
+              <div class="pbg-m-avail-games" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">
+                ${inlIcon('dice',11)} Jogos Elegíveis
+              </div>
             </div>
           </div>
-          <div class="pbg-m-footer">
-            ${!PLAYER_CPF ? '' : `<span class="pbg-m-reward-chip" style="font-size:9px;padding:2px 7px">${rewardText}</span>`}
-            ${m.time_limit_hours ? `<span class="pbg-m-tag pbg-m-timer">${inlIcon('timer',12)} ${m.time_limit_hours}h</span>` : ''}
-            ${m.require_optin && !isOptedIn && !isCompleted ? '<span class="pbg-m-tag pbg-m-optin-tag">' + inlIcon('hand',12) + ' Opt-in</span>' : ''}
-            ${m.recurrence && m.recurrence !== 'none' ? `<span class="pbg-m-tag pbg-m-rec">${inlIcon('refresh',12)}</span>` : ''}
-            ${isCompleted && m.manual_claim && !isClaimed && PLAYER_CPF ? `<button class="pbg-m-claim-btn" onclick="event.stopPropagation();window.__pbg('claimMission','${m.id}')">${inlIcon('gift',12)} Resgatar</button>` : ''}
+        `;
+      });
+      html += `</div>`;
+    }
+
+    // --- PARTICIPANDO section ---
+    if (participating.length > 0) {
+      html += `
+        <div class="pbg-m-section-header" style="margin-top:20px">
+          <div class="pbg-m-section-left">
+            <div class="pbg-m-section-icon">${inlIcon('chart',18)}</div>
+            <div class="pbg-m-section-title">Participando</div>
+          </div>
+          <button class="pbg-m-section-more">VER MAIS</button>
+        </div>
+        <div class="pbg-m-scroll">
+      `;
+      participating.forEach((m) => {
+        const globalIdx = data.missions.indexOf(m);
+        const progress = getMissionProgress(m.id);
+        const pct = progress ? Math.min(100, Math.round((progress.progress / progress.target) * 100)) : 0;
+        const isClaimed = progress?.claimed;
+        const countdown = getCountdown(m.end_date);
+        const rewardLabel = getMissionRewardLabel(m);
+        const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
+        const timerSvg = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.681 7.526C12.681 10.39 10.37 12.711 7.52 12.711C4.669 12.711 2.358 10.39 2.358 7.526C2.358 4.663 4.669 2.341 7.52 2.341C10.37 2.341 12.681 4.663 12.681 7.526ZM14.089 7.526C14.089 11.17 11.148 14.125 7.52 14.125C3.892 14.125 0.95 11.17 0.95 7.526C0.95 3.882 3.892 0.927 7.52 0.927C11.148 0.927 14.089 3.882 14.089 7.526ZM8.223 4.227C8.223 3.836 7.908 3.52 7.52 3.52C7.131 3.52 6.816 3.836 6.816 4.227V7.526C6.816 7.749 6.92 7.958 7.097 8.092L8.974 9.506C9.285 9.74 9.726 9.677 9.96 9.364C10.193 9.052 10.13 8.609 9.819 8.374L8.223 7.173V4.227Z" fill="#A1A1AA"/></svg>';
+
+        const timeDisplay = countdown || (m.time_limit_hours ? String(m.time_limit_hours).padStart(2,'0') + ':00:00' : '--:--:--');
+
+        const iconBase = 'https://backofficepixbingobr.vercel.app/widget';
+        const chestSvg = `<img src="${iconBase}/chest-icon.svg" width="28" height="30" alt="" style="display:block"/>`;
+        const boltSvg = `<img src="${iconBase}/bolt-icon.svg" width="21" height="25" alt="" style="display:block"/>`;
+        const trophySvg = `<img src="${iconBase}/trophy-icon.svg" width="28" height="25" alt="" style="display:block"/>`;
+
+        html += `
+          <div class="pbg-m-part-card" onclick="window.__pbg('openMission',${globalIdx})">
+            <div class="pbg-m-badge-emalta"><span>EM ALTA</span></div>
+            <div class="pbg-m-part-top">
+              <div class="pbg-m-part-img-wrap">
+                <img src="${m.icon_url || defaultImg}" alt="" onerror="this.src='${defaultImg}'"/>
+              </div>
+              <div class="pbg-m-part-info">
+                <div class="pbg-m-part-name">${m.name}</div>
+                <div class="pbg-m-part-desc">${m.description || conditionText(m.condition_type, m.condition_value)}</div>
+              </div>
+            </div>
+            <div class="pbg-m-part-duration">
+              <span class="pbg-m-part-duration-label">DURAÇÃO</span>
+              <div class="pbg-m-part-duration-time">${timerSvg}<span>${timeDisplay}</span></div>
+            </div>
+            <div class="pbg-m-part-prize-row">
+              ${chestSvg}
+              <div class="pbg-m-part-prize-text">${rewardLabel}</div>
+            </div>
+            <div class="pbg-m-part-progress-wrap">
+              <div class="pbg-m-part-progress-inner">
+                <div class="pbg-m-part-progress-icon">${boltSvg}</div>
+                <div class="pbg-m-part-progress-bar-wrap">
+                  <div class="pbg-m-part-progress-bar">
+                    <div class="pbg-m-part-progress-fill" style="width:${pct}%"></div>
+                  </div>
+                  <span class="pbg-m-part-progress-pct">${pct}%</span>
+                </div>
+                <div class="pbg-m-part-progress-icon">${trophySvg}</div>
+              </div>
+            </div>
+            ${progress?.completed && m.manual_claim && !isClaimed && PLAYER_CPF ? `
+              <button class="pbg-m-claim-btn" onclick="event.stopPropagation();window.__pbg('claimMission','${m.id}')">${inlIcon('gift',12)} Resgatar</button>
+            ` : ''}
+            <div class="pbg-m-part-games" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">
+              <img class="pbg-m-part-games-thumb" src="${m.icon_url || defaultImg}" alt="" onerror="this.style.display='none'"/>
+              Jogos Elegíveis
+            </div>
+          </div>
+        `;
+      });
+      html += `</div>`;
+    }
+
+    // --- COMPLETAS section ---
+    if (completed.length > 0) {
+      html += `
+        <div class="pbg-m-section-header" style="margin-top:20px">
+          <div class="pbg-m-section-left">
+            <div class="pbg-m-section-icon">${inlIcon('check',18)}</div>
+            <div class="pbg-m-section-title">Completas</div>
+          </div>
+          <span style="font-size:10px;color:#52525b;font-weight:600">${completed.length}</span>
+        </div>
+        <div class="pbg-m-scroll">
+      `;
+      completed.forEach((m) => {
+        const globalIdx = data.missions.indexOf(m);
+        const progress = getMissionProgress(m.id);
+        const isClaimed = progress?.claimed;
+        const rewardLabel = getMissionRewardLabel(m);
+
+        const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
+        html += `
+          <div class="pbg-m-part-card" style="opacity:0.6" onclick="window.__pbg('openMission',${globalIdx})">
+            <div style="padding:10px 12px 6px;text-align:center"><span class="pbg-m-tag pbg-m-complete-tag">${inlIcon('check',10)} COMPLETA</span></div>
+            <div class="pbg-m-part-top">
+              <div class="pbg-m-part-img-wrap">
+                <img src="${m.icon_url || defaultImg}" alt="" onerror="this.src='${defaultImg}'"/>
+              </div>
+              <div class="pbg-m-part-info">
+                <div class="pbg-m-part-name">${m.name}</div>
+                <div class="pbg-m-part-desc">${m.description || conditionText(m.condition_type, m.condition_value)}</div>
+              </div>
+            </div>
+            <div class="pbg-m-part-prize-row">
+              <div class="pbg-m-part-prize-text" style="color:#34d399">${rewardLabel}</div>
+            </div>
+            <div class="pbg-m-part-progress-wrap">
+              <div class="pbg-m-part-progress-bar">
+                <div class="pbg-m-part-progress-fill" style="width:100%;background:linear-gradient(90deg,#10b981,#059669)"></div>
+              </div>
+              <div class="pbg-m-part-progress-row">
+                <span class="pbg-m-part-progress-pct" style="color:#34d399">100%</span>
+              </div>
+            </div>
+            ${!isClaimed && m.manual_claim && PLAYER_CPF ? `
+              <button class="pbg-m-claim-btn" onclick="event.stopPropagation();window.__pbg('claimMission','${m.id}')">${inlIcon('gift',12)} Resgatar</button>
+            ` : ''}
+          </div>
+        `;
+      });
+      html += `</div>`;
+    }
+
+    // If no missions match any category, show a fallback for missions that don't require opt-in (auto-tracked)
+    if (!available.length && !participating.length && !completed.length) {
+      // All missions - show them as available
+      html += `
+        <div class="pbg-m-section-header">
+          <div class="pbg-m-section-left">
+            <div class="pbg-m-section-icon">${inlIcon('target',18)}</div>
+            <div class="pbg-m-section-title">Disponíveis</div>
           </div>
         </div>
+        <div class="pbg-m-scroll">
       `;
-    };
+      data.missions.forEach((m) => {
+        const globalIdx = data.missions.indexOf(m);
+        const dayLabel = getDayName(m.start_date);
+        const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
+        const imgSrc = m.icon_url || defaultImg;
+        const rewardLabel = getMissionRewardLabel(m);
 
-    if (active.length) {
-      html += active.map(renderCard).join('');
+        html += `
+          <div class="pbg-m-avail-card">
+            <div class="pbg-m-day-label">${dayLabel}</div>
+            <div class="pbg-m-avail-img-wrap">
+              <img class="pbg-m-avail-img" src="${imgSrc}" alt="${m.name}" onerror="this.src='${defaultImg}'"/>
+            </div>
+            <div class="pbg-m-avail-body">
+              <div class="pbg-m-avail-name">${m.name}</div>
+              <div class="pbg-m-avail-desc">${m.description || conditionText(m.condition_type, m.condition_value)}</div>
+              <div class="pbg-m-avail-prize">
+                <div class="pbg-m-avail-prize-icon">${inlIcon('gift',14)}</div>
+                <div class="pbg-m-avail-prize-text">${rewardLabel}</div>
+              </div>
+              <div class="pbg-m-avail-btns">
+                <button class="pbg-m-btn-participar" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">${inlIcon('hand',11)} Participar</button>
+                <button class="pbg-m-btn-regras" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">Regras</button>
+              </div>
+              <div class="pbg-m-avail-games" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">
+                ${inlIcon('dice',11)} Jogos Elegíveis
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      html += `</div>`;
     }
-    if (completed.length) {
-      html += `<div style="margin-top:14px;margin-bottom:8px;display:flex;align-items:center;gap:8px"><div style="flex:1;height:1px;background:rgba(255,255,255,0.06)"></div><span style="font-size:10px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.08em">Completas (${completed.length})</span><div style="flex:1;height:1px;background:rgba(255,255,255,0.06)"></div></div>`;
-      html += completed.map(renderCard).join('');
-    }
-    if (!active.length && !completed.length) {
-      html += '<div style="text-align:center;padding:30px;color:#52525b;font-size:12px">Nenhuma missão nesta categoria</div>';
-    }
+
     return html;
   }
 
@@ -1653,7 +2005,7 @@
       const att = attempts.find(a => a.game_id === game.id);
       const attToday = (att && att.last_attempt_date === today) ? att.attempts_today : 0;
       const maxAtt = game.max_attempts_per_day || 1;
-      const freeAtt = game.free_attempts_per_day || 1;
+      const freeAtt = game.free_attempts_per_day ?? 1;
       const isFree = attToday < freeAtt;
       const maxReached = maxAtt > 0 && attToday >= maxAtt;
       const typeIcons = { scratch_card: inlIcon('card',20), gift_box: inlIcon('giftbox',20), prize_drop: inlIcon('target',20) };
@@ -1723,36 +2075,97 @@
 
         // Gift box game — Chest style matching reference
         if (game.type === 'gift_box' && miniGameResult.game_data?.boxes) {
-          const boxes = miniGameResult.game_data.boxes;
-          const CHEST_SVG = `<svg viewBox="0 0 120 100" width="90" height="75" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="cb1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5a5a62"/><stop offset="40%" stop-color="#3d3d44"/><stop offset="100%" stop-color="#28282e"/></linearGradient><linearGradient id="cl1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6a6a72"/><stop offset="50%" stop-color="#4a4a52"/><stop offset="100%" stop-color="#38383e"/></linearGradient><linearGradient id="ct1" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#707078"/><stop offset="50%" stop-color="#8a8a92"/><stop offset="100%" stop-color="#707078"/></linearGradient><radialGradient id="lp1" cx="50%" cy="45%" r="45%"><stop offset="0%" stop-color="#404048"/><stop offset="60%" stop-color="#2a2a30"/><stop offset="100%" stop-color="#1e1e24"/></radialGradient></defs><g><!-- Body --><rect x="8" y="52" width="104" height="42" rx="4" fill="url(#cb1)" stroke="#222" stroke-width="1.5"/><!-- Body horizontal bands --><rect x="8" y="52" width="104" height="6" rx="2" fill="url(#ct1)" opacity="0.35"/><rect x="8" y="88" width="104" height="6" rx="2" fill="url(#ct1)" opacity="0.25"/><!-- Body vertical bands --><rect x="28" y="52" width="6" height="42" fill="url(#ct1)" opacity="0.2"/><rect x="86" y="52" width="6" height="42" fill="url(#ct1)" opacity="0.2"/><!-- Corner rivets --><circle cx="14" cy="58" r="2.5" fill="#62626a" stroke="#444" stroke-width="0.5"/><circle cx="106" cy="58" r="2.5" fill="#62626a" stroke="#444" stroke-width="0.5"/><circle cx="14" cy="88" r="2.5" fill="#62626a" stroke="#444" stroke-width="0.5"/><circle cx="106" cy="88" r="2.5" fill="#62626a" stroke="#444" stroke-width="0.5"/><!-- Band rivets --><circle cx="31" cy="58" r="1.5" fill="#72727a"/><circle cx="89" cy="58" r="1.5" fill="#72727a"/><circle cx="31" cy="88" r="1.5" fill="#72727a"/><circle cx="89" cy="88" r="1.5" fill="#72727a"/><!-- Lid --><path d="M8 54 Q10 18 60 10 Q110 18 112 54 Z" fill="url(#cl1)" stroke="#222" stroke-width="1.5"/><!-- Lid arch band --><path d="M12 52 Q14 22 60 14 Q106 22 108 52" fill="none" stroke="url(#ct1)" stroke-width="3" opacity="0.3"/><!-- Lid top ridge --><path d="M40 14 Q60 8 80 14" fill="none" stroke="#72727a" stroke-width="1.5" opacity="0.4"/><!-- Lid side rivets --><circle cx="22" cy="42" r="1.5" fill="#72727a"/><circle cx="98" cy="42" r="1.5" fill="#72727a"/><circle cx="16" cy="50" r="1.5" fill="#72727a"/><circle cx="104" cy="50" r="1.5" fill="#72727a"/><!-- Lock plate - large circular --><circle cx="60" cy="52" r="18" fill="url(#lp1)" stroke="#50505a" stroke-width="2"/><!-- Lock inner rings --><circle cx="60" cy="52" r="13" fill="none" stroke="#3a3a42" stroke-width="1.5"/><circle cx="60" cy="52" r="8" fill="none" stroke="#44444c" stroke-width="1"/><!-- Lock center circle --><circle cx="60" cy="50" r="4.5" fill="#1a1a20" stroke="#3a3a42" stroke-width="1"/><!-- Keyhole --><rect x="58.5" y="50" width="3" height="6" rx="0.5" fill="#0e0e12"/><!-- Lock plate rivets --><circle cx="48" cy="42" r="1.5" fill="#5a5a62"/><circle cx="72" cy="42" r="1.5" fill="#5a5a62"/><circle cx="48" cy="62" r="1.5" fill="#5a5a62"/><circle cx="72" cy="62" r="1.5" fill="#5a5a62"/><!-- Lock hasp on top --><path d="M54 38 Q54 30 60 30 Q66 30 66 38" fill="none" stroke="#5a5a62" stroke-width="2.5" stroke-linecap="round"/></g></svg>`;
-          const CHEST_OPEN_SVG = `<svg viewBox="0 0 120 100" width="90" height="75" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="cb2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5a5a62"/><stop offset="40%" stop-color="#3d3d44"/><stop offset="100%" stop-color="#28282e"/></linearGradient><linearGradient id="cl2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6a6a72"/><stop offset="50%" stop-color="#4a4a52"/><stop offset="100%" stop-color="#38383e"/></linearGradient><linearGradient id="ct2" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#707078"/><stop offset="50%" stop-color="#8a8a92"/><stop offset="100%" stop-color="#707078"/></linearGradient></defs><g><!-- Body --><rect x="8" y="52" width="104" height="42" rx="4" fill="url(#cb2)" stroke="#222" stroke-width="1.5"/><rect x="8" y="52" width="104" height="6" rx="2" fill="url(#ct2)" opacity="0.35"/><rect x="8" y="88" width="104" height="6" rx="2" fill="url(#ct2)" opacity="0.25"/><rect x="28" y="52" width="6" height="42" fill="url(#ct2)" opacity="0.2"/><rect x="86" y="52" width="6" height="42" fill="url(#ct2)" opacity="0.2"/><circle cx="14" cy="58" r="2.5" fill="#62626a" stroke="#444" stroke-width="0.5"/><circle cx="106" cy="58" r="2.5" fill="#62626a" stroke="#444" stroke-width="0.5"/><circle cx="14" cy="88" r="2.5" fill="#62626a" stroke="#444" stroke-width="0.5"/><circle cx="106" cy="88" r="2.5" fill="#62626a" stroke="#444" stroke-width="0.5"/><!-- Open lid tilted back --><g transform="rotate(-35 60 54)"><path d="M8 54 Q10 18 60 10 Q110 18 112 54 Z" fill="url(#cl2)" stroke="#222" stroke-width="1.5"/><path d="M12 52 Q14 22 60 14 Q106 22 108 52" fill="none" stroke="url(#ct2)" stroke-width="3" opacity="0.3"/></g><!-- Inner glow --><ellipse cx="60" cy="54" rx="35" ry="8" fill="#ffe429" opacity="0.5"/><ellipse cx="60" cy="50" rx="20" ry="12" fill="#ffd700" opacity="0.25"/></g></svg>`;
+          const boxes = miniGameResult.game_data.boxes.slice(0, 3);
+          const CHEST_IMG_URL = game.config?.chest_image || 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
+          const glowColor = game.config?.color || 'rgba(255,215,0,0.7)';
+          const isPurchaseOnlyGame = freeAtt <= 0 && game.attempt_cost_coins <= 0;
+          const CHEST_SVG = `<img src="${CHEST_IMG_URL}" width="100" height="100" style="filter:saturate(0) brightness(0.55) contrast(1.2);object-fit:contain;transition:transform 0.3s" alt="chest"/>`;
+          const CHEST_OPEN_SVG = `<img src="${CHEST_IMG_URL}" width="100" height="100" style="filter:saturate(0.8) brightness(1.1) drop-shadow(0 0 18px ${glowColor});object-fit:contain;transition:transform 0.3s" alt="chest open"/>`;
 
-          // Result message
-          if (giftBoxOpened !== null) {
-            const box = boxes[giftBoxOpened];
-            html += `<div style="text-align:center;font-size:16px;font-weight:700;color:${box.winning ? '#f5ae00' : 'rgba(255,255,255,0.7)'};margin-bottom:14px">${box.winning ? `${miniGameResult.prize?.icon || '🎉'} ${miniGameResult.prize?.label}!` : 'Tente novamente'}</div>`;
+          if (isPurchaseOnlyGame) {
+            // Single chest with opening animation
+            const isOpened = giftBoxOpened !== null;
+            const animPhase = window.__pbg_chest_phase || 0; // 0=idle, 1=shaking, 2=burst, 3=revealed
+
+            html += `<div style="display:flex;flex-direction:column;align-items:center;padding:16px 0;min-height:200px;justify-content:center">`;
+
+            if (animPhase === 0 && !isOpened) {
+              // Idle — tap to open
+              html += `
+                <div onclick="window.__pbg('animateChest',0)" style="cursor:pointer;transition:transform 0.2s">
+                  <img src="${CHEST_IMG_URL}" width="130" height="130" style="filter:saturate(0) brightness(0.55) contrast(1.2);object-fit:contain;transition:transform 0.3s" alt="chest"/>
+                </div>
+                <div style="font-size:14px;color:rgba(255,255,255,0.5);margin-top:12px">Toque no baú para abrir</div>
+              `;
+            } else if (animPhase === 1) {
+              // Phase 1 — Shaking
+              html += `
+                <div style="position:relative">
+                  <img src="${CHEST_IMG_URL}" width="130" height="130" class="pbg-chest-opening" style="object-fit:contain" alt="chest"/>
+                </div>
+              `;
+            } else if (animPhase === 2) {
+              // Phase 2 — Burst open with rays
+              html += `
+                <div style="position:relative;display:flex;align-items:center;justify-content:center">
+                  <div class="pbg-chest-rays-el" style="position:absolute;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,${glowColor} 0%,${glowColor}66 20%,${glowColor}22 45%,transparent 70%);pointer-events:none"></div>
+                  <div style="position:absolute;pointer-events:none">
+                    ${[0,60,120,180,240,300].map(deg => `<div style="position:absolute;width:3px;height:30px;background:linear-gradient(to top,${glowColor},transparent);transform:rotate(${deg}deg) translateY(-60px);opacity:0;animation:pbg-chest-sparkle 1s ${deg/600}s ease-out forwards"></div>`).join('')}
+                  </div>
+                  <img src="${CHEST_IMG_URL}" width="130" height="130" class="pbg-chest-burst" style="object-fit:contain;position:relative;z-index:2" alt="chest"/>
+                </div>
+              `;
+            } else if (animPhase >= 3 || isOpened) {
+              // Phase 3 — Prize revealed
+              const prizeLabel = miniGameResult.prize?.label || '';
+              const prizeType = miniGameResult.prize?.type || '';
+              const prizeColor = prizeType === 'nothing' ? 'rgba(255,255,255,0.5)' : glowColor;
+              html += `
+                <div style="position:relative;display:flex;align-items:center;justify-content:center">
+                  <div style="position:absolute;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,${glowColor}55 0%,${glowColor}18 50%,transparent 70%);animation:pbg-glow-pulse 2s ease-in-out infinite"></div>
+                  <img src="${CHEST_IMG_URL}" width="130" height="130" style="filter:saturate(0.8) brightness(1.1) drop-shadow(0 0 24px ${glowColor});object-fit:contain;position:relative;z-index:2" alt="chest open"/>
+                </div>
+                <div class="pbg-prize-text" style="font-size:24px;font-weight:900;color:${prizeColor};margin-top:16px;letter-spacing:0.03em;text-shadow:0 0 20px ${prizeColor}44">
+                  ${prizeType === 'nothing' ? 'Tente novamente!' : prizeLabel + '!'}
+                </div>
+              `;
+            }
+            html += `</div>`;
+          } else {
+            // Classic 3-chest mode for free games
+            html += `<div class="pbg-gift-grid">`;
+            boxes.forEach((box, i) => {
+              const opened = giftBoxOpened === i;
+              const otherOpened = giftBoxOpened !== null && giftBoxOpened !== i;
+              const isWin = box.winning;
+              html += `
+                <div class="pbg-gift-box ${opened ? 'opened' : ''} ${opened && isWin ? 'won' : ''} ${otherOpened ? 'opened' : ''}"
+                     onclick="${giftBoxOpened === null ? `window.__pbg('openGiftBox',${i})` : ''}"
+                     style="border:none;background:transparent;width:auto;height:auto">
+                  ${opened && isWin
+                    ? `<div style="position:relative;display:flex;align-items:center;justify-content:center">
+                        <div style="position:absolute;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,215,0,0.4) 0%,rgba(255,165,0,0.15) 50%,transparent 70%);animation:pbg-glow-pulse 1.5s ease-in-out infinite"></div>
+                        ${CHEST_OPEN_SVG}
+                      </div>`
+                    : opened
+                      ? `<div style="opacity:0.4">${CHEST_SVG}</div>`
+                      : (otherOpened ? `<div style="opacity:0.3">${CHEST_SVG}</div>` : CHEST_SVG)
+                  }
+                </div>
+              `;
+            });
+            html += `</div>`;
+
+            // Result message (centered below chests)
+            if (giftBoxOpened !== null && giftBoxOpened >= 0 && giftBoxOpened < boxes.length) {
+              const box = boxes[giftBoxOpened];
+              html += `<div style="text-align:center;width:100%;font-size:20px;font-weight:800;color:${box.winning ? '#f5ae00' : 'rgba(255,255,255,0.7)'};margin:20px 0 8px;letter-spacing:0.02em">${box.winning ? `${miniGameResult.prize?.label}!` : 'Tente novamente'}</div>`;
+            }
           }
 
-          html += `<div class="pbg-gift-grid">`;
-          boxes.forEach((box, i) => {
-            const opened = giftBoxOpened === i;
-            const otherOpened = giftBoxOpened !== null && giftBoxOpened !== i;
-            const isWin = box.winning;
-            html += `
-              <div class="pbg-gift-box ${opened ? 'opened' : ''} ${opened && isWin ? 'won' : ''} ${otherOpened ? 'opened' : ''}"
-                   onclick="${giftBoxOpened === null ? `window.__pbg('openGiftBox',${i})` : ''}"
-                   style="border:none;background:transparent;width:auto;height:auto">
-                ${opened
-                  ? (isWin ? CHEST_OPEN_SVG : `<div style="opacity:0.4">${CHEST_SVG}</div>`)
-                  : (otherOpened ? `<div style="opacity:0.3">${CHEST_SVG}</div>` : CHEST_SVG)
-                }
-              </div>
-            `;
-          });
-          html += `</div>`;
-
           // Keys remaining
-          const keysLeft = Math.max(0, freeAtt - attToday);
+          const purchasedLeft2 = att?.purchased_attempts || 0;
+          const keysLeft = Math.max(0, freeAtt - attToday) + purchasedLeft2;
           html += `<div class="pbg-gift-keys">${inlIcon('key',14)} <span>${keysLeft} CHAVES RESTANTES</span></div>`;
         }
 
@@ -1773,29 +2186,35 @@
         }
 
         // Play again button
+        const hasPurchasedPlays = (att?.purchased_attempts || 0) > 0;
+        const canPlayAgain = isFree || hasPurchasedPlays || (game.attempt_cost_coins > 0 && coins >= game.attempt_cost_coins);
         html += `
           <div style="text-align:center;margin-top:16px">
-            <button class="pbg-modal-btn" ${maxReached || (!isFree && game.attempt_cost_coins > 0 && coins < game.attempt_cost_coins) ? 'disabled' : ''}
+            <button class="pbg-modal-btn" ${maxReached || !canPlayAgain ? 'disabled' : ''}
                     onclick="window.__pbg('playMiniGame','${game.id}')">
-              ${maxReached ? 'Limite atingido' : inlIcon('refresh',14)+' Jogar Novamente'}
+              ${maxReached ? 'Limite atingido' : !canPlayAgain ? 'Sem aberturas' : inlIcon('refresh',14)+' '+(game.name&&game.name.toLowerCase().includes('roleta')?'Girar Roleta':'Abrir Baú')}
             </button>
           </div>
         `;
       } else if (!miniGamePlaying) {
         // Show play button (initial state)
         if (isChestGame) {
-          // Chest game initial state — show 3 locked chests with "Escolha um baú"
-          const INIT_CHEST_SVG = `<svg viewBox="0 0 120 100" width="90" height="75" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="icb" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5a5a62"/><stop offset="40%" stop-color="#3d3d44"/><stop offset="100%" stop-color="#28282e"/></linearGradient><linearGradient id="icl" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6a6a72"/><stop offset="50%" stop-color="#4a4a52"/><stop offset="100%" stop-color="#38383e"/></linearGradient><linearGradient id="ict" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#707078"/><stop offset="50%" stop-color="#8a8a92"/><stop offset="100%" stop-color="#707078"/></linearGradient><radialGradient id="ilp" cx="50%" cy="45%" r="45%"><stop offset="0%" stop-color="#404048"/><stop offset="60%" stop-color="#2a2a30"/><stop offset="100%" stop-color="#1e1e24"/></radialGradient></defs><g><rect x="8" y="52" width="104" height="42" rx="4" fill="url(#icb)" stroke="#222" stroke-width="1.5"/><rect x="8" y="52" width="104" height="6" rx="2" fill="url(#ict)" opacity="0.35"/><rect x="8" y="88" width="104" height="6" rx="2" fill="url(#ict)" opacity="0.25"/><rect x="28" y="52" width="6" height="42" fill="url(#ict)" opacity="0.2"/><rect x="86" y="52" width="6" height="42" fill="url(#ict)" opacity="0.2"/><circle cx="14" cy="58" r="2.5" fill="#62626a" stroke="#444" stroke-width="0.5"/><circle cx="106" cy="58" r="2.5" fill="#62626a" stroke="#444" stroke-width="0.5"/><circle cx="14" cy="88" r="2.5" fill="#62626a" stroke="#444" stroke-width="0.5"/><circle cx="106" cy="88" r="2.5" fill="#62626a" stroke="#444" stroke-width="0.5"/><circle cx="31" cy="58" r="1.5" fill="#72727a"/><circle cx="89" cy="58" r="1.5" fill="#72727a"/><circle cx="31" cy="88" r="1.5" fill="#72727a"/><circle cx="89" cy="88" r="1.5" fill="#72727a"/><path d="M8 54 Q10 18 60 10 Q110 18 112 54 Z" fill="url(#icl)" stroke="#222" stroke-width="1.5"/><path d="M12 52 Q14 22 60 14 Q106 22 108 52" fill="none" stroke="url(#ict)" stroke-width="3" opacity="0.3"/><path d="M40 14 Q60 8 80 14" fill="none" stroke="#72727a" stroke-width="1.5" opacity="0.4"/><circle cx="22" cy="42" r="1.5" fill="#72727a"/><circle cx="98" cy="42" r="1.5" fill="#72727a"/><circle cx="16" cy="50" r="1.5" fill="#72727a"/><circle cx="104" cy="50" r="1.5" fill="#72727a"/><circle cx="60" cy="52" r="18" fill="url(#ilp)" stroke="#50505a" stroke-width="2"/><circle cx="60" cy="52" r="13" fill="none" stroke="#3a3a42" stroke-width="1.5"/><circle cx="60" cy="52" r="8" fill="none" stroke="#44444c" stroke-width="1"/><circle cx="60" cy="50" r="4.5" fill="#1a1a20" stroke="#3a3a42" stroke-width="1"/><rect x="58.5" y="50" width="3" height="6" rx="0.5" fill="#0e0e12"/><circle cx="48" cy="42" r="1.5" fill="#5a5a62"/><circle cx="72" cy="42" r="1.5" fill="#5a5a62"/><circle cx="48" cy="62" r="1.5" fill="#5a5a62"/><circle cx="72" cy="62" r="1.5" fill="#5a5a62"/><path d="M54 38 Q54 30 60 30 Q66 30 66 38" fill="none" stroke="#5a5a62" stroke-width="2.5" stroke-linecap="round"/></g></svg>`;
+          const initChestImg = game.config?.chest_image || 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
+          const INIT_CHEST_SVG = `<img src="${initChestImg}" width="100" height="100" style="filter:saturate(0) brightness(0.55) contrast(1.2);object-fit:contain;cursor:pointer;transition:transform 0.3s" alt="chest"/>`;
+          const initPurchased = att?.purchased_attempts || 0;
+          const initKeysLeft = Math.max(0, freeAtt - attToday) + initPurchased;
+          const initCanPlay = initKeysLeft > 0 || (game.attempt_cost_coins > 0 && coins >= game.attempt_cost_coins);
+          const initIsPurchaseOnly = freeAtt <= 0 && game.attempt_cost_coins <= 0;
           html += `
             <div style="text-align:center;padding:10px 0 16px">
               <div style="display:flex;justify-content:center;gap:12px;margin-bottom:16px">
-                ${INIT_CHEST_SVG}${INIT_CHEST_SVG}${INIT_CHEST_SVG}
+                ${initIsPurchaseOnly ? INIT_CHEST_SVG : `${INIT_CHEST_SVG}${INIT_CHEST_SVG}${INIT_CHEST_SVG}`}
               </div>
-              <div class="pbg-gift-keys">${inlIcon('key',14)} <span>${Math.max(0, freeAtt - attToday)} CHAVES RESTANTES</span></div>
+              <div class="pbg-gift-keys">${inlIcon('key',14)} <span>${initKeysLeft} CHAVES RESTANTES</span></div>
               <div style="margin-top:16px">
-                <button class="pbg-modal-btn" ${!PLAYER_CPF || maxReached ? 'disabled' : ''}
+                <button class="pbg-modal-btn" ${!PLAYER_CPF || maxReached || !initCanPlay ? 'disabled' : ''}
                         onclick="window.__pbg('playMiniGame','${game.id}')">
-                  ${!PLAYER_CPF ? 'Faça login' : maxReached ? 'Limite atingido' : inlIcon('key',14)+' Jogar'}
+                  ${!PLAYER_CPF ? 'Faça login' : maxReached ? 'Limite atingido' : !initCanPlay ? 'Compre na Loja' : inlIcon('key',14)+' Jogar'}
                 </button>
               </div>
               ${!isFree && game.attempt_cost_coins > 0 && !maxReached ? `<div style="font-size:11px;color:#fbbf24;margin-top:8px">${inlIcon('coin',12)} Custo: ${game.attempt_cost_coins} moedas</div>` : ''}
@@ -1851,12 +2270,19 @@
       const att = attempts.find(a => a.game_id === game.id);
       const attToday = (att && att.last_attempt_date === today) ? att.attempts_today : 0;
       const maxAtt = game.max_attempts_per_day || 1;
-      const freeAtt = game.free_attempts_per_day || 1;
+      const freeAtt = game.free_attempts_per_day ?? 1;
       const freeLeft = Math.max(0, freeAtt - attToday);
+      const purchasedLeft = att?.purchased_attempts || 0;
+      const totalAvailable = freeLeft + purchasedLeft;
       const maxReached = maxAtt > 0 && attToday >= maxAtt;
+      const isPurchaseOnly = freeAtt <= 0 && game.attempt_cost_coins <= 0;
+
+      // Hide purchase-only games when player has no purchased attempts
+      if (isPurchaseOnly && purchasedLeft <= 0) return;
 
       const isChest = game.type === 'gift_box';
-      const imgSrc = isChest ? CHEST_IMG : '';
+      const customImg = game.config?.chest_image;
+      const imgSrc = isChest ? (customImg || CHEST_IMG) : '';
 
       html += `
         <div class="pbg-mg-card ${maxReached ? 'greyed' : ''}" onclick="window.__pbg('openMiniGame','${game.id}')">
@@ -1870,7 +2296,7 @@
             ${freeLeft > 0 ? `<button class="pbg-mg-btn-free" onclick="event.stopPropagation();window.__pbg('openMiniGame','${game.id}')">GRÁTIS</button>` : ''}
             <button class="pbg-mg-btn-open" onclick="event.stopPropagation();window.__pbg('openMiniGame','${game.id}')">
               ${OPEN_ICON_SVG}
-              <span>ABRIR (${freeLeft})</span>
+              <span>ABRIR (${totalAvailable})</span>
             </button>
           </div>
         </div>
@@ -1924,9 +2350,9 @@
       const outOfStock = item.stock !== null && item.stock !== undefined && item.stock <= 0;
       const disc = getDiscount(item);
       const cur = getCurrency(item);
-      const priceColors = { coins: 'pbg-store-price-coins', diamonds: 'pbg-store-price-diamonds', gems: 'pbg-store-price-gems' };
+      const priceClasses = { coins: 'pbg-store-price-coins', diamonds: 'pbg-store-price-diamonds', gems: 'pbg-store-price-gems' };
       const curLabels = { coins: 'COINS', diamonds: 'DIAMONDS', gems: 'GEMS' };
-      const curIcons = { coins: inlIcon('coin',14), diamonds: inlIcon('diamond',14), gems: inlIcon('star',14) };
+      const curIcons = { coins: inlIcon('coin',13), diamonds: inlIcon('diamond',13), gems: inlIcon('gem',13) };
       const price = item.price_coins || item.price_diamonds || item.price_xp || 0;
       const origPrice = disc > 0 ? Math.round(price / (1 - disc / 100)) : 0;
 
@@ -1934,20 +2360,20 @@
         <div class="pbg-store-item pbg-store-${cur} ${!canBuy || outOfStock ? 'greyed' : ''}" onclick="window.__pbg('openStore',${idx})">
           ${disc > 0 ? `<div class="pbg-store-item-discount">DESCONTO ${String(disc).padStart(2,'0')}%</div>` : ''}
           <div class="pbg-store-item-img">
-            ${item.image_url ? `<img src="${item.image_url}" alt="${item.name}">` : '<div style="width:48px;height:48px;color:#a78bfa">' + ICONS.giftbox + '</div>'}
+            ${item.image_url ? `<img src="${item.image_url}" alt="${item.name}" crossorigin="anonymous" onerror="this.onerror=null;fetch(this.src).then(r=>r.blob()).then(b=>{this.src=URL.createObjectURL(b)}).catch(()=>{this.style.display='none'})">` : '<div style="width:56px;height:56px;color:#a78bfa">' + ICONS.giftbox + '</div>'}
           </div>
           <div class="pbg-store-item-body">
             <div class="pbg-store-item-name">${item.name}</div>
             <div class="pbg-store-item-desc">${item.description || ''}</div>
             <div class="pbg-store-item-footer">
-              <div class="pbg-store-item-price ${priceColors[cur]}">
+              <div class="pbg-store-item-price ${priceClasses[cur]}">
                 ${curIcons[cur]}
-                <div>
+                <div style="min-width:0">
                   ${disc > 0 ? `<div class="pbg-store-item-price-old">${origPrice.toLocaleString('pt-BR')}</div>` : ''}
                   <div class="pbg-store-item-price-val">${price.toLocaleString('pt-BR')} <span class="pbg-store-item-price-lbl">${curLabels[cur]}</span></div>
                 </div>
               </div>
-              <button class="pbg-store-cart-btn" onclick="event.stopPropagation();window.__pbg('openStore',${idx})">${inlIcon('cart',16)}</button>
+              <button class="pbg-store-cart-btn" onclick="event.stopPropagation();window.__pbg('openStore',${idx})">${inlIcon('cartPlus',15)}</button>
             </div>
           </div>
         </div>
@@ -1955,12 +2381,19 @@
     };
 
     // Section renderer
-    const renderSection = (icon, title, itemsList) => {
+    const sectionIcons = {
+      coins: inlIcon('coin',22),
+      diamonds: inlIcon('diamond',22),
+      gems: inlIcon('gem',22),
+      promos: inlIcon('zap',22),
+    };
+    const renderSection = (sectionKey, title, itemsList) => {
       if (!itemsList.length) return '';
       return `
         <div class="pbg-store-section">
-          <div class="pbg-store-section-icon">${icon}</div>
+          <div class="pbg-store-section-icon">${sectionIcons[sectionKey] || inlIcon('star',22)}</div>
           <div class="pbg-store-section-title">${title}</div>
+          <button class="pbg-store-section-more" onclick="window.__pbg_store_filter='${sectionKey}';window.__pbg('tab','store')">VER MAIS</button>
         </div>
         <div class="pbg-store-scroll">${itemsList.map(i => renderCard(i)).join('')}</div>
       `;
@@ -1977,10 +2410,10 @@
     `;
 
     if (sFilter === 'all') {
-      if (promos.length > 0) html += renderSection(inlIcon('zap',18), 'Promocionais', promos);
-      if (groups.coins.length > 0) html += renderSection(inlIcon('coin',18), 'Coins', groups.coins);
-      if (groups.diamonds.length > 0) html += renderSection(inlIcon('diamond',18), 'Diamonds', groups.diamonds);
-      if (groups.gems.length > 0) html += renderSection(inlIcon('star',18), 'Gems', groups.gems);
+      if (promos.length > 0) html += renderSection('promos', 'Ofertas', promos);
+      if (groups.coins.length > 0) html += renderSection('coins', 'Coins', groups.coins);
+      if (groups.diamonds.length > 0) html += renderSection('diamonds', 'Diamonds', groups.diamonds);
+      if (groups.gems.length > 0) html += renderSection('gems', 'Gems', groups.gems);
     } else {
       html += `<div class="pbg-store-scroll">${filtered.map(i => renderCard(i)).join('')}</div>`;
       if (!filtered.length) html += '<div style="text-align:center;padding:30px;color:#52525b;font-size:12px">Nenhum item nesta categoria</div>';
@@ -1994,14 +2427,14 @@
         const walletAmount = cur === 'coins' ? coins : cur === 'diamonds' ? walletDiamonds : (data?.wallet?.xp || 0);
         const canBuy = walletAmount >= price;
         const outOfStock = item.stock !== null && item.stock !== undefined && item.stock <= 0;
-        const curColors = { coins: '#fbbf24', diamonds: '#22d3ee', gems: '#818cf8' };
-        const curNames = { coins: 'Moedas', diamonds: 'Diamantes', gems: 'XP' };
+        const curColors = { coins: 'rgb(255,155,80)', diamonds: 'rgb(0,201,255)', gems: 'rgb(129,255,161)' };
+        const curNames = { coins: 'Coins', diamonds: 'Diamonds', gems: 'Gems' };
         const curIconKeys = { coins: 'coin', diamonds: 'diamond', gems: 'star' };
         const insufficientMsg = curNames[cur] + ' insuficientes';
         html += `
           <div class="pbg-modal-overlay" onclick="window.__pbg('closeStore')">
             <div class="pbg-modal" onclick="event.stopPropagation()">
-              ${item.image_url ? `<img src="${item.image_url}" style="width:80px;height:80px;object-fit:contain;border-radius:12px;margin:0 auto 12px">` : '<div style="width:48px;height:48px;margin:0 auto 12px;color:#a78bfa">' + ICONS.giftbox + '</div>'}
+              ${item.image_url ? `<img src="${item.image_url}" crossorigin="anonymous" onerror="this.onerror=null;fetch(this.src).then(r=>r.blob()).then(b=>{this.src=URL.createObjectURL(b)}).catch(()=>{this.style.display='none'})" style="width:80px;height:80px;object-fit:contain;border-radius:12px;margin:0 auto 12px">` : '<div style="width:48px;height:48px;margin:0 auto 12px;color:#a78bfa">' + ICONS.giftbox + '</div>'}
               <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:6px">${item.name}</div>
               ${item.description ? `<div style="font-size:12px;color:#a1a1aa;margin-bottom:12px;line-height:1.5">${item.description}</div>` : ''}
               ${item.reward_description || item.reward_value ? `
@@ -2447,10 +2880,10 @@
         selectedMiniGame = arg; miniGameResult = null; miniGamePlaying = false; scratchRevealed = []; giftBoxOpened = null; renderContent();
       }
       else if (action === 'closeMiniGame') {
-        selectedMiniGame = null; miniGameResult = null; miniGamePlaying = false; scratchRevealed = []; giftBoxOpened = null; renderContent();
+        selectedMiniGame = null; miniGameResult = null; miniGamePlaying = false; scratchRevealed = []; giftBoxOpened = null; window.__pbg_chest_phase = 0; renderContent();
       }
       else if (action === 'playMiniGame') {
-        miniGameResult = null; miniGamePlaying = true; scratchRevealed = []; giftBoxOpened = null; renderContent();
+        miniGameResult = null; miniGamePlaying = true; scratchRevealed = []; giftBoxOpened = null; window.__pbg_chest_phase = 0; renderContent();
         try {
           const result = await apiCall('play_mini_game', { game_id: arg });
           miniGamePlaying = false;
@@ -2466,9 +2899,23 @@
           renderContent();
         }
       }
+      else if (action === 'animateChest') {
+        // Animated chest opening: phase 1=shake, 2=burst, 3=reveal
+        window.__pbg_chest_phase = 1;
+        renderContent();
+        setTimeout(() => {
+          window.__pbg_chest_phase = 2;
+          renderContent();
+          setTimeout(() => {
+            window.__pbg_chest_phase = 3;
+            giftBoxOpened = 0;
+            renderContent();
+          }, 900);
+        }, 1000);
+      }
       else if (action === 'openGiftBox') {
         if (giftBoxOpened === null) {
-          giftBoxOpened = arg;
+          giftBoxOpened = Number(arg);
           renderContent();
         }
       }
