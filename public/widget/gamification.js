@@ -897,18 +897,22 @@
     .pbg-chest-burst { animation: pbg-chest-burst 0.8s ease-out forwards; }
     .pbg-chest-rays-el { animation: pbg-chest-rays 1s ease-out forwards; }
     .pbg-prize-text { animation: pbg-prize-reveal 0.6s ease-out forwards; }
-    /* Roulette wheel */
-    .pbg-roulette-container { position: relative; width: 240px; height: 240px; margin: 0 auto; }
-    .pbg-roulette-wheel { width: 240px; height: 240px; border-radius: 50%; position: relative; overflow: hidden; border: 6px solid #555; box-shadow: 0 0 20px rgba(0,0,0,0.5), inset 0 0 15px rgba(0,0,0,0.3), 0 0 40px rgba(139,92,246,0.2); transition: none; }
-    .pbg-roulette-wheel.spinning { transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99); }
-    .pbg-roulette-pointer { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); z-index: 10; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 24px solid #fff; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
-    .pbg-roulette-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle, #666 0%, #333 70%, #222 100%); border: 3px solid #888; z-index: 5; box-shadow: 0 0 10px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
-    .pbg-roulette-bulbs { position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px; border-radius: 50%; z-index: 3; pointer-events: none; }
-    .pbg-roulette-bulb { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 6px #fbbf24; }
-    .pbg-roulette-bulb.alt { background: #fff; box-shadow: 0 0 4px #fff; }
-    @keyframes pbg-bulb-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-    .pbg-roulette-wheel.spinning ~ .pbg-roulette-bulbs .pbg-roulette-bulb { animation: pbg-bulb-blink 0.3s ease-in-out infinite; }
-    .pbg-roulette-wheel.spinning ~ .pbg-roulette-bulbs .pbg-roulette-bulb.alt { animation: pbg-bulb-blink 0.3s 0.15s ease-in-out infinite; }
+    /* Roulette wheel — premium style */
+    .pbg-roulette-container { position: relative; width: 260px; height: 260px; margin: 0 auto; }
+    .pbg-roulette-outer { position: absolute; inset: -16px; border-radius: 50%; background: conic-gradient(from 0deg, #fbbf24, #f59e0b, #d97706, #fbbf24, #f59e0b, #d97706, #fbbf24, #f59e0b, #d97706, #fbbf24, #f59e0b, #d97706, #fbbf24); padding: 4px; box-shadow: 0 0 30px rgba(251,191,36,0.3), 0 0 60px rgba(251,191,36,0.1); }
+    .pbg-roulette-outer-inner { width: 100%; height: 100%; border-radius: 50%; background: #1a1a2e; padding: 6px; }
+    .pbg-roulette-wheel { width: 260px; height: 260px; border-radius: 50%; position: relative; overflow: hidden; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
+    .pbg-roulette-pointer { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); z-index: 10; width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent; border-top: 30px solid #fbbf24; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6)) drop-shadow(0 0 8px rgba(251,191,36,0.5)); }
+    .pbg-roulette-pointer::after { content: ''; position: absolute; top: -30px; left: -10px; width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 20px solid #fff3; }
+    .pbg-roulette-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 52px; height: 52px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #fbbf24 0%, #d97706 50%, #92400e 100%); border: 3px solid #fde68a; z-index: 5; box-shadow: 0 0 15px rgba(251,191,36,0.4), inset 0 2px 4px rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .pbg-roulette-bulbs { position: absolute; inset: -12px; border-radius: 50%; z-index: 3; pointer-events: none; }
+    .pbg-roulette-bulb { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #fff 0%, #fbbf24 60%); box-shadow: 0 0 8px #fbbf24, 0 0 3px #fff; }
+    .pbg-roulette-bulb.alt { background: radial-gradient(circle at 30% 30%, #fff 0%, #f87171 60%); box-shadow: 0 0 8px #f87171, 0 0 3px #fff; }
+    @keyframes pbg-bulb-blink { 0%, 100% { opacity: 1; transform: translate(-50%,-50%) scale(1.2); } 50% { opacity: 0.2; transform: translate(-50%,-50%) scale(0.8); } }
+    @keyframes pbg-roulette-glow { 0%, 100% { box-shadow: 0 0 30px rgba(251,191,36,0.3), 0 0 60px rgba(251,191,36,0.1); } 50% { box-shadow: 0 0 40px rgba(251,191,36,0.5), 0 0 80px rgba(251,191,36,0.2); } }
+    .pbg-roulette-spinning .pbg-roulette-bulb { animation: pbg-bulb-blink 0.25s ease-in-out infinite; }
+    .pbg-roulette-spinning .pbg-roulette-bulb.alt { animation: pbg-bulb-blink 0.25s 0.125s ease-in-out infinite; }
+    .pbg-roulette-spinning .pbg-roulette-outer { animation: pbg-roulette-glow 0.5s ease-in-out infinite; }
     .pbg-gift-icon { font-size: 32px; transition: transform 0.3s; }
     .pbg-gift-box:hover .pbg-gift-icon { transform: rotate(-10deg) scale(1.1); }
     .pbg-gift-label { font-size: 9px; color: #a1a1aa; margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -2044,6 +2048,42 @@
         </div>
       `;
 
+      // Keys remaining + Possible Prizes (always on top)
+      if (isChestGame) {
+        const topPurchased = att?.purchased_attempts || 0;
+        const topKeysLeft = Math.max(0, freeAtt - attToday) + topPurchased;
+        const topLabel = isRouletteGame ? 'GIROS RESTANTES' : 'CHAVES RESTANTES';
+        html += `<div class="pbg-gift-keys" style="margin-bottom:6px">${inlIcon('key',14)} <span>${topKeysLeft} ${topLabel}</span></div>`;
+
+        if (gamePrizes.length > 0 && !isRouletteGame) {
+          const isDiamondGame = game.name && game.name.toLowerCase().includes('diamante');
+          const prizeIcon = isDiamondGame ? inlIcon('diamond',36) : inlIcon('gem',36);
+          const prizeGlow = isDiamondGame ? 'rgba(34,211,238,0.5)' : 'rgba(131,245,57,0.5)';
+          const prizeBorder = isDiamondGame ? 'rgba(34,211,238,0.35)' : 'rgba(131,245,57,0.35)';
+          const prizeBg = isDiamondGame ? 'rgba(34,211,238,0.08)' : 'rgba(131,245,57,0.08)';
+          const prizeTextColor = isDiamondGame ? '#22d3ee' : '#81ff61';
+          const validPrizes = gamePrizes.filter(p=>p.type!=='nothing');
+          html += `
+            <div style="text-align:center;margin-bottom:12px">
+              <button onclick="var el=document.getElementById('pbg-prizes-popup-${game.id}');el.style.display=el.style.display==='flex'?'none':'flex'" style="background:linear-gradient(135deg,${prizeBg},rgba(255,255,255,0.03));border:1px solid ${prizeBorder};color:${prizeTextColor};font-size:12px;font-weight:700;letter-spacing:0.08em;cursor:pointer;font-family:inherit;text-transform:uppercase;padding:8px 20px;border-radius:10px;transition:all 0.2s">
+                ${inlIcon('gift',14)} POSSÍVEIS PRÊMIOS
+              </button>
+              <div id="pbg-prizes-popup-${game.id}" style="display:none;flex-direction:column;margin-top:14px;background:rgba(15,15,20,0.97);border:1.5px solid ${prizeBorder};border-radius:16px;padding:20px 16px;box-shadow:0 8px 40px rgba(0,0,0,0.6),0 0 30px ${prizeGlow}22">
+                <div style="font-size:16px;font-weight:900;color:#fff;margin-bottom:16px;letter-spacing:0.03em">Possíveis prêmios</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+                  ${validPrizes.map(p => `
+                    <div style="background:linear-gradient(145deg,rgba(30,30,40,0.95),rgba(20,20,28,0.9));border:1px solid ${prizeBorder};border-radius:12px;padding:14px 6px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;position:relative;overflow:hidden">
+                      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,${prizeTextColor},transparent);opacity:0.6"></div>
+                      <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:${prizeTextColor};filter:drop-shadow(0 0 8px ${prizeGlow})">${prizeIcon}</div>
+                      <div style="font-size:12px;font-weight:800;color:#fff;text-align:center;line-height:1.3">${p.label}</div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>`;
+        }
+      }
+
       // Game result display
       if (miniGameResult) {
         if (miniGameResult.error) {
@@ -2086,109 +2126,99 @@
           }
         }
 
-        // ROULETTE GAME — spinning wheel
+        // ROULETTE GAME — premium spinning wheel
         if (isRouletteGame && game.type === 'gift_box' && miniGameResult.game_data?.boxes) {
           const isDiamondRoulette = game.name.toLowerCase().includes('diamante');
           const rColors = isDiamondRoulette
-            ? ['#0e7490','#155e75','#164e63','#0c4a6e','#075985','#0369a1','#0284c7','#0ea5e9','#22d3ee','#06b6d4']
-            : ['#166534','#15803d','#16a34a','#22c55e','#4ade80','#065f46','#047857','#059669','#10b981','#34d399'];
-          const rIcon = isDiamondRoulette ? '💎' : '💚';
+            ? ['#0891b2','#06b6d4','#0e7490','#22d3ee','#0c4a6e','#0ea5e9','#155e75','#38bdf8','#164e63','#67e8f9']
+            : ['#15803d','#22c55e','#166534','#4ade80','#065f46','#34d399','#047857','#6ee7b7','#064e3b','#86efac'];
+          const rCenterIcon = isDiamondRoulette ? '💎' : '💚';
           const rGlow = isDiamondRoulette ? 'rgba(34,211,238,0.5)' : 'rgba(131,245,57,0.5)';
           const rTextColor = isDiamondRoulette ? '#22d3ee' : '#81ff61';
           const rPrizes = gamePrizes.filter(p => p.type !== 'nothing');
-          const segments = rPrizes.length > 0 ? rPrizes : [{label:'1 Gema',value:1},{label:'2 Gemas',value:2},{label:'3 Gemas',value:3},{label:'4 Gemas',value:4},{label:'5 Gemas',value:5},{label:'6 Gemas',value:6},{label:'7 Gemas',value:7},{label:'8 Gemas',value:8}];
+          const segments = rPrizes.length > 0 ? rPrizes : [{label:'1 Gema'},{label:'2 Gemas'},{label:'3 Gemas'},{label:'4 Gemas'},{label:'5 Gemas'},{label:'6 Gemas'},{label:'7 Gemas'},{label:'8 Gemas'}];
           const n = segments.length;
           const segAngle = 360 / n;
 
-          // Build SVG wheel segments
-          const R = 120; const cx = 120; const cy = 120;
+          // Build SVG wheel with gradients and separators
+          const R = 130; const cx = 130; const cy = 130;
+          let svgDefs = '<defs>';
+          for (let i = 0; i < n; i++) {
+            const c = rColors[i % rColors.length];
+            svgDefs += `<linearGradient id="pbg-seg-${i}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${c}"/><stop offset="100%" stop-color="${c}aa"/></linearGradient>`;
+          }
+          svgDefs += `<filter id="pbg-inner-shadow"><feFlood flood-color="rgba(0,0,0,0.3)"/><feComposite in2="SourceAlpha" operator="in"/><feGaussianBlur stdDeviation="4"/><feComposite in2="SourceAlpha" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
           let svgSegments = '';
           for (let i = 0; i < n; i++) {
-            const startAngle = (i * segAngle - 90) * Math.PI / 180;
-            const endAngle = ((i + 1) * segAngle - 90) * Math.PI / 180;
-            const x1 = cx + R * Math.cos(startAngle);
-            const y1 = cy + R * Math.sin(startAngle);
-            const x2 = cx + R * Math.cos(endAngle);
-            const y2 = cy + R * Math.sin(endAngle);
-            const largeArc = segAngle > 180 ? 1 : 0;
-            const color = rColors[i % rColors.length];
-            svgSegments += `<path d="M${cx},${cy} L${x1},${y1} A${R},${R} 0 ${largeArc},1 ${x2},${y2} Z" fill="${color}" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>`;
-            // Text label
-            const midAngle = ((i + 0.5) * segAngle - 90) * Math.PI / 180;
-            const textR = R * 0.68;
-            const tx = cx + textR * Math.cos(midAngle);
-            const ty = cy + textR * Math.sin(midAngle);
-            const textRotate = (i + 0.5) * segAngle;
-            svgSegments += `<text x="${tx}" y="${ty}" fill="#fff" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle" transform="rotate(${textRotate},${tx},${ty})" style="text-shadow:0 1px 3px rgba(0,0,0,0.6)">${segments[i].label}</text>`;
+            const sa = (i * segAngle - 90) * Math.PI / 180;
+            const ea = ((i + 1) * segAngle - 90) * Math.PI / 180;
+            const x1 = cx + R * Math.cos(sa); const y1 = cy + R * Math.sin(sa);
+            const x2 = cx + R * Math.cos(ea); const y2 = cy + R * Math.sin(ea);
+            svgSegments += `<path d="M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${segAngle>180?1:0},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z" fill="url(#pbg-seg-${i})" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>`;
+            // Separator line
+            svgSegments += `<line x1="${cx}" y1="${cy}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>`;
+            // Text label with icon
+            const ma = ((i+0.5)*segAngle-90)*Math.PI/180;
+            const tx = cx + R*0.62*Math.cos(ma); const ty = cy + R*0.62*Math.sin(ma);
+            const rot = (i+0.5)*segAngle;
+            const gemEmoji = isDiamondRoulette ? '💎' : '💚';
+            // Icon position (closer to center)
+            const ix = cx + R*0.38*Math.cos(ma); const iy = cy + R*0.38*Math.sin(ma);
+            svgSegments += `<text x="${ix.toFixed(1)}" y="${iy.toFixed(1)}" font-size="14" text-anchor="middle" dominant-baseline="middle" transform="rotate(${rot},${ix.toFixed(1)},${iy.toFixed(1)})">${gemEmoji}</text>`;
+            svgSegments += `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" fill="#fff" font-size="11" font-weight="900" text-anchor="middle" dominant-baseline="middle" transform="rotate(${rot},${tx.toFixed(1)},${ty.toFixed(1)})" style="text-shadow:0 1px 4px rgba(0,0,0,0.8);letter-spacing:0.5px">${segments[i].label}</text>`;
           }
+          // Inner circle overlay for depth
+          svgSegments += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="rgba(0,0,0,0.2)" stroke-width="3" filter="url(#pbg-inner-shadow)"/>`;
 
-          // Bulbs around the wheel
+          // Bulbs
+          const numBulbs = 24;
           let bulbsHtml = '';
-          for (let i = 0; i < 20; i++) {
-            const angle = (i * 18) * Math.PI / 180;
-            const bx = 50 + 49 * Math.cos(angle);
-            const by = 50 + 49 * Math.sin(angle);
-            bulbsHtml += `<div class="pbg-roulette-bulb ${i % 2 ? 'alt' : ''}" style="left:${bx}%;top:${by}%;transform:translate(-50%,-50%)"></div>`;
+          for (let i = 0; i < numBulbs; i++) {
+            const a = (i * (360/numBulbs)) * Math.PI / 180;
+            const bx = 50 + 48.5 * Math.cos(a); const by = 50 + 48.5 * Math.sin(a);
+            bulbsHtml += `<div class="pbg-roulette-bulb ${i%2?'alt':''}" style="left:${bx}%;top:${by}%;transform:translate(-50%,-50%)"></div>`;
           }
 
-          const wheelSvg = `<svg viewBox="0 0 240 240" width="240" height="240">${svgSegments}</svg>`;
-          const spinPhase = window.__pbg_roulette_phase || 0; // 0=idle, 1=spinning, 2=done
+          const wheelSvg = `<svg viewBox="0 0 260 260" width="260" height="260">${svgDefs}${svgSegments}</svg>`;
+          const spinPhase = window.__pbg_roulette_phase || 0;
+          const isSpinning = spinPhase === 1;
 
-          html += `<div style="display:flex;flex-direction:column;align-items:center;padding:16px 0;min-height:280px;justify-content:center">`;
+          html += `<div style="display:flex;flex-direction:column;align-items:center;padding:16px 0;min-height:320px;justify-content:center">`;
+
+          // Always render the wheel, use JS to animate
+          const currentDeg = spinPhase >= 1 ? (window.__pbg_roulette_deg || 0) : 0;
+          html += `
+            <div class="pbg-roulette-container ${isSpinning ? 'pbg-roulette-spinning' : ''}" ${spinPhase === 0 ? `onclick="window.__pbg('spinRoulette','${game.id}')" style="cursor:pointer"` : ''}>
+              <div class="pbg-roulette-outer"><div class="pbg-roulette-outer-inner">
+                <div class="pbg-roulette-wheel" id="pbg-roulette-wheel" style="transform:rotate(${spinPhase >= 2 ? currentDeg : 0}deg)">${wheelSvg}</div>
+              </div></div>
+              <div class="pbg-roulette-pointer"></div>
+              <div class="pbg-roulette-center">${rCenterIcon}</div>
+              <div class="pbg-roulette-bulbs">${bulbsHtml}</div>
+            </div>
+          `;
 
           if (spinPhase === 0) {
-            // Idle — tap to spin
-            html += `
-              <div class="pbg-roulette-container" onclick="window.__pbg('spinRoulette','${game.id}')" style="cursor:pointer">
-                <div class="pbg-roulette-pointer"></div>
-                <div class="pbg-roulette-wheel" id="pbg-roulette-wheel">${wheelSvg}</div>
-                <div class="pbg-roulette-center" style="color:${rTextColor}">${rIcon}</div>
-                <div class="pbg-roulette-bulbs">${bulbsHtml}</div>
-              </div>
-              <div style="font-size:14px;color:rgba(255,255,255,0.5);margin-top:14px">Toque na roleta para girar</div>
-            `;
+            html += `<div style="font-size:14px;color:rgba(255,255,255,0.5);margin-top:20px;font-weight:600">Toque na roleta para girar</div>`;
           } else if (spinPhase === 1) {
-            // Spinning
-            const targetDeg = window.__pbg_roulette_deg || 1800;
-            html += `
-              <div class="pbg-roulette-container">
-                <div class="pbg-roulette-pointer"></div>
-                <div class="pbg-roulette-wheel spinning" id="pbg-roulette-wheel" style="transform:rotate(${targetDeg}deg)">${wheelSvg}</div>
-                <div class="pbg-roulette-center" style="color:${rTextColor}">${rIcon}</div>
-                <div class="pbg-roulette-bulbs">${bulbsHtml}</div>
-              </div>
-              <div style="font-size:14px;color:rgba(255,255,255,0.5);margin-top:14px;animation:pbg-glow-pulse 1s ease-in-out infinite">Girando...</div>
-            `;
+            html += `<div style="font-size:15px;color:#fbbf24;margin-top:20px;font-weight:700;animation:pbg-glow-pulse 0.8s ease-in-out infinite">✨ Girando...</div>`;
           } else if (spinPhase >= 2) {
-            // Stopped — show result
-            const finalDeg = window.__pbg_roulette_deg || 0;
             const prizeLabel = miniGameResult.prize?.label || '';
             const prizeType = miniGameResult.prize?.type || '';
             const revealIcon = isDiamondRoulette ? inlIcon('diamond',44) : inlIcon('gem',44);
-            html += `
-              <div class="pbg-roulette-container">
-                <div class="pbg-roulette-pointer"></div>
-                <div class="pbg-roulette-wheel" id="pbg-roulette-wheel" style="transform:rotate(${finalDeg}deg)">${wheelSvg}</div>
-                <div class="pbg-roulette-center" style="color:${rTextColor}">${rIcon}</div>
-                <div class="pbg-roulette-bulbs">${bulbsHtml}</div>
-              </div>
-              ${prizeType !== 'nothing' ? `
-              <div class="pbg-prize-text" style="margin-top:18px;background:linear-gradient(145deg,rgba(20,20,30,0.97),rgba(10,10,18,0.95));border:1.5px solid ${rGlow};border-radius:16px;padding:16px 22px;box-shadow:0 4px 30px ${rGlow}44;display:flex;flex-direction:column;align-items:center;gap:8px;animation:pbg-prize-reveal 0.6s ease-out">
-                <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:${rTextColor};filter:drop-shadow(0 0 12px ${rGlow})">${revealIcon}</div>
-                <div style="font-size:22px;font-weight:900;color:#fff;text-shadow:0 0 20px ${rGlow}">${prizeLabel}!</div>
-                <div style="font-size:11px;color:${rTextColor};font-weight:600;text-transform:uppercase;letter-spacing:0.1em">${isDiamondRoulette ? 'Diamantes' : 'Gemas'} adicionados</div>
-              </div>
-              ` : `
-              <div style="font-size:20px;font-weight:700;color:rgba(255,255,255,0.5);margin-top:16px">Tente novamente!</div>
-              `}
-            `;
+            if (prizeType !== 'nothing') {
+              html += `
+                <div class="pbg-prize-text" style="margin-top:20px;background:linear-gradient(145deg,rgba(20,20,30,0.97),rgba(10,10,18,0.95));border:2px solid ${rGlow};border-radius:16px;padding:18px 28px;box-shadow:0 4px 30px ${rGlow}44,0 0 60px ${rGlow}18;display:flex;flex-direction:column;align-items:center;gap:10px;animation:pbg-prize-reveal 0.6s ease-out">
+                  <div style="width:52px;height:52px;display:flex;align-items:center;justify-content:center;color:${rTextColor};filter:drop-shadow(0 0 14px ${rGlow});animation:pbg-glow-pulse 2s ease-in-out infinite">${revealIcon}</div>
+                  <div style="font-size:24px;font-weight:900;color:#fff;text-shadow:0 0 24px ${rGlow}">${prizeLabel}!</div>
+                  <div style="font-size:11px;color:${rTextColor};font-weight:600;text-transform:uppercase;letter-spacing:0.1em">${isDiamondRoulette ? 'Diamantes' : 'Gemas'} adicionados à carteira</div>
+                </div>`;
+            } else {
+              html += `<div style="font-size:20px;font-weight:700;color:rgba(255,255,255,0.5);margin-top:20px">Tente novamente!</div>`;
+            }
           }
           html += `</div>`;
 
-          // Keys remaining
-          const rPurchasedLeft = att?.purchased_attempts || 0;
-          const rKeysLeft = Math.max(0, freeAtt - attToday) + rPurchasedLeft;
-          html += `<div class="pbg-gift-keys">${inlIcon('key',14)} <span>${rKeysLeft} CHAVES RESTANTES</span></div>`;
         }
 
         // Gift box game — Chest style matching reference
@@ -2293,10 +2323,6 @@
             }
           }
 
-          // Keys remaining
-          const purchasedLeft2 = att?.purchased_attempts || 0;
-          const keysLeft = Math.max(0, freeAtt - attToday) + purchasedLeft2;
-          html += `<div class="pbg-gift-keys">${inlIcon('key',14)} <span>${keysLeft} CHAVES RESTANTES</span></div>`;
         }
 
         // Prize Drop
@@ -2308,35 +2334,6 @@
               ${miniGameResult.prize?.type !== 'nothing' && miniGameResult.prize?.value ? `<div style="font-size:13px;color:#fbbf24;margin-top:6px;font-weight:600">+${miniGameResult.prize.value} ${miniGameResult.prize.type}</div>` : ''}
             </div>
           `;
-        }
-
-        // Possible Prizes popup (for gift_box games)
-        if (isChestGame && gamePrizes.length > 0) {
-          const isDiamondGame = game.name && game.name.toLowerCase().includes('diamante');
-          const prizeIcon = isDiamondGame ? inlIcon('diamond',36) : inlIcon('gem',36);
-          const prizeGlow = isDiamondGame ? 'rgba(34,211,238,0.5)' : 'rgba(131,245,57,0.5)';
-          const prizeBorder = isDiamondGame ? 'rgba(34,211,238,0.35)' : 'rgba(131,245,57,0.35)';
-          const prizeBg = isDiamondGame ? 'rgba(34,211,238,0.08)' : 'rgba(131,245,57,0.08)';
-          const prizeTextColor = isDiamondGame ? '#22d3ee' : '#81ff61';
-          const validPrizes = gamePrizes.filter(p=>p.type!=='nothing');
-          html += `
-            <div style="text-align:center;margin-top:16px">
-              <button onclick="var el=document.getElementById('pbg-prizes-popup-${game.id}');el.style.display=el.style.display==='flex'?'none':'flex'" style="background:linear-gradient(135deg,${prizeBg},rgba(255,255,255,0.03));border:1px solid ${prizeBorder};color:${prizeTextColor};font-size:12px;font-weight:700;letter-spacing:0.08em;cursor:pointer;font-family:inherit;text-transform:uppercase;padding:8px 20px;border-radius:10px;transition:all 0.2s">
-                ${inlIcon('gift',14)} POSSÍVEIS PRÊMIOS
-              </button>
-              <div id="pbg-prizes-popup-${game.id}" style="display:none;flex-direction:column;margin-top:14px;background:rgba(15,15,20,0.97);border:1.5px solid ${prizeBorder};border-radius:16px;padding:20px 16px;box-shadow:0 8px 40px rgba(0,0,0,0.6),0 0 30px ${prizeGlow}22">
-                <div style="font-size:16px;font-weight:900;color:#fff;margin-bottom:16px;letter-spacing:0.03em">Possíveis prêmios</div>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-                  ${validPrizes.map(p => `
-                    <div style="background:linear-gradient(145deg,rgba(30,30,40,0.95),rgba(20,20,28,0.9));border:1px solid ${prizeBorder};border-radius:12px;padding:14px 6px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform 0.2s;position:relative;overflow:hidden">
-                      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,${prizeTextColor},transparent);opacity:0.6"></div>
-                      <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;color:${prizeTextColor};filter:drop-shadow(0 0 8px ${prizeGlow})">${prizeIcon}</div>
-                      <div style="font-size:12px;font-weight:800;color:#fff;text-align:center;line-height:1.3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">${p.label}</div>
-                    </div>
-                  `).join('')}
-                </div>
-              </div>
-            </div>`;
         }
 
         // Play again button
@@ -2364,35 +2361,47 @@
           const r2Segments = r2Prizes.length > 0 ? r2Prizes : [{label:'1 Gema'},{label:'2 Gemas'},{label:'3 Gemas'},{label:'4 Gemas'},{label:'5 Gemas'},{label:'6 Gemas'},{label:'7 Gemas'},{label:'8 Gemas'}];
           const r2n = r2Segments.length;
           const r2Angle = 360 / r2n;
-          const R2 = 120; const cx2 = 120; const cy2 = 120;
+          const R2 = 130; const cx2 = 130; const cy2 = 130;
+          let r2Defs = '<defs>';
+          for (let i = 0; i < r2n; i++) {
+            const c = r2Colors[i % r2Colors.length];
+            r2Defs += `<linearGradient id="pbg-iseg-${i}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${c}"/><stop offset="100%" stop-color="${c}aa"/></linearGradient>`;
+          }
+          r2Defs += '</defs>';
           let r2Svg = '';
+          const r2Emoji = isDiamondR2 ? '💎' : '💚';
           for (let i = 0; i < r2n; i++) {
             const sa = (i * r2Angle - 90) * Math.PI / 180;
             const ea = ((i + 1) * r2Angle - 90) * Math.PI / 180;
             const x1 = cx2 + R2 * Math.cos(sa); const y1 = cy2 + R2 * Math.sin(sa);
             const x2 = cx2 + R2 * Math.cos(ea); const y2 = cy2 + R2 * Math.sin(ea);
-            r2Svg += `<path d="M${cx2},${cy2} L${x1},${y1} A${R2},${R2} 0 ${r2Angle>180?1:0},1 ${x2},${y2} Z" fill="${r2Colors[i%r2Colors.length]}" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>`;
+            r2Svg += `<path d="M${cx2},${cy2} L${x1.toFixed(1)},${y1.toFixed(1)} A${R2},${R2} 0 ${r2Angle>180?1:0},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z" fill="url(#pbg-iseg-${i})" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>`;
+            r2Svg += `<line x1="${cx2}" y1="${cy2}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>`;
             const ma = ((i+0.5)*r2Angle-90)*Math.PI/180;
-            const tx = cx2+R2*0.68*Math.cos(ma); const ty = cy2+R2*0.68*Math.sin(ma);
-            r2Svg += `<text x="${tx}" y="${ty}" fill="#fff" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle" transform="rotate(${(i+0.5)*r2Angle},${tx},${ty})" style="text-shadow:0 1px 3px rgba(0,0,0,0.6)">${r2Segments[i].label}</text>`;
+            const ix = cx2+R2*0.38*Math.cos(ma); const iy = cy2+R2*0.38*Math.sin(ma);
+            const tx = cx2+R2*0.62*Math.cos(ma); const ty = cy2+R2*0.62*Math.sin(ma);
+            const rot = (i+0.5)*r2Angle;
+            r2Svg += `<text x="${ix.toFixed(1)}" y="${iy.toFixed(1)}" font-size="14" text-anchor="middle" dominant-baseline="middle" transform="rotate(${rot},${ix.toFixed(1)},${iy.toFixed(1)})">${r2Emoji}</text>`;
+            r2Svg += `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" fill="#fff" font-size="11" font-weight="900" text-anchor="middle" dominant-baseline="middle" transform="rotate(${rot},${tx.toFixed(1)},${ty.toFixed(1)})" style="text-shadow:0 1px 4px rgba(0,0,0,0.8)">${r2Segments[i].label}</text>`;
           }
           let r2Bulbs = '';
-          for (let i = 0; i < 20; i++) {
-            const a = (i*18)*Math.PI/180;
-            r2Bulbs += `<div class="pbg-roulette-bulb ${i%2?'alt':''}" style="left:${50+49*Math.cos(a)}%;top:${50+49*Math.sin(a)}%;transform:translate(-50%,-50%)"></div>`;
+          for (let i = 0; i < 24; i++) {
+            const a = (i*(360/24))*Math.PI/180;
+            r2Bulbs += `<div class="pbg-roulette-bulb ${i%2?'alt':''}" style="left:${50+48.5*Math.cos(a)}%;top:${50+48.5*Math.sin(a)}%;transform:translate(-50%,-50%)"></div>`;
           }
           const initPurchased2 = att?.purchased_attempts || 0;
           const initKeysLeft2 = Math.max(0, freeAtt - attToday) + initPurchased2;
           const initCanPlay2 = initKeysLeft2 > 0 || (game.attempt_cost_coins > 0 && coins >= game.attempt_cost_coins);
           html += `
             <div style="text-align:center;padding:10px 0 16px;display:flex;flex-direction:column;align-items:center">
-              <div class="pbg-roulette-container" style="opacity:0.7;filter:saturate(0.5)">
+              <div class="pbg-roulette-container" style="opacity:0.65;filter:saturate(0.4) brightness(0.8)">
+                <div class="pbg-roulette-outer"><div class="pbg-roulette-outer-inner">
+                  <div class="pbg-roulette-wheel"><svg viewBox="0 0 260 260" width="260" height="260">${r2Defs}${r2Svg}</svg></div>
+                </div></div>
                 <div class="pbg-roulette-pointer"></div>
-                <div class="pbg-roulette-wheel"><svg viewBox="0 0 240 240" width="240" height="240">${r2Svg}</svg></div>
-                <div class="pbg-roulette-center" style="color:${r2TextColor}">${r2Icon}</div>
+                <div class="pbg-roulette-center">${r2Emoji}</div>
                 <div class="pbg-roulette-bulbs">${r2Bulbs}</div>
               </div>
-              <div class="pbg-gift-keys" style="margin-top:14px">${inlIcon('key',14)} <span>${initKeysLeft2} GIROS RESTANTES</span></div>
               <div style="margin-top:16px">
                 <button class="pbg-modal-btn" ${!PLAYER_CPF || maxReached || !initCanPlay2 ? 'disabled' : ''}
                         onclick="window.__pbg('playMiniGame','${game.id}')">
@@ -2413,7 +2422,6 @@
               <div style="display:flex;justify-content:center;gap:12px;margin-bottom:16px">
                 ${initIsPurchaseOnly ? INIT_CHEST_SVG : `${INIT_CHEST_SVG}${INIT_CHEST_SVG}${INIT_CHEST_SVG}`}
               </div>
-              <div class="pbg-gift-keys">${inlIcon('key',14)} <span>${initKeysLeft} CHAVES RESTANTES</span></div>
               <div style="margin-top:16px">
                 <button class="pbg-modal-btn" ${!PLAYER_CPF || maxReached || !initCanPlay ? 'disabled' : ''}
                         onclick="window.__pbg('playMiniGame','${game.id}')">
@@ -3140,12 +3148,22 @@
         window.__pbg_roulette_phase = 1;
         window.__pbg_roulette_deg = targetDeg;
         renderContent();
-        // After spin animation completes (4s CSS transition), show result
+        // Apply rotation AFTER DOM render so CSS transition works
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const wheelEl = document.getElementById('pbg-roulette-wheel');
+            if (wheelEl) {
+              wheelEl.style.transition = 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)';
+              wheelEl.style.transform = `rotate(${targetDeg}deg)`;
+            }
+          });
+        });
+        // After spin animation completes, show result
         setTimeout(() => {
           window.__pbg_roulette_phase = 2;
           giftBoxOpened = 0;
           renderContent();
-        }, 4200);
+        }, 4400);
       }
       else if (action === 'openGiftBox') {
         if (giftBoxOpened === null) {
