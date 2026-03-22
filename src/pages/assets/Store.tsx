@@ -173,50 +173,111 @@ export default function Store() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item: any) => (
-            <Card key={item.id} className="border-border hover:border-primary/30 transition-colors overflow-hidden">
-              {item.image_url && <img src={item.image_url} alt="" className="w-full h-32 object-cover" />}
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-sm truncate">{item.name}</h3>
-                      <Badge variant="outline" className="text-[10px]">{categoryLabel[item.category] || item.category}</Badge>
-                      {!item.active && <Badge variant="outline" className="text-[10px] text-muted-foreground">Inativo</Badge>}
-                      {item.discount_percent > 0 && <Badge className="text-[10px] bg-red-600 text-white border-0">-{item.discount_percent}%</Badge>}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {items.map((item: any) => {
+            const price = item.price_coins > 0
+              ? { value: item.price_coins, label: 'moedas', icon: <Coins className="w-3.5 h-3.5" />, color: 'text-amber-400' }
+              : item.price_diamonds > 0
+              ? { value: item.price_diamonds, label: 'diamantes', icon: <span className="text-xs">◆</span>, color: 'text-cyan-400' }
+              : item.price_xp > 0
+              ? { value: item.price_xp, label: 'XP', icon: <Star className="w-3.5 h-3.5" />, color: 'text-emerald-400' }
+              : null;
+
+            return (
+              <div
+                key={item.id}
+                className={`group relative rounded-xl border border-border/50 bg-card overflow-hidden transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 ${!item.active ? 'opacity-60' : ''}`}
+              >
+                {/* Image */}
+                <div className="relative aspect-[16/10] bg-secondary/50 overflow-hidden">
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <ShoppingBag className="w-10 h-10 text-muted-foreground/20" />
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{item.description || '—'}</p>
-                    <div className="flex items-center gap-4 mt-2 text-[11px] text-muted-foreground">
-                      {item.price_coins > 0 && <span className="flex items-center gap-1"><Coins className="w-3 h-3 text-amber-400" />{item.price_coins.toLocaleString()} moedas</span>}
-                      {item.price_diamonds > 0 && !item.price_coins && <span className="flex items-center gap-1 text-cyan-400">◆ {item.price_diamonds.toLocaleString()} diamantes</span>}
-                      {item.price_xp > 0 && !item.price_coins && !item.price_diamonds && <span className="flex items-center gap-1"><Star className="w-3 h-3 text-primary" />{item.price_xp.toLocaleString()} XP</span>}
-                      {item.stock !== null && <span>Estoque: {item.stock}</span>}
-                      <span>Nível mín: {item.min_level}</span>
-                    </div>
-                    {item.reward_type && (
-                      <div className="mt-2 px-2 py-1.5 bg-emerald-500/10 rounded-md text-[11px]">
-                        <span className="text-emerald-400 font-semibold">Entrega: </span>
-                        <span className="text-muted-foreground">
-                          {REWARD_TYPES.find(r => r.value === item.reward_type)?.label || item.reward_type}
-                          {item.reward_value ? ` — ${item.reward_value}` : ''}
-                        </span>
-                      </div>
+                  )}
+                  {/* Badges overlay */}
+                  <div className="absolute top-2 left-2 flex gap-1.5">
+                    <Badge className="text-[10px] bg-black/60 backdrop-blur-sm text-white border-0 px-2">
+                      {categoryLabel[item.category] || item.category}
+                    </Badge>
+                    {!item.active && (
+                      <Badge className="text-[10px] bg-black/60 backdrop-blur-sm text-red-400 border-0 px-2">
+                        Inativo
+                      </Badge>
                     )}
                   </div>
+                  {item.discount_percent > 0 && (
+                    <div className="absolute top-2 right-2">
+                      <Badge className="text-xs font-bold bg-red-500 text-white border-0 px-2 py-0.5 shadow-lg">
+                        -{item.discount_percent}%
+                      </Badge>
+                    </div>
+                  )}
+                  {/* Price tag */}
+                  {price && (
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent pt-6 pb-2 px-3">
+                      <div className={`flex items-center gap-1.5 font-bold text-sm ${price.color}`}>
+                        {price.icon}
+                        <span>{price.value.toLocaleString()}</span>
+                        <span className="text-xs font-normal opacity-80">{price.label}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-border">
-                  <Switch checked={item.active} onCheckedChange={(active) => toggleMutation.mutate({ id: item.id, active })} />
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}>
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { if (confirm('Excluir item?')) deleteMutation.mutate(item.id); }}>
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+
+                {/* Content */}
+                <div className="p-3.5">
+                  <h3 className="font-semibold text-sm text-foreground leading-tight mb-1 line-clamp-1">{item.name}</h3>
+                  <p className="text-xs text-muted-foreground line-clamp-2 min-h-[2rem]">{item.description || 'Sem descrição'}</p>
+
+                  {/* Meta info */}
+                  <div className="flex items-center gap-3 mt-2.5 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
+                      Nv. {item.min_level}
+                    </span>
+                    {item.stock !== null && (
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400/60" />
+                        {item.stock} em estoque
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Reward */}
+                  {item.reward_type && (
+                    <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-emerald-400">
+                      <div className="w-4 h-4 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0">
+                        <span className="text-[8px]">🎁</span>
+                      </div>
+                      <span className="truncate">
+                        {REWARD_TYPES.find(r => r.value === item.reward_type)?.label || item.reward_type}
+                        {item.reward_value ? ` · ${item.reward_value}` : ''}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+                    <Switch
+                      checked={item.active}
+                      onCheckedChange={(active) => toggleMutation.mutate({ id: item.id, active })}
+                    />
+                    <div className="flex gap-0.5">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary" onClick={() => openEdit(item)}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-destructive/10 hover:text-destructive" onClick={() => { if (confirm('Excluir item?')) deleteMutation.mutate(item.id); }}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            );
+          })}
         </div>
       )}
 
