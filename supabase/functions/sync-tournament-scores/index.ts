@@ -486,27 +486,6 @@ Deno.serve(async (req) => {
             return txTs >= startTs && txTs <= endTs;
           });
 
-          // Debug: log transaction details
-          if (entry.cpf === '70791576418') {
-            log(`  CPF ${entry.cpf}: mov=${movimentacoes.length} hist=${historico.length}, ${filteredTx.length} no período`);
-            // Log first historico items to understand the structure
-            if (historico.length > 0) {
-              const hSample = historico.slice(0, 3).map((t: any) => JSON.stringify(t).slice(0, 150));
-              log(`  Hist amostra: ${hSample.join(' | ')}`);
-            }
-            // Log types present
-            const tipos = new Set(allTx.map((t: any) => t.tipo));
-            log(`  Tipos encontrados: ${[...tipos].join(', ')}`);
-            // Log most recent transactions
-            if (movimentacoes.length > 0) {
-              log(`  Mov mais recente: ${movimentacoes[0]?.data_registro} tipo=${movimentacoes[0]?.tipo}`);
-            }
-            if (filteredTx.length > 0) {
-              const sample = filteredTx.slice(0, 5).map((t: any) => `tipo=${t.tipo} valor=${t.valor} data=${t.data_registro}`);
-              log(`  No período: ${sample.join(' | ')}`);
-            }
-          }
-
           // Calculate score with BR format parsing
           const score = calculateScoreBR(
             filteredTx,

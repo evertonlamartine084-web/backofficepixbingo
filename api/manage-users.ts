@@ -10,13 +10,13 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   const corsHeaders = { ...getCorsHeaders(req), 'Content-Type': 'application/json' };
-  const json = (body: Record<string, any>) =>
-    new Response(JSON.stringify(body), { headers: corsHeaders });
+  const json = (body: Record<string, any>, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: corsHeaders });
 
   try {
     const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      return json({ error: 'Não autorizado — token ausente' });
+      return json({ error: 'Não autorizado — token ausente' }, 401);
     }
 
     const supabaseUrl = process.env.SUPABASE_URL!;
@@ -27,7 +27,7 @@ export default async function handler(req: Request): Promise<Response> {
     const token = authHeader.replace('Bearer ', '');
     const { data: { user: callerUser }, error: userError } = await adminClient.auth.getUser(token);
     if (userError || !callerUser) {
-      return json({ error: 'Sessão inválida — faça login novamente' });
+      return json({ error: 'Sessão inválida — faça login novamente' }, 401);
     }
 
     const callerId = callerUser.id;
@@ -43,10 +43,10 @@ export default async function handler(req: Request): Promise<Response> {
       if (count === 0) {
         await adminClient.from('user_roles').insert({ user_id: callerId, role: 'admin' });
       } else {
-        return json({ error: 'Apenas admins podem gerenciar usuários' });
+        return json({ error: 'Apenas admins podem gerenciar usuários' }, 403);
       }
     } else if (roleData.role !== 'admin') {
-      return json({ error: 'Apenas admins podem gerenciar usuários' });
+      return json({ error: 'Apenas admins podem gerenciar usuários' }, 403);
     }
 
     const { action, ...params } = await req.json();

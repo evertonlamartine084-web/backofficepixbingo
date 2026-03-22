@@ -168,22 +168,34 @@ export default async function handler(req: Request): Promise<Response> {
           body.login_url = config.login_url || body.login_url;
         }
         if (cfgErr && !config) {
-          return new Response(JSON.stringify({ success: false, error: `platform_config error: ${cfgErr.message}` }),
-            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: false, error: 'Erro ao carregar configuração da plataforma' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
       } else {
-        return new Response(JSON.stringify({ success: false, error: `Missing env: URL=${!!supabaseUrl} KEY=${!!supabaseKey}` }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ success: false, error: 'Configuração do servidor incompleta' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }
 
     if (!body.site_url) body.site_url = 'https://pixbingobr.concurso.club';
-    const baseUrl = body.site_url.replace(/\/+$/, '');
+
+    // SSRF protection: only allow whitelisted site URLs
+    const ALLOWED_SITE_URLS = [
+      'https://pixbingobr.concurso.club',
+      'https://pixbingobr.com',
+      'https://www.pixbingobr.com',
+    ];
+    const normalizedUrl = body.site_url.replace(/\/+$/, '');
+    if (!ALLOWED_SITE_URLS.some(u => normalizedUrl.startsWith(u))) {
+      return new Response(JSON.stringify({ success: false, error: 'URL não permitida' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    const baseUrl = normalizedUrl;
 
     const auth = await doLogin(body);
     if (!auth.success) {
       return new Response(JSON.stringify({ success: false, error: 'Login falhou. Verifique credenciais e URL.' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     const headers = buildHeaders(auth.cookies, baseUrl);
 
