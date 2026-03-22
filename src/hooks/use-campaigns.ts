@@ -1,9 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getSavedCredentials } from '@/hooks/use-proxy';
 import { logAudit } from '@/hooks/use-audit';
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+  return headers;
+}
 
 export type CampaignType = 'aposte_e_ganhe' | 'deposite_e_ganhe' | 'ganhou_no_keno';
 export type CampaignStatus = 'RASCUNHO' | 'ATIVA' | 'PAUSADA' | 'ENCERRADA';
@@ -238,8 +246,8 @@ export function useCampaignParticipants(campaignId: string | undefined) {
         filter: `campaign_id=eq.${campaignId}`,
       }, () => { refetch(); })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [campaignId]);
+    return () => { channel.unsubscribe(); supabase.removeChannel(channel); };
+  }, [campaignId, refetch]);
 
   return { participants, refetchParticipants: refetch };
 }
@@ -270,9 +278,10 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
 
     const runIteration = async () => {
       try {
+        const authHeaders = await getAuthHeaders();
         const _res = await fetch('/api/process-campaign', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders,
           body: JSON.stringify({ campaign_id: campaign.id, username: creds.username, password: creds.password }),
         });
         const data = await _res.json();
@@ -319,6 +328,7 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
     };
 
     runIteration();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const stopAutoProcess = useCallback((campaignId: string) => {
@@ -333,6 +343,10 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
   }, []);
 
   const processCampaign = async (campaign: Campaign, onDone?: () => void) => {
+    if (processing || autoProcessing.has(campaign.id)) {
+      toast.warning('Processamento já em andamento para esta campanha');
+      return;
+    }
     const creds = getSavedCredentials();
     if (!creds.username || !creds.password) {
       toast.error('Configure as credenciais da plataforma primeiro (barra superior)');
@@ -347,9 +361,10 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
     try {
       let remaining = 1;
       while (remaining > 0) {
+        const authHeaders = await getAuthHeaders();
         const _res = await fetch('/api/process-campaign', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders,
           body: JSON.stringify({ campaign_id: campaign.id, username: creds.username, password: creds.password }),
         });
         const data = await _res.json();
@@ -392,9 +407,10 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
   }, [campaigns, startAutoProcess]);
 
   useEffect(() => {
+    const ref = autoProcessRef.current;
     return () => {
-      autoProcessRef.current.forEach(timer => clearTimeout(timer));
-      autoProcessRef.current.clear();
+      ref.forEach(timer => clearTimeout(timer));
+      ref.clear();
     };
   }, []);
 

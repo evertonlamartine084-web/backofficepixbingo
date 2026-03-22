@@ -1,11 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@supabase/supabase-js';
+import { getCorsHeaders, optionsResponse, verifyAuth } from './_cors';
 
 export const config = { runtime: 'edge' };
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 async function doLogin(siteUrl: string, username: string, password: string, loginUrl?: string | null): Promise<{ cookies: string; success: boolean }> {
   const baseUrl = siteUrl.replace(/\/+$/, '');
@@ -20,7 +17,7 @@ async function doLogin(siteUrl: string, username: string, password: string, logi
     const initRes = await fetch(baseUrl, { method: 'GET', headers: { 'Accept': 'text/html' }, redirect: 'manual', signal: AbortSignal.timeout(10000) });
     const setCookies = initRes.headers.getSetCookie?.() || [];
     initialCookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
-  } catch {}
+  } catch { /* ignore */ }
 
   try {
     const headers: Record<string, string> = {
@@ -49,9 +46,9 @@ async function doLogin(siteUrl: string, username: string, password: string, logi
     }
     if (res.ok) {
       const text = await res.text();
-      try { const data = JSON.parse(text); if (data.status === true || data.logged === true) return { cookies, success: true }; } catch {}
+      try { const data = JSON.parse(text); if (data.status === true || data.logged === true) return { cookies, success: true }; } catch { /* ignore */ }
     }
-  } catch {}
+  } catch { /* ignore */ }
   return { cookies: '', success: false };
 }
 
@@ -131,7 +128,15 @@ function calculateScoreBR(transactions: any[], metric: string, pointsPer: string
 }
 
 export default async function handler(req: Request): Promise<Response> {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return optionsResponse(req);
+
+  const corsHeaders = getCorsHeaders(req);
+
+  const authResult = await verifyAuth(req);
+  if (!authResult) {
+    return new Response(JSON.stringify({ success: false, error: 'Não autorizado' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
 
   const supabaseUrl = process.env.SUPABASE_URL!;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -244,7 +249,7 @@ export default async function handler(req: Request): Promise<Response> {
 
     // Check for tournaments that just ended — distribute prizes
     let body: any = {};
-    try { body = await req.json(); } catch {}
+    try { body = await req.json(); } catch { /* ignore */ }
     const forceTournamentId = body?.force_prizes_tournament_id;
 
     let endedFilter = supabase.from('tournaments').select('id, name, prizes, end_date').lt('end_date', now);

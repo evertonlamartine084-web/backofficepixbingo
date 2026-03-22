@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { Search, User, DollarSign, Gift, History, Loader2, CreditCard, XCircle, Wallet, Calendar, Phone, Mail, Shield, Hash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,7 @@ const playerFields = [
 
 export default function PlayerLookup() {
   const [searchParams] = useSearchParams();
-  const [creds, setCreds] = useState({ username: '', password: '' });
+  const [creds, setCreds] = useState({ username: 'auto', password: 'auto' });
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const { callProxy, loading: _l } = useProxy();
   const [loading, setLoading] = useState(false);
@@ -52,6 +53,7 @@ export default function PlayerLookup() {
       setQuery(q);
       handleSearch(q);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, creds.username]);
 
   const handleSearch = async (q?: string) => {
@@ -82,9 +84,10 @@ export default function PlayerLookup() {
       const queryCleaned = searchQuery.replace(/\D/g, '');
       const foundCpf = String(foundPlayer.cpf || '').replace(/\D/g, '');
       const foundUuid = String(foundPlayer.uuid || '');
+      const isUuidSearch = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(searchQuery);
       const isMatch = (queryCleaned && foundCpf && foundCpf.includes(queryCleaned)) ||
                       (queryCleaned && foundCpf && queryCleaned.includes(foundCpf)) ||
-                      searchQuery.includes('-') && foundUuid === searchQuery;
+                      (isUuidSearch && foundUuid === searchQuery);
 
       if (!isMatch && queryCleaned.length >= 5) {
         toast.warning('CPF/UUID não encontrado na base. O resultado retornado não corresponde à busca.');
@@ -103,7 +106,7 @@ export default function PlayerLookup() {
         if (txData.movimentacoes) setBonusHistory(txData.movimentacoes);
         if (txData.historico) setTransactions(txData.historico);
         if (txData.carteiras) {
-          console.log('[DEBUG] carteiras raw:', JSON.stringify(txData.carteiras));
+          // carteiras data loaded
           setBalance(txData.carteiras);
         }
       }
@@ -180,7 +183,7 @@ export default function PlayerLookup() {
         .filter((b: any) => b && typeof b === 'object')
         .map((b: any) => {
           const name = b.nome || b.name || b.tipo || b.carteira || b.descricao || '—';
-          let val = b.saldo ?? b.valor ?? b.value ?? b.balance ?? 0;
+          const val = b.saldo ?? b.valor ?? b.value ?? b.balance ?? 0;
           return { name: String(name), value: parseBRL(val) || 0 };
         });
     }
@@ -196,7 +199,7 @@ export default function PlayerLookup() {
             return { name: k, value: parseBRL(v) || 0 };
           }
           if (typeof v === 'object') {
-            let val = v.saldo ?? v.valor ?? v.value ?? v.balance ?? 0;
+            const val = v.saldo ?? v.valor ?? v.value ?? v.balance ?? 0;
             return { name: v.nome || v.name || v.carteira || k, value: parseBRL(val) || 0 };
           }
           return { name: k, value: 0 };
@@ -269,7 +272,7 @@ export default function PlayerLookup() {
         <p className="text-sm text-muted-foreground mt-1">Buscar dados, saldo, transações e histórico de bônus</p>
       </div>
 
-      <ApiCredentialsBar onCredentials={setCreds} />
+      <div className="hidden"><ApiCredentialsBar onCredentials={setCreds} /></div>
 
       {/* Search */}
       <div className="glass-card p-4">

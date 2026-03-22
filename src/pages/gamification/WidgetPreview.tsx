@@ -21,6 +21,7 @@ export default function WidgetPreview() {
     queryFn: async () => {
       const { data, error } = await supabase.from('segments').select('id, name').order('name');
       if (error) throw error;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return data as any[];
     },
   });
@@ -66,6 +67,7 @@ export default function WidgetPreview() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="_all">Todos os jogadores (sem filtro)</SelectItem>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {segments.map((s: any) => (
                 <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
               ))}

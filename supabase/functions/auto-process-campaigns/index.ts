@@ -1,15 +1,54 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const ALLOWED_ORIGINS = [
+  'https://backofficepixbingo.vercel.app',
+  'https://pixbingobr.com',
+  'https://www.pixbingobr.com',
+  'https://pixbingobr.concurso.club',
+  'http://localhost:8080',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+function getCorsOrigin(req: Request): string {
+  const origin = req.headers.get('Origin') || '';
+  return ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+}
+
+function getCorsHeaders(req: Request) {
+  return {
+    'Access-Control-Allow-Origin': getCorsOrigin(req),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+}
 
 const MAX_RUNTIME_MS = 55_000; // 55s max to stay within edge function limits
 const LOOP_INTERVAL_MS = 1_000; // Check every 1 second
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+
+  // Auth verification
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ success: false, error: 'Não autorizado' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const supabaseAuth = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+  );
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(authHeader.replace('Bearer ', ''));
+  if (authError || !user) {
+    return new Response(JSON.stringify({ success: false, error: 'Token inválido' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -27,6 +66,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const startTime = Date.now();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const allResults: any[] = [];
     let iterations = 0;
 
@@ -111,8 +151,8 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({ trigger: 'self-reinvoke' }),
           signal: AbortSignal.timeout(5000),
-        }).catch(() => {}); // Fire and forget
-      } catch {}
+        }).catch(() => { /* ignore */ }); // Fire and forget
+      } catch { /* ignore */ }
     }
 
     return new Response(JSON.stringify({

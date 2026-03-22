@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -46,6 +47,7 @@ export default function Inbox() {
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!form.title || !form.start_date || !form.end_date) throw new Error('Preencha os campos obrigatórios');
+      if (form.end_date <= form.start_date) throw new Error('Data de fim deve ser posterior à data de início');
       const { error } = await supabase.from('inbox_messages').insert({
         title: form.title,
         message: form.message,

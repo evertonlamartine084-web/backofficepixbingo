@@ -1,14 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
+import { getCorsHeaders, optionsResponse } from './_cors';
 
 export const config = { runtime: 'edge' };
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 export default async function handler(req: Request): Promise<Response> {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return optionsResponse(req);
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const { popup_id, cpf, event_type } = await req.json();

@@ -30,7 +30,7 @@ export default function Login() {
         setTimeout(() => reject(new Error('timeout')), 15000)
       );
       const loginPromise = supabase.auth.signInWithPassword({ email, password });
-      const result = await Promise.race([loginPromise, timeoutPromise]) as any;
+      const result = await Promise.race([loginPromise, timeoutPromise]) as { error?: { message: string } };
       if (result?.error) {
         toast.error(result.error.message === 'Invalid login credentials'
           ? 'Email ou senha inválidos'
@@ -39,6 +39,7 @@ export default function Login() {
       } else {
         logAudit({ action: 'LOGIN', resource_type: 'auth', details: { email } });
       }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err?.message === 'timeout'
         ? 'Servidor não respondeu. Tente novamente.'

@@ -8,9 +8,10 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 import Login from "@/pages/Login";
-import Dashboard from "@/pages/Dashboard";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
+// Lazy-load all authenticated pages (Dashboard is heavy — 391KB DashboardCharts)
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const PlayerLookup = lazy(() => import("@/pages/PlayerLookup"));
 const Transactions = lazy(() => import("@/pages/Transactions"));
 const Segments = lazy(() => import("@/pages/Segments"));

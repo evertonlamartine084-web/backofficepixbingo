@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,7 +32,7 @@ export function useDashboardCharts(days: number = 7) {
 
   // Bonus credited from batch_items (join with batches to get bonus_valor)
   const { data: batchData } = useQuery({
-    queryKey: ['chart-batch-credits', startDate],
+    queryKey: ['chart-batch-credits', startDate, days],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('batch_items')
@@ -50,7 +51,7 @@ export function useDashboardCharts(days: number = 7) {
 
   // Cashback credited
   const { data: cashbackData } = useQuery({
-    queryKey: ['chart-cashback-credits', startDate],
+    queryKey: ['chart-cashback-credits', startDate, days],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cashback_items')
@@ -66,7 +67,7 @@ export function useDashboardCharts(days: number = 7) {
 
   // Campaign participants credited
   const { data: campaignData } = useQuery({
-    queryKey: ['chart-campaign-credits', startDate],
+    queryKey: ['chart-campaign-credits', startDate, days],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('campaign_participants')
@@ -82,7 +83,7 @@ export function useDashboardCharts(days: number = 7) {
 
   // Manual credits from audit_log
   const { data: auditData } = useQuery({
-    queryKey: ['chart-manual-credits', startDate],
+    queryKey: ['chart-manual-credits', startDate, days],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('audit_log')

@@ -54,6 +54,7 @@ describe('Dashboard stats null safety', () => {
     };
 
     for (const b of batches) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const s = b.stats as any;
       if (!s) continue;
       totals.total_items += ((s.pendente || 0) + (s.processando || 0) + (s.sem_bonus || 0) + (s.bonus_1x || 0) + (s.bonus_2x_plus || 0) + (s.erro || 0));
@@ -81,6 +82,7 @@ describe('Dashboard stats null safety', () => {
     const totals = { total_items: 0, pendente: 0, processando: 0, sem_bonus: 0, bonus_1x: 0, bonus_2x_plus: 0, erro: 0 };
 
     for (const b of batches) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const s = b.stats as any;
       if (!s) continue;
       totals.total_items += ((s.pendente || 0) + (s.processando || 0) + (s.sem_bonus || 0) + (s.bonus_1x || 0) + (s.bonus_2x_plus || 0) + (s.erro || 0));

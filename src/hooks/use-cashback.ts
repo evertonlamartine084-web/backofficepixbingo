@@ -1,9 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getSavedCredentials } from '@/hooks/use-proxy';
 import { logAudit } from '@/hooks/use-audit';
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+  return headers;
+}
 
 export type CashbackGameType = 'bingo' | 'cassino' | 'both';
 export type CashbackPeriod = 'daily' | 'weekly';
@@ -226,8 +234,8 @@ export function useCashbackItems(executionId: string | undefined) {
         filter: `execution_id=eq.${executionId}`,
       }, () => { refetch(); })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [executionId]);
+    return () => { channel.unsubscribe(); supabase.removeChannel(channel); };
+  }, [executionId, refetch]);
 
   return { items, refetchItems: refetch };
 }
@@ -239,6 +247,10 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
   const queryClient = useQueryClient();
 
   const processCashback = async (rule: CashbackRule, periodStart?: string, periodEnd?: string) => {
+    if (processing || autoProcessing.has(rule.id)) {
+      toast.warning('Processamento já em andamento para esta regra');
+      return;
+    }
     const creds = getSavedCredentials();
     if (!creds.username || !creds.password) {
       toast.error('Configure as credenciais da plataforma primeiro (barra superior)');
@@ -253,9 +265,10 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
 
     setProcessing(true);
     try {
+      const authHeaders = await getAuthHeaders();
       const _res = await fetch('/api/process-cashback', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
           rule_id: rule.id,
           username: creds.username,
@@ -297,9 +310,10 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
 
     setProcessing(true);
     try {
+      const authHeaders = await getAuthHeaders();
       const _res = await fetch('/api/process-cashback', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
           rule_id: rule.id,
           username: creds.username,
@@ -372,7 +386,7 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
     };
 
     runIteration();
-  }, []);
+  }, [queryClient, stopAutoProcess]);
 
   const stopAutoProcess = useCallback((ruleId: string) => {
     const timer = autoProcessRef.current.get(ruleId);
@@ -400,9 +414,10 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
 
   // Cleanup on unmount
   useEffect(() => {
+    const ref = autoProcessRef.current;
     return () => {
-      autoProcessRef.current.forEach(timer => clearTimeout(timer));
-      autoProcessRef.current.clear();
+      ref.forEach(timer => clearTimeout(timer));
+      ref.clear();
     };
   }, []);
 

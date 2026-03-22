@@ -1,11 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@supabase/supabase-js';
+import { getCorsHeaders, optionsResponse, verifyAuth } from './_cors';
 
 export const config = { runtime: 'edge' };
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 type Action = 'login' | 'list_users' | 'search_player' | 'player_transactions'
   | 'credit_bonus' | 'cancel_bonus' | 'list_transactions' | 'financeiro' | 'credit_batch' | 'list_partidas' | 'scrape_page';
@@ -99,7 +96,7 @@ async function doLogin(body: ProxyRequest): Promise<{ cookies: string; success: 
         if (data.status === true || data.logged === true) {
           return { cookies, success: true };
         }
-      } catch {}
+      } catch { /* ignore */ }
     }
   } catch (e) {
     console.log(`[doLogin] POST failed: ${(e as Error).message}`);
@@ -141,10 +138,46 @@ async function fetchJSON(url: string, headers: Record<string, string>, method = 
 }
 
 export default async function handler(req: Request): Promise<Response> {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return optionsResponse(req);
+
+  const corsHeaders = getCorsHeaders(req);
+
+  // Verify JWT authentication
+  const authResult = await verifyAuth(req);
+  if (!authResult) {
+    return new Response(JSON.stringify({ success: false, error: 'Não autorizado — token ausente ou inválido' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
 
   try {
     const body: ProxyRequest = await req.json();
+
+    // Auto-fill credentials from platform_config if not provided or placeholder
+    const isAuto = !body.username || !body.password || body.username === 'auto' || body.password === 'auto';
+    if (isAuto) {
+      const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+      if (supabaseUrl && supabaseKey) {
+        const sb = createClient(supabaseUrl, supabaseKey);
+        const { data: config, error: cfgErr } = await sb.from('platform_config')
+          .select('*').eq('active', true).order('created_at', { ascending: false }).limit(1).single();
+        if (config) {
+          body.username = config.username;
+          body.password = config.password;
+          body.site_url = config.site_url || body.site_url || 'https://pixbingobr.concurso.club';
+          body.login_url = config.login_url || body.login_url;
+        }
+        if (cfgErr && !config) {
+          return new Response(JSON.stringify({ success: false, error: `platform_config error: ${cfgErr.message}` }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      } else {
+        return new Response(JSON.stringify({ success: false, error: `Missing env: URL=${!!supabaseUrl} KEY=${!!supabaseKey}` }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
+
+    if (!body.site_url) body.site_url = 'https://pixbingobr.concurso.club';
     const baseUrl = body.site_url.replace(/\/+$/, '');
 
     const auth = await doLogin(body);
@@ -390,7 +423,7 @@ export default async function handler(req: Request): Promise<Response> {
             try {
               const res = await strat.fn();
               if (res && !res._status && !res.code && !res.Msg) { fgData = res; break; }
-            } catch {}
+            } catch { /* ignore */ }
           }
 
           const valorDeposito = Number(txSummary?.valorDeposito || 0);

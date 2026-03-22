@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -67,9 +68,9 @@ export default function DailyWheel() {
       const cfg = configForm || wheelConfig;
       if (!cfg) return;
       const payload = {
-        max_spins_per_day: parseInt(cfg.max_spins_per_day) || 3,
-        spin_cost_coins: parseInt(cfg.spin_cost_coins) || 0,
-        free_spins_per_day: parseInt(cfg.free_spins_per_day) || 1,
+        max_spins_per_day: isNaN(parseInt(cfg.max_spins_per_day)) ? 3 : parseInt(cfg.max_spins_per_day),
+        spin_cost_coins: isNaN(parseInt(cfg.spin_cost_coins)) ? 0 : parseInt(cfg.spin_cost_coins),
+        free_spins_per_day: isNaN(parseInt(cfg.free_spins_per_day)) ? 1 : parseInt(cfg.free_spins_per_day),
       };
       if (cfg.id) {
         const { error } = await supabase.from('wheel_config').update(payload as any).eq('id', cfg.id);
@@ -92,7 +93,7 @@ export default function DailyWheel() {
       if (!form.label) throw new Error('Preencha o rótulo');
       const payload = {
         label: form.label,
-        value: parseFloat(form.value) || 0,
+        value: isNaN(parseFloat(form.value)) ? 0 : parseFloat(form.value),
         type: form.type,
         probability: isNaN(parseInt(form.probability)) ? 0 : parseInt(form.probability),
         color: form.color,

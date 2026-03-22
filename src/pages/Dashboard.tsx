@@ -71,7 +71,7 @@ interface FinancialData {
 }
 
 export default function Dashboard() {
-  const [creds, setCreds] = useState({ username: '', password: '' });
+  const [creds, setCreds] = useState({ username: 'auto', password: 'auto' });
   const [period, setPeriod] = useState<PeriodFilter>('today');
   const [customStart, setCustomStart] = useState<Date>(new Date());
   const [customEnd, setCustomEnd] = useState<Date>(new Date());
@@ -147,14 +147,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* API Connection */}
-      <div className="glass-card p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-primary" />
-          <span className="text-sm font-semibold text-foreground">Conexão API</span>
-        </div>
-        <ApiCredentialsBar onCredentials={(c) => setCreds(c)} />
-      </div>
+      {/* Auto-connect credentials from platform_config */}
+      <div className="hidden"><ApiCredentialsBar onCredentials={(c) => setCreds(c)} /></div>
 
       {/* Period Filter */}
       <div className="flex items-center justify-between flex-wrap gap-3">

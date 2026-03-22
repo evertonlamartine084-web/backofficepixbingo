@@ -1,9 +1,27 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const ALLOWED_ORIGINS = [
+  'https://backofficepixbingo.vercel.app',
+  'https://pixbingobr.com',
+  'https://www.pixbingobr.com',
+  'https://pixbingobr.concurso.club',
+  'http://localhost:8080',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+function getCorsOrigin(req: Request): string {
+  const origin = req.headers.get('Origin') || '';
+  return ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+}
+
+function getCorsHeaders(req: Request) {
+  return {
+    'Access-Control-Allow-Origin': getCorsOrigin(req),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+}
 
 // --- Platform login/credit helpers (for store reward delivery) ---
 
@@ -23,7 +41,7 @@ async function platformLogin(siteUrl: string, username: string, password: string
     });
     const setCookies = initRes.headers.getSetCookie?.() || [];
     initialCookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
-  } catch {}
+  } catch { /* ignore */ }
 
   try {
     const hdrs: Record<string, string> = {
@@ -60,9 +78,9 @@ async function platformLogin(siteUrl: string, username: string, password: string
     }
     if (res.ok) {
       const text = await res.text();
-      try { const d = JSON.parse(text); if (d.status === true || d.logged === true) return { cookies, success: true }; } catch {}
+      try { const d = JSON.parse(text); if (d.status === true || d.logged === true) return { cookies, success: true }; } catch { /* ignore */ }
     }
-  } catch {}
+  } catch { /* ignore */ }
 
   return { cookies: '', success: false };
 }
@@ -98,7 +116,7 @@ async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string
     const text = await res.text();
     const data = JSON.parse(text);
     if (data?.data?.length > 0) return data.data[0].uuid || null;
-  } catch {}
+  } catch { /* ignore */ }
   return null;
 }
 
@@ -119,6 +137,7 @@ async function creditBonusOnPlatform(baseUrl: string, headers: Record<string, st
 }
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
@@ -156,13 +175,13 @@ Deno.serve(async (req: Request) => {
     async function dataHandler() {
       const now = new Date().toISOString();
 
-      let achievementsQ = supabase.from('achievements').select('id, name, description, icon_url, category, condition_type, condition_value, reward_type, reward_value, segment_id, segments(name), stages, start_date, end_date, hide_if_not_earned, manual_claim, priority')
+      const achievementsQ = supabase.from('achievements').select('id, name, description, icon_url, category, condition_type, condition_value, reward_type, reward_value, segment_id, segments(name), stages, start_date, end_date, hide_if_not_earned, manual_claim, priority')
         .eq('active', true).order('priority').order('category').order('condition_value');
-      let missionsQ = supabase.from('missions').select('id, name, description, icon_url, type, condition_type, condition_value, reward_type, reward_value, segment_id, segments(name), status, priority, require_optin, time_limit_hours, start_date, end_date, recurrence, cta_text, cta_url, manual_claim')
+      const missionsQ = supabase.from('missions').select('id, name, description, icon_url, type, condition_type, condition_value, reward_type, reward_value, segment_id, segments(name), status, priority, require_optin, time_limit_hours, start_date, end_date, recurrence, cta_text, cta_url, manual_claim')
         .in('status', ['ATIVO']).order('priority').order('type').order('condition_value');
-      let tournamentsQ = supabase.from('tournaments').select('id, name, description, image_url, start_date, end_date, metric, game_filter, min_bet, prizes, status, segment_id, segments(name), require_optin, points_per, buy_in_cost, min_players, max_players, allow_late_join')
+      const tournamentsQ = supabase.from('tournaments').select('id, name, description, image_url, start_date, end_date, metric, game_filter, min_bet, prizes, status, segment_id, segments(name), require_optin, points_per, buy_in_cost, min_players, max_players, allow_late_join')
         .eq('status', 'ATIVO').lte('start_date', now).gte('end_date', now).order('end_date');
-      let wheelPrizesQ = supabase.from('daily_wheel_prizes').select('id, label, value, type, probability, color, icon_url, segment_id, segments(name)')
+      const wheelPrizesQ = supabase.from('daily_wheel_prizes').select('id, label, value, type, probability, color, icon_url, segment_id, segments(name)')
         .eq('active', true).order('probability', { ascending: false });
 
       // Fire all independent queries in a single Promise.all
@@ -174,7 +193,7 @@ Deno.serve(async (req: Request) => {
         applySegmentFilter(                         // 4 mini_games
           supabase.from('mini_games').select('id, type, name, description, theme, config, max_attempts_per_day, free_attempts_per_day, attempt_cost_coins, segment_id, segments(name)').eq('active', true)
         ),
-        supabase.from('player_levels').select('*').order('level_number'),          // 5
+        supabase.from('levels').select('*').order('level'),          // 5
         supabase.from('store_items').select('*').eq('active', true).order('price_coins'),  // 6
         supabase.from('wheel_config').select('*').limit(1).maybeSingle(),          // 7
       ];
@@ -260,7 +279,7 @@ Deno.serve(async (req: Request) => {
 
       // Get tournament leaderboards for active tournaments
       const tournamentIds = (tournaments.data || []).map((t: any) => t.id);
-      let leaderboards: Record<string, any[]> = {};
+      const leaderboards: Record<string, any[]> = {};
       if (tournamentIds.length > 0) {
         const { data: entries } = await supabase
           .from('player_tournament_entries')
@@ -369,12 +388,20 @@ Deno.serve(async (req: Request) => {
         });
       }
 
+      // Filter out prizes with probability 0 (disabled from draw)
+      const eligiblePrizes = prizes.filter(p => p.probability > 0);
+      if (eligiblePrizes.length === 0) {
+        return new Response(JSON.stringify({ error: 'Nenhum prêmio elegível configurado' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       // Weighted random selection
-      const totalWeight = prizes.reduce((s, p) => s + (p.probability || 1), 0);
+      const totalWeight = eligiblePrizes.reduce((s, p) => s + p.probability, 0);
       let random = Math.random() * totalWeight;
-      let selected = prizes[0];
-      for (const prize of prizes) {
-        random -= (prize.probability || 1);
+      let selected = eligiblePrizes[0];
+      for (const prize of eligiblePrizes) {
+        random -= prize.probability;
         if (random <= 0) { selected = prize; break; }
       }
 
@@ -564,6 +591,7 @@ Deno.serve(async (req: Request) => {
       const { data: wallet } = await supabase.from('player_wallets').select('*').eq('cpf', playerCpf).maybeSingle();
       const coins = wallet?.coins || 0;
       const diamonds = wallet?.diamonds || 0;
+      const xp = wallet?.xp || 0;
       if (item.price_coins > 0 && coins < item.price_coins) {
         return new Response(JSON.stringify({ error: 'Moedas insuficientes', cost: item.price_coins, balance: coins }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -574,11 +602,17 @@ Deno.serve(async (req: Request) => {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      if (item.price_xp > 0 && xp < item.price_xp) {
+        return new Response(JSON.stringify({ error: 'Gems insuficientes', cost: item.price_xp, balance: xp }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-      // Deduct coins and diamonds
+      // Deduct coins, diamonds, and gems (xp)
       const walletUpdate: any = {};
       if (item.price_coins > 0) walletUpdate.coins = coins - item.price_coins;
       if (item.price_diamonds > 0) walletUpdate.diamonds = diamonds - item.price_diamonds;
+      if (item.price_xp > 0) walletUpdate.xp = xp - item.price_xp;
       if (Object.keys(walletUpdate).length > 0) {
         await supabase.from('player_wallets')
           .update(walletUpdate)
@@ -664,6 +698,77 @@ Deno.serve(async (req: Request) => {
           deliveryStatus = 'delivered';
           deliveryNote = `+${bonusDiamonds} diamantes adicionados`;
         }
+      } else if (rewardType === 'gem_chest' || rewardType === 'gem_roulette' || rewardType === 'diamond_chest') {
+        // Credit purchased_attempts to the corresponding mini-game
+        const gameIdMap: Record<string, string> = {
+          gem_chest: 'a1111111-1111-1111-1111-111111111111',
+          gem_roulette: 'b2222222-2222-2222-2222-222222222222',
+          diamond_chest: 'c3333333-3333-3333-3333-333333333333',
+        };
+        const targetGameId = gameIdMap[rewardType];
+        const qty = parseInt(rewardValue) || 1;
+        // Get or create attempt record
+        const { data: attRec } = await supabase.from('player_mini_game_attempts')
+          .select('*').eq('cpf', playerCpf).eq('game_id', targetGameId).maybeSingle();
+        if (attRec) {
+          await supabase.from('player_mini_game_attempts')
+            .update({ purchased_attempts: (attRec.purchased_attempts || 0) + qty } as any)
+            .eq('cpf', playerCpf).eq('game_id', targetGameId);
+        } else {
+          await supabase.from('player_mini_game_attempts')
+            .insert({ cpf: playerCpf, game_id: targetGameId, attempts_today: 0, last_attempt_date: new Date().toISOString().slice(0, 10), total_attempts: 0, purchased_attempts: qty } as any);
+        }
+        const gameLabels: Record<string, string> = { gem_chest: 'Baú de Gemas', gem_roulette: 'Roleta de Gemas', diamond_chest: 'Baú de Diamante' };
+        deliveryStatus = 'delivered';
+        deliveryNote = `+${qty} abertura(s) no ${gameLabels[rewardType]}`;
+      } else if (rewardType === 'bonus_deposit') {
+        // Saldo Real → credit on platform (same as bonus)
+        const numericValue = parseFloat(rewardValue.replace(/[^\d.,]/g, '').replace(',', '.'));
+        if (numericValue > 0) {
+          try {
+            const { data: config } = await supabase.from('platform_config')
+              .select('*').eq('active', true).order('created_at', { ascending: false }).limit(1).single();
+            if (config) {
+              const loginDomain = (config.login_url || config.site_url || '').replace(/\/+$/, '');
+              const loginResult = await platformLogin(loginDomain, config.username, config.password, config.login_url);
+              if (loginResult.success) {
+                const headers = buildPlatformHeaders(loginResult.cookies, loginDomain);
+                const playerUuid = await searchPlayerByCpf(loginDomain, headers, playerCpf);
+                if (playerUuid) {
+                  const creditResult = await creditBonusOnPlatform(loginDomain, headers, playerUuid, numericValue, config.password);
+                  if (creditResult.success) {
+                    deliveryStatus = 'delivered';
+                    deliveryNote = `Creditado R$${numericValue.toFixed(2)} (saldo real) na plataforma`;
+                  } else {
+                    deliveryNote = `Erro ao creditar: ${creditResult.msg}`;
+                  }
+                } else {
+                  deliveryNote = 'UUID do jogador não encontrado na plataforma';
+                }
+              } else {
+                deliveryNote = 'Falha no login da plataforma';
+              }
+            } else {
+              deliveryNote = 'Config da plataforma não encontrada';
+            }
+          } catch (e: any) {
+            deliveryNote = `Erro: ${e.message}`;
+          }
+        } else {
+          deliveryNote = 'Valor inválido para crédito';
+        }
+      } else if (rewardType === 'free_spins') {
+        // Giros grátis → entrega manual (depende do jogo/provider)
+        await supabase.from('player_rewards_pending').insert({
+          cpf: playerCpf,
+          reward_type: rewardType,
+          reward_value: rewardValue ? parseFloat(rewardValue) || 0 : 0,
+          source: 'Loja',
+          source_id: itemId,
+          description: `${item.name} — Giros grátis`,
+        } as any);
+        deliveryStatus = 'pending_manual';
+        deliveryNote = `${rewardValue} giro(s) grátis — aguardando entrega`;
       } else if (rewardType === 'physical' || rewardType === 'coupon') {
         // Manual delivery — create pending reward
         await supabase.from('player_rewards_pending').insert({
@@ -945,9 +1050,11 @@ Deno.serve(async (req: Request) => {
       }
 
       // Check coin cost
+      const purchasedAttempts = attemptRec?.purchased_attempts || 0;
       const isFree = attemptsUsed < freeAttempts;
+      const hasPurchased = purchasedAttempts > 0;
       let coinsCost = 0;
-      if (!isFree && game.attempt_cost_coins > 0) {
+      if (!isFree && !hasPurchased && game.attempt_cost_coins > 0) {
         coinsCost = game.attempt_cost_coins;
         const { data: wallet } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
         if (!wallet || (wallet.coins || 0) < coinsCost) {
@@ -978,22 +1085,30 @@ Deno.serve(async (req: Request) => {
       }
 
       // Update attempt record
+      const upsertData: any = {
+        cpf: playerCpf,
+        game_id: gameId,
+        attempts_today: attemptsUsed + 1,
+        last_attempt_date: today,
+        total_attempts: (attemptRec?.total_attempts || 0) + 1,
+      };
+      // Decrement purchased_attempts if this was a purchased play
+      if (!isFree && hasPurchased) {
+        upsertData.purchased_attempts = purchasedAttempts - 1;
+      }
       await supabase.from('player_mini_game_attempts')
-        .upsert({
-          cpf: playerCpf,
-          game_id: gameId,
-          attempts_today: attemptsUsed + 1,
-          last_attempt_date: today,
-          total_attempts: (attemptRec?.total_attempts || 0) + 1,
-        } as any, { onConflict: 'cpf,game_id' });
+        .upsert(upsertData, { onConflict: 'cpf,game_id' });
 
       // Award prize
       if (selected.type === 'coins' && selected.value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
         await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + selected.value } as any).eq('cpf', playerCpf);
       } else if (selected.type === 'xp' && selected.value > 0) {
-        const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + selected.value } as any).eq('cpf', playerCpf);
+        const { data: w } = await supabase.from('player_wallets').select('xp, total_xp_earned').eq('cpf', playerCpf).maybeSingle();
+        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + selected.value, total_xp_earned: (w?.total_xp_earned || 0) + selected.value } as any).eq('cpf', playerCpf);
+      } else if (selected.type === 'diamonds' && selected.value > 0) {
+        const { data: w } = await supabase.from('player_wallets').select('diamonds, total_diamonds_earned').eq('cpf', playerCpf).maybeSingle();
+        await supabase.from('player_wallets').update({ diamonds: (w?.diamonds || 0) + selected.value, total_diamonds_earned: (w?.total_diamonds_earned || 0) + selected.value } as any).eq('cpf', playerCpf);
       } else if ((selected.type === 'bonus' || selected.type === 'free_bet') && selected.value > 0) {
         try {
           await supabase.from('player_rewards_pending').insert({
@@ -1018,7 +1133,7 @@ Deno.serve(async (req: Request) => {
       } catch { /* ignore */ }
 
       // For scratch card: return 9 cells (3 winning + 6 random), shuffled
-      let gameData: any = {};
+      const gameData: any = {};
       if (game.type === 'scratch_card') {
         const cells: any[] = [];
         // 3 winning cells
@@ -1036,7 +1151,7 @@ Deno.serve(async (req: Request) => {
         gameData.cells = cells;
       } else if (game.type === 'gift_box') {
         // Return boxes: 1 winning + rest losing, shuffled
-        const numBoxes = 6;
+        const numBoxes = 3;
         const boxes: any[] = [];
         boxes.push({ prize: selected, winning: true });
         const others = prizes.filter((p: any) => p.id !== selected.id && p.type !== 'nothing');
@@ -1060,6 +1175,7 @@ Deno.serve(async (req: Request) => {
         max_attempts: maxAttempts,
         free_attempts: freeAttempts,
         coins_spent: coinsCost,
+        purchased_remaining: hasPurchased && !isFree ? purchasedAttempts - 1 : purchasedAttempts,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

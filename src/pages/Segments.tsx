@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,7 +27,7 @@ export default function Segments() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { callProxy } = useProxy();
-  const [creds, setCreds] = useState({ username: '', password: '' });
+  const [creds, setCreds] = useState({ username: 'auto', password: 'auto' });
   const [allUsersLoading, setAllUsersLoading] = useState(false);
   const [selectedSegment, setSelectedSegment] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
@@ -80,7 +81,7 @@ export default function Segments() {
       setAllUsersFetchProgress({ loaded: 0, total: 0 });
       try {
         const PAGE_SIZE = 1000;
-        let start = 0;
+        const start = 0;
         let totalRecords = 0;
         const allUsers: any[] = [];
 
@@ -663,7 +664,7 @@ export default function Segments() {
         </Dialog>
       </div>
 
-      <ApiCredentialsBar onCredentials={setCreds} />
+      <div className="hidden"><ApiCredentialsBar onCredentials={setCreds} /></div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Segments List */}

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback, useEffect } from 'react';
 import { format } from 'date-fns';
 import {
@@ -35,7 +36,7 @@ const tipoStyles: Record<string, string> = {
 };
 
 export default function Transactions() {
-  const [creds, setCreds] = useState({ username: '', password: '' });
+  const [creds, setCreds] = useState({ username: 'auto', password: 'auto' });
   const [searchCpf, setSearchCpf] = useState('');
   const [dateStart, setDateStart] = useState<Date | undefined>(new Date());
   const [dateEnd, setDateEnd] = useState<Date | undefined>(new Date());
@@ -93,7 +94,7 @@ export default function Transactions() {
         <p className="text-sm text-muted-foreground mt-1">Histórico global de transferências do site</p>
       </div>
 
-      <ApiCredentialsBar onCredentials={setCreds} />
+      <div className="hidden"><ApiCredentialsBar onCredentials={setCreds} /></div>
 
       {/* Filters */}
       <div className="glass-card p-4 space-y-3">

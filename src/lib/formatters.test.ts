@@ -28,6 +28,22 @@ describe('formatBRL', () => {
   it('retorna R$ 0,00 para NaN', () => {
     expect(formatBRL(NaN)).toBe('R$ 0,00');
   });
+
+  it('formata número grande corretamente', () => {
+    const result = formatBRL(1000000);
+    expect(result).toContain('1.000.000');
+  });
+
+  it('formata centavos corretamente', () => {
+    const result = formatBRL(0.01);
+    expect(result).toContain('0,01');
+  });
+
+  it('formata número com muitas decimais', () => {
+    const result = formatBRL(10.999);
+    // toLocaleString rounds to 2 decimals
+    expect(result).toContain('11,00');
+  });
 });
 
 describe('parseBRL', () => {
@@ -61,6 +77,18 @@ describe('parseBRL', () => {
 
   it('retorna 0 para string vazia', () => {
     expect(parseBRL('')).toBe(0);
+  });
+
+  it('retorna 0 para undefined', () => {
+    expect(parseBRL(undefined)).toBe(0);
+  });
+
+  it('retorna 0 para boolean', () => {
+    expect(parseBRL(true)).toBe(0);
+  });
+
+  it('converte string simples "50"', () => {
+    expect(parseBRL('50')).toBe(50);
   });
 });
 
@@ -167,5 +195,21 @@ describe('parseCPFList', () => {
 
   it('trunca dígitos extras para 11', () => {
     expect(parseCPFList('123456789001234')).toEqual(['12345678900']);
+  });
+
+  it('lida com separadores mistos', () => {
+    expect(parseCPFList('12345678900,98765432100\n11122233344')).toEqual([
+      '12345678900', '98765432100', '11122233344',
+    ]);
+  });
+
+  it('retorna array vazio para string vazia', () => {
+    expect(parseCPFList('')).toEqual([]);
+  });
+
+  it('remove duplicatas não são tratadas (mantém duplicatas)', () => {
+    expect(parseCPFList('12345678900,12345678900')).toEqual([
+      '12345678900', '12345678900',
+    ]);
   });
 });

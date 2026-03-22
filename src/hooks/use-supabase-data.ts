@@ -98,6 +98,7 @@ export function useDashboardStats() {
       };
 
       for (const b of batches || []) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const s = b.stats as any;
         if (!s) continue;
         totals.total_items += ((s.pendente || 0) + (s.processando || 0) + (s.sem_bonus || 0) + (s.bonus_1x || 0) + (s.bonus_2x_plus || 0) + (s.erro || 0));

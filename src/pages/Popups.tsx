@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -487,7 +488,7 @@ export default function Popups() {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [statsPopup?.id]);
+  }, [queryClient, statsPopup]);
 
   const createMutation = useMutation({
     mutationFn: async () => {

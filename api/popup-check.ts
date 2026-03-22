@@ -1,11 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
+import { getCorsHeaders, optionsResponse } from './_cors';
 
 export const config = { runtime: 'edge' };
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 const FREQUENCY_MS: Record<string, number> = {
   minute: 60 * 1000,
@@ -15,7 +11,9 @@ const FREQUENCY_MS: Record<string, number> = {
 };
 
 export default async function handler(req: Request): Promise<Response> {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return optionsResponse(req);
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const url = new URL(req.url);
@@ -55,6 +53,7 @@ export default async function handler(req: Request): Promise<Response> {
         .in('segment_id', segmentIds)
         .eq('cpf', cpf);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (items) matchingSegmentIds = new Set(items.map((i: any) => i.segment_id));
     }
 

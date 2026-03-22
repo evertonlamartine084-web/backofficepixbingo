@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,6 +46,7 @@ export default function Push() {
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!form.title || !form.scheduled_at) throw new Error('Preencha título e data');
+      if (form.scheduled_at <= new Date()) throw new Error('Data de agendamento deve ser no futuro');
       const { error } = await supabase.from('push_notifications').insert({
         title: form.title,
         message: form.message,

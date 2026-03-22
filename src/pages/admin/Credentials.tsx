@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, KeyRound, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,10 +7,55 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useCredentials } from '@/hooks/use-supabase-data';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { logAudit } from '@/hooks/use-audit';
 
 export default function Credentials() {
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ name: '', type: 'bearer', value: '' });
   const { data: credentials, isLoading } = useCredentials();
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      if (!form.name || !form.value) throw new Error('Preencha nome e valor');
+      const masked = form.value.length > 8
+        ? `${form.value.slice(0, 4)}${'*'.repeat(form.value.length - 8)}${form.value.slice(-4)}`
+        : '****';
+      const { error } = await supabase.from('credentials').insert({
+        name: form.name,
+        type: form.type,
+        value_encrypted: form.value,
+        value_masked: masked,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['credentials'] });
+      toast.success('Credencial criada');
+      logAudit({ action: 'CRIAR', resource_type: 'credencial', resource_name: form.name });
+      setOpen(false);
+      setForm({ name: '', type: 'bearer', value: '' });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const cred = credentials?.find(c => c.id === id);
+      const { error } = await supabase.from('credentials').delete().eq('id', id);
+      if (error) throw error;
+      return cred;
+    },
+    onSuccess: (cred) => {
+      queryClient.invalidateQueries({ queryKey: ['credentials'] });
+      toast.success('Credencial excluída');
+      logAudit({ action: 'EXCLUIR', resource_type: 'credencial', resource_name: cred?.name });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   if (isLoading) {
     return (
@@ -41,11 +87,16 @@ export default function Credentials() {
             <div className="space-y-4 mt-4">
               <div>
                 <Label className="text-foreground">Nome</Label>
-                <Input placeholder="Token Produção" className="mt-1 bg-secondary border-border" />
+                <Input
+                  placeholder="Token Produção"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  className="mt-1 bg-secondary border-border"
+                />
               </div>
               <div>
                 <Label className="text-foreground">Tipo</Label>
-                <Select defaultValue="bearer">
+                <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
                   <SelectTrigger className="mt-1 bg-secondary border-border"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-card border-border">
                     <SelectItem value="bearer">Bearer Token</SelectItem>
@@ -57,10 +108,22 @@ export default function Credentials() {
               </div>
               <div>
                 <Label className="text-foreground">Valor</Label>
-                <Input type="password" placeholder="Token ou cookie value" className="mt-1 bg-secondary border-border font-mono" />
+                <Input
+                  type="password"
+                  placeholder="Token ou cookie value"
+                  value={form.value}
+                  onChange={e => setForm(f => ({ ...f, value: e.target.value }))}
+                  className="mt-1 bg-secondary border-border font-mono"
+                />
                 <p className="text-[10px] text-muted-foreground mt-1">Será criptografado no banco</p>
               </div>
-              <Button className="w-full gradient-primary border-0" onClick={() => setOpen(false)}>Salvar Credencial</Button>
+              <Button
+                className="w-full gradient-primary border-0"
+                onClick={() => createMutation.mutate()}
+                disabled={createMutation.isPending}
+              >
+                {createMutation.isPending ? 'Salvando...' : 'Salvar Credencial'}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -89,10 +152,8 @@ export default function Credentials() {
                 <p>Atualizado: {new Date(cred.updated_at).toLocaleString('pt-BR')}</p>
               </div>
               <div className="flex gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8" title="Rotacionar">
-                  <RefreshCw className="w-3.5 h-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Excluir">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Excluir"
+                  onClick={() => { if (confirm('Excluir credencial?')) deleteMutation.mutate(cred.id); }}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>

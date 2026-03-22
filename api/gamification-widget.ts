@@ -1,11 +1,153 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@supabase/supabase-js';
-
+import { getCorsHeaders, optionsResponse } from './_cors';
 export const config = { runtime: 'edge' };
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Inline XP sync to avoid import issues with Vercel Edge
+async function syncPlayerXpInline(cpf: string, supabase: any): Promise<void> {
+  try {
+    const { data: xpConfigs } = await supabase.from('xp_config').select('*');
+    if (!xpConfigs?.length) return;
+
+    const apostaWeight = xpConfigs.find((c: any) => c.action === 'aposta')?.xp_per_real ?? 1;
+    const depositoWeight = xpConfigs.find((c: any) => c.action === 'deposito')?.xp_per_real ?? 0.3;
+
+    const { data: wallet } = await supabase.from('player_wallets').select('*').eq('cpf', cpf).maybeSingle();
+    if (!wallet) return;
+
+    const { data: platformConfig } = await supabase.from('platform_config')
+      .select('*').eq('active', true).order('created_at', { ascending: false }).limit(1).single();
+    if (!platformConfig) return;
+
+    const siteUrl = (platformConfig.site_url || 'https://pixbingobr.concurso.club').replace(/\/+$/, '');
+    const login = await platformLogin(siteUrl, platformConfig.username, platformConfig.password, platformConfig.login_url);
+    if (!login.success) return;
+
+    const hdrs: Record<string, string> = {
+      'Accept': 'application/json, text/javascript, */*',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Cookie': login.cookies, 'Referer': siteUrl,
+    };
+
+    // Find player UUID
+    const searchResult = await searchPlayerByCpf(siteUrl, hdrs, cpf);
+    if (!searchResult.uuid) return;
+
+    // Fetch transactions via /transferencias/listar (DataTables format)
+    let transactions: any[] = [];
+    try {
+      const txCols = ['name','cpf','id_externo','valor','tipo_transacao','updated_at','status'];
+      const params = new URLSearchParams({ draw: '1', start: '0', length: '200', 'search[value]': '', 'search[regex]': 'false', exportar: '0' });
+      txCols.forEach((col, i) => {
+        params.set(`columns[${i}][data]`, col);
+        params.set(`columns[${i}][name]`, '');
+        params.set(`columns[${i}][searchable]`, 'true');
+        params.set(`columns[${i}][orderable]`, 'true');
+        params.set(`columns[${i}][search][value]`, '');
+        params.set(`columns[${i}][search][regex]`, 'false');
+      });
+      params.set('order[0][column]', '5'); // order by updated_at
+      params.set('order[0][dir]', 'desc');
+      params.set('busca_cpf', cpf);
+      const txRes = await fetch(`${siteUrl}/transferencias/listar?${params.toString()}`, {
+        headers: hdrs, signal: AbortSignal.timeout(15000),
+      });
+      const txData = JSON.parse(await txRes.text());
+      transactions = txData?.data || txData?.aaData || [];
+    } catch { return; }
+
+    const lastSync = wallet.last_xp_sync ? new Date(wallet.last_xp_sync) : null;
+    if (!Array.isArray(transactions) || transactions.length === 0) return;
+
+    const parseVal = (v: any): number => {
+      if (typeof v === 'number') return v;
+      if (!v) return 0;
+      const s = String(v).trim();
+      if (s.includes(',')) return Number(s.replace(/\./g, '').replace(',', '.')) || 0;
+      return Number(s) || 0;
+    };
+
+    let totalBets = 0, totalDeposits = 0, newestTxDate: Date | null = null, processedCount = 0;
+
+    for (const tx of transactions) {
+      const tipo = String(tx.tipo_transacao || tx.tipo || tx.type || tx.descricao || '').toLowerCase().trim();
+      const valor = parseVal(tx.valor || tx.value || tx.amount);
+      const txDateStr = tx.updated_at || tx.created_at || tx.data || tx.date || '';
+      let txDate: Date | null = null;
+
+      if (txDateStr) {
+        if (txDateStr.includes('/')) {
+          const parts = txDateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s*(\d{2}):(\d{2}):?(\d{2})?/);
+          if (parts) txDate = new Date(`${parts[3]}-${parts[2]}-${parts[1]}T${parts[4]}:${parts[5]}:${parts[6] || '00'}`);
+        } else {
+          txDate = new Date(txDateStr);
+        }
+      }
+
+      if (lastSync && txDate && txDate <= lastSync) continue;
+      if (txDate && (!newestTxDate || txDate > newestTxDate)) newestTxDate = txDate;
+
+      const isBet = ['aposta', 'bet', 'compra', 'purchase'].some(t => tipo.includes(t));
+      const isDeposit = ['deposito', 'deposit', 'pix', 'depositar'].some(t => tipo.includes(t));
+
+      if (isBet && valor > 0) { totalBets += valor; processedCount++; }
+      else if (isDeposit && valor > 0) { totalDeposits += valor; processedCount++; }
+    }
+
+    if (processedCount === 0) return;
+
+    const betXp = Math.floor(totalBets * apostaWeight);
+    const depXp = Math.floor(totalDeposits * depositoWeight);
+    const totalXpEarned = betXp + depXp;
+    if (totalXpEarned <= 0) return;
+
+    const currentXp = (wallet.xp || 0) + totalXpEarned;
+    const currentTotalXp = (wallet.total_xp_earned || 0) + totalXpEarned;
+
+    const { data: levels } = await supabase.from('levels').select('*').order('level');
+    let newLevel = wallet.level || 0;
+    let bonusCoins = 0, bonusDiamonds = 0;
+
+    if (levels?.length) {
+      for (const lvl of levels) {
+        if (lvl.level > (wallet.level || 0) && currentTotalXp >= lvl.xp_required) {
+          newLevel = lvl.level;
+          bonusCoins += lvl.reward_coins || 0;
+          bonusDiamonds += lvl.reward_diamonds || 0;
+          try {
+            await supabase.from('level_rewards_log').insert({
+              cpf, from_level: wallet.level || 0, to_level: lvl.level,
+              reward_coins: lvl.reward_coins || 0, reward_gems: lvl.reward_gems || 0,
+              reward_diamonds: lvl.reward_diamonds || 0,
+            } as any);
+          } catch { /* ignore */ }
+        }
+      }
+    }
+
+    const walletUpdate: any = {
+      xp: currentXp, total_xp_earned: currentTotalXp, level: newLevel,
+      last_xp_sync: newestTxDate ? newestTxDate.toISOString() : new Date().toISOString(),
+    };
+    if (bonusCoins > 0) walletUpdate.coins = (wallet.coins || 0) + bonusCoins;
+    if (bonusDiamonds > 0) {
+      walletUpdate.diamonds = (wallet.diamonds || 0) + bonusDiamonds;
+      walletUpdate.total_diamonds_earned = (wallet.total_diamonds_earned || 0) + bonusDiamonds;
+    }
+
+    await supabase.from('player_wallets').update(walletUpdate).eq('cpf', cpf);
+
+    if (betXp > 0) {
+      try { await supabase.from('xp_history').insert({ cpf, action: 'aposta', amount: totalBets, xp_earned: betXp, description: `R$${totalBets.toFixed(2)} apostado = ${betXp} XP` } as any); } catch { /* ignore */ }
+    }
+    if (depXp > 0) {
+      try { await supabase.from('xp_history').insert({ cpf, action: 'deposito', amount: totalDeposits, xp_earned: depXp, description: `R$${totalDeposits.toFixed(2)} depositado = ${depXp} XP` } as any); } catch { /* ignore */ }
+    }
+  } catch { /* ignore */ }
+}
+
+// corsHeaders is set per-request in handler() via getCorsHeaders(req)
+let corsHeaders: Record<string, string> = {};
 
 // --- Platform login/credit helpers (for store reward delivery) ---
 
@@ -25,7 +167,7 @@ async function platformLogin(siteUrl: string, username: string, password: string
     });
     const setCookies = initRes.headers.getSetCookie?.() || [];
     initialCookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
-  } catch {}
+  } catch { /* ignore */ }
 
   try {
     const hdrs: Record<string, string> = {
@@ -62,9 +204,9 @@ async function platformLogin(siteUrl: string, username: string, password: string
     }
     if (res.ok) {
       const text = await res.text();
-      try { const d = JSON.parse(text); if (d.status === true || d.logged === true) return { cookies, success: true }; } catch {}
+      try { const d = JSON.parse(text); if (d.status === true || d.logged === true) return { cookies, success: true }; } catch { /* ignore */ }
     }
-  } catch {}
+  } catch { /* ignore */ }
 
   return { cookies: '', success: false };
 }
@@ -168,7 +310,9 @@ async function creditBonusOnPlatform(baseUrl: string, headers: Record<string, st
 }
 
 export default async function handler(req: Request): Promise<Response> {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return optionsResponse(req);
+
+  corsHeaders = getCorsHeaders(req);
 
   try {
     const supabaseUrl = process.env.SUPABASE_URL!;
@@ -205,13 +349,13 @@ export default async function handler(req: Request): Promise<Response> {
     async function dataHandler() {
       const now = new Date().toISOString();
 
-      let achievementsQ = supabase.from('achievements').select('id, name, description, icon_url, category, condition_type, condition_value, reward_type, reward_value, segment_id, segments(name), stages, start_date, end_date, hide_if_not_earned, manual_claim, priority')
+      const achievementsQ = supabase.from('achievements').select('id, name, description, icon_url, category, condition_type, condition_value, reward_type, reward_value, segment_id, segments(name), stages, start_date, end_date, hide_if_not_earned, manual_claim, priority')
         .eq('active', true).order('priority').order('category').order('condition_value');
-      let missionsQ = supabase.from('missions').select('id, name, description, icon_url, type, condition_type, condition_value, reward_type, reward_value, segment_id, segments(name), status, priority, require_optin, time_limit_hours, start_date, end_date, recurrence, cta_text, cta_url, manual_claim')
+      const missionsQ = supabase.from('missions').select('id, name, description, icon_url, type, condition_type, condition_value, reward_type, reward_value, segment_id, segments(name), status, priority, require_optin, time_limit_hours, start_date, end_date, recurrence, cta_text, cta_url, manual_claim')
         .in('status', ['ATIVO']).order('priority').order('type').order('condition_value');
-      let tournamentsQ = supabase.from('tournaments').select('id, name, description, image_url, start_date, end_date, metric, game_filter, min_bet, prizes, status, segment_id, segments(name), require_optin, points_per, buy_in_cost, min_players, max_players, allow_late_join')
+      const tournamentsQ = supabase.from('tournaments').select('id, name, description, image_url, start_date, end_date, metric, game_filter, min_bet, prizes, status, segment_id, segments(name), require_optin, points_per, buy_in_cost, min_players, max_players, allow_late_join')
         .eq('status', 'ATIVO').lte('start_date', now).gte('end_date', now).order('end_date');
-      let wheelPrizesQ = supabase.from('daily_wheel_prizes').select('id, label, value, type, probability, color, icon_url, segment_id, segments(name)')
+      const wheelPrizesQ = supabase.from('daily_wheel_prizes').select('id, label, value, type, probability, color, icon_url, segment_id, segments(name)')
         .eq('active', true).order('probability', { ascending: false });
 
       // Fire all independent queries in a single Promise.all
@@ -223,7 +367,7 @@ export default async function handler(req: Request): Promise<Response> {
         applySegmentFilter(                         // 4 mini_games
           supabase.from('mini_games').select('id, type, name, description, theme, config, max_attempts_per_day, free_attempts_per_day, attempt_cost_coins, segment_id, segments(name)').eq('active', true)
         ),
-        supabase.from('player_levels').select('*').order('level_number'),          // 5
+        supabase.from('levels').select('*').order('level'),          // 5
         supabase.from('store_items').select('*').eq('active', true).order('price_coins'),  // 6
         supabase.from('wheel_config').select('*').limit(1).maybeSingle(),          // 7
       ];
@@ -304,11 +448,16 @@ export default async function handler(req: Request): Promise<Response> {
             .eq('cpf', playerCpf);
           playerSpins.spins_used_today = 0;
         }
+
+        // Trigger non-blocking XP sync from platform transactions
+        // This runs in the background and does NOT delay the widget response
+        const cleanCpfForSync = playerCpf.replace(/[.\-\s/]/g, '');
+        syncPlayerXpInline(cleanCpfForSync, supabase).catch(() => { /* ignore */ });
       }
 
       // Get tournament leaderboards for active tournaments
       const tournamentIds = (tournaments.data || []).map((t: any) => t.id);
-      let leaderboards: Record<string, any[]> = {};
+      const leaderboards: Record<string, any[]> = {};
       if (tournamentIds.length > 0) {
         const { data: entries } = await supabase
           .from('player_tournament_entries')
@@ -417,12 +566,20 @@ export default async function handler(req: Request): Promise<Response> {
         });
       }
 
+      // Filter out prizes with probability 0 (disabled from draw)
+      const eligiblePrizes = prizes.filter(p => p.probability > 0);
+      if (eligiblePrizes.length === 0) {
+        return new Response(JSON.stringify({ error: 'Nenhum prêmio elegível configurado' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       // Weighted random selection
-      const totalWeight = prizes.reduce((s, p) => s + (p.probability || 1), 0);
+      const totalWeight = eligiblePrizes.reduce((s, p) => s + p.probability, 0);
       let random = Math.random() * totalWeight;
-      let selected = prizes[0];
-      for (const prize of prizes) {
-        random -= (prize.probability || 1);
+      let selected = eligiblePrizes[0];
+      for (const prize of eligiblePrizes) {
+        random -= prize.probability;
         if (random <= 0) { selected = prize; break; }
       }
 
@@ -587,7 +744,7 @@ export default async function handler(req: Request): Promise<Response> {
         });
       }
       // Normalize CPF: remove dots, dashes, spaces
-      const cleanCpf = playerCpf.replace(/[\.\-\s\/]/g, '');
+      const cleanCpf = playerCpf.replace(/[.\-\s/]/g, '');
       const { data: match } = await supabase.from('segment_items')
         .select('id')
         .eq('segment_id', segmentId)
@@ -706,6 +863,7 @@ export default async function handler(req: Request): Promise<Response> {
       const { data: wallet } = await supabase.from('player_wallets').select('*').eq('cpf', playerCpf).maybeSingle();
       const coins = wallet?.coins || 0;
       const diamonds = wallet?.diamonds || 0;
+      const xp = wallet?.xp || 0;
       if (item.price_coins > 0 && coins < item.price_coins) {
         return new Response(JSON.stringify({ error: 'Moedas insuficientes', cost: item.price_coins, balance: coins }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -716,11 +874,17 @@ export default async function handler(req: Request): Promise<Response> {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      if (item.price_xp > 0 && xp < item.price_xp) {
+        return new Response(JSON.stringify({ error: 'Gems insuficientes', cost: item.price_xp, balance: xp }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-      // Deduct coins and diamonds
+      // Deduct coins, diamonds, and gems (xp)
       const walletUpdate: any = {};
       if (item.price_coins > 0) walletUpdate.coins = coins - item.price_coins;
       if (item.price_diamonds > 0) walletUpdate.diamonds = diamonds - item.price_diamonds;
+      if (item.price_xp > 0) walletUpdate.xp = xp - item.price_xp;
       if (Object.keys(walletUpdate).length > 0) {
         await supabase.from('player_wallets')
           .update(walletUpdate)
@@ -741,7 +905,7 @@ export default async function handler(req: Request): Promise<Response> {
             const { data: config } = await supabase.from('platform_config')
               .select('*').eq('active', true).order('created_at', { ascending: false }).limit(1).single();
             if (config) {
-              const loginDomain = (config.login_url || config.site_url || '').replace(/\/+$/, '');
+              const loginDomain = (config.site_url || '').replace(/\/+$/, '');
               const loginResult = await platformLogin(loginDomain, config.username, config.password, config.login_url);
               if (loginResult.success) {
                 const headers = buildPlatformHeaders(loginResult.cookies, loginDomain);
@@ -803,6 +967,77 @@ export default async function handler(req: Request): Promise<Response> {
           deliveryStatus = 'delivered';
           deliveryNote = `+${bonusDiamonds} diamantes adicionados`;
         }
+      } else if (rewardType === 'gem_chest' || rewardType === 'gem_roulette' || rewardType === 'diamond_chest') {
+        // Credit purchased_attempts to the corresponding mini-game
+        const gameIdMap: Record<string, string> = {
+          gem_chest: 'a1111111-1111-1111-1111-111111111111',
+          gem_roulette: 'b2222222-2222-2222-2222-222222222222',
+          diamond_chest: 'c3333333-3333-3333-3333-333333333333',
+        };
+        const targetGameId = gameIdMap[rewardType];
+        const qty = parseInt(rewardValue) || 1;
+        // Get or create attempt record
+        const { data: attRec } = await supabase.from('player_mini_game_attempts')
+          .select('*').eq('cpf', playerCpf).eq('game_id', targetGameId).maybeSingle();
+        if (attRec) {
+          await supabase.from('player_mini_game_attempts')
+            .update({ purchased_attempts: (attRec.purchased_attempts || 0) + qty } as any)
+            .eq('cpf', playerCpf).eq('game_id', targetGameId);
+        } else {
+          await supabase.from('player_mini_game_attempts')
+            .insert({ cpf: playerCpf, game_id: targetGameId, attempts_today: 0, last_attempt_date: new Date().toISOString().slice(0, 10), total_attempts: 0, purchased_attempts: qty } as any);
+        }
+        const gameLabels: Record<string, string> = { gem_chest: 'Baú de Gemas', gem_roulette: 'Roleta de Gemas', diamond_chest: 'Baú de Diamante' };
+        deliveryStatus = 'delivered';
+        deliveryNote = `+${qty} abertura(s) no ${gameLabels[rewardType]}`;
+      } else if (rewardType === 'bonus_deposit') {
+        // Saldo Real → credit on platform
+        const numericValue = parseFloat(rewardValue.replace(/[^\d.,]/g, '').replace(',', '.'));
+        if (numericValue > 0) {
+          try {
+            const { data: config } = await supabase.from('platform_config')
+              .select('*').eq('active', true).order('created_at', { ascending: false }).limit(1).single();
+            if (config) {
+              const loginDomain = (config.site_url || '').replace(/\/+$/, '');
+              const loginResult = await platformLogin(loginDomain, config.username, config.password, config.login_url);
+              if (loginResult.success) {
+                const headers = buildPlatformHeaders(loginResult.cookies, loginDomain);
+                const playerSearch = await searchPlayerByCpf(loginDomain, headers, playerCpf);
+                if (playerSearch.uuid) {
+                  const creditResult = await creditBonusOnPlatform(loginDomain, headers, playerSearch.uuid, numericValue, config.password);
+                  if (creditResult.success) {
+                    deliveryStatus = 'delivered';
+                    deliveryNote = `Creditado R$${numericValue.toFixed(2)} (saldo real) na plataforma`;
+                  } else {
+                    deliveryNote = `Erro ao creditar: ${creditResult.msg}`;
+                  }
+                } else {
+                  deliveryNote = 'UUID do jogador não encontrado na plataforma';
+                }
+              } else {
+                deliveryNote = 'Falha no login da plataforma';
+              }
+            } else {
+              deliveryNote = 'Config da plataforma não encontrada';
+            }
+          } catch (e: any) {
+            deliveryNote = `Erro: ${e.message}`;
+          }
+        } else {
+          deliveryNote = 'Valor inválido para crédito';
+        }
+      } else if (rewardType === 'free_spins') {
+        // Giros grátis → entrega manual
+        await supabase.from('player_rewards_pending').insert({
+          cpf: playerCpf,
+          reward_type: rewardType,
+          reward_value: rewardValue ? parseFloat(rewardValue) || 0 : 0,
+          source: 'Loja',
+          source_id: itemId,
+          description: `${item.name} — Giros grátis`,
+        } as any);
+        deliveryStatus = 'pending_manual';
+        deliveryNote = `${rewardValue} giro(s) grátis — aguardando entrega`;
       } else if (rewardType === 'physical' || rewardType === 'coupon') {
         await supabase.from('player_rewards_pending').insert({
           cpf: playerCpf,
@@ -1082,9 +1317,11 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       // Check coin cost
+      const purchasedAttempts = attemptRec?.purchased_attempts || 0;
       const isFree = attemptsUsed < freeAttempts;
+      const hasPurchased = purchasedAttempts > 0;
       let coinsCost = 0;
-      if (!isFree && game.attempt_cost_coins > 0) {
+      if (!isFree && !hasPurchased && game.attempt_cost_coins > 0) {
         coinsCost = game.attempt_cost_coins;
         const { data: wallet } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
         if (!wallet || (wallet.coins || 0) < coinsCost) {
@@ -1115,22 +1352,30 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       // Update attempt record
+      const upsertData: any = {
+        cpf: playerCpf,
+        game_id: gameId,
+        attempts_today: attemptsUsed + 1,
+        last_attempt_date: today,
+        total_attempts: (attemptRec?.total_attempts || 0) + 1,
+      };
+      // Decrement purchased_attempts if this was a purchased play
+      if (!isFree && hasPurchased) {
+        upsertData.purchased_attempts = purchasedAttempts - 1;
+      }
       await supabase.from('player_mini_game_attempts')
-        .upsert({
-          cpf: playerCpf,
-          game_id: gameId,
-          attempts_today: attemptsUsed + 1,
-          last_attempt_date: today,
-          total_attempts: (attemptRec?.total_attempts || 0) + 1,
-        } as any, { onConflict: 'cpf,game_id' });
+        .upsert(upsertData, { onConflict: 'cpf,game_id' });
 
       // Award prize
       if (selected.type === 'coins' && selected.value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
         await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + selected.value } as any).eq('cpf', playerCpf);
       } else if (selected.type === 'xp' && selected.value > 0) {
-        const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + selected.value } as any).eq('cpf', playerCpf);
+        const { data: w } = await supabase.from('player_wallets').select('xp, total_xp_earned').eq('cpf', playerCpf).maybeSingle();
+        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + selected.value, total_xp_earned: (w?.total_xp_earned || 0) + selected.value } as any).eq('cpf', playerCpf);
+      } else if (selected.type === 'diamonds' && selected.value > 0) {
+        const { data: w } = await supabase.from('player_wallets').select('diamonds, total_diamonds_earned').eq('cpf', playerCpf).maybeSingle();
+        await supabase.from('player_wallets').update({ diamonds: (w?.diamonds || 0) + selected.value, total_diamonds_earned: (w?.total_diamonds_earned || 0) + selected.value } as any).eq('cpf', playerCpf);
       } else if ((selected.type === 'bonus' || selected.type === 'free_bet') && selected.value > 0) {
         try {
           await supabase.from('player_rewards_pending').insert({
@@ -1155,7 +1400,7 @@ export default async function handler(req: Request): Promise<Response> {
       } catch { /* ignore */ }
 
       // For scratch card: return 9 cells (3 winning + 6 random), shuffled
-      let gameData: any = {};
+      const gameData: any = {};
       if (game.type === 'scratch_card') {
         const cells: any[] = [];
         for (let i = 0; i < 3; i++) cells.push({ prize: selected, winning: true });
@@ -1192,6 +1437,7 @@ export default async function handler(req: Request): Promise<Response> {
         max_attempts: maxAttempts,
         free_attempts: freeAttempts,
         coins_spent: coinsCost,
+        purchased_remaining: hasPurchased && !isFree ? purchasedAttempts - 1 : purchasedAttempts,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

@@ -1,11 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@supabase/supabase-js';
+import { getCorsHeaders, optionsResponse, verifyAuth } from './_cors';
 
 export const config = { runtime: 'edge' };
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 const DEFAULT_SITE = 'https://pixbingobr.concurso.club';
 const DEFAULT_LOGIN = 'https://pixbingobr.concurso.club/login';
@@ -16,7 +13,7 @@ async function doLogin(username: string, password: string): Promise<{ cookies: s
     const initRes = await fetch(DEFAULT_SITE, { method: 'GET', headers: { 'Accept': 'text/html' }, redirect: 'manual', signal: AbortSignal.timeout(10000) });
     const setCookies = initRes.headers.getSetCookie?.() || [];
     initialCookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
-  } catch {}
+  } catch { /* ignore */ }
 
   try {
     const headers: Record<string, string> = {
@@ -45,9 +42,9 @@ async function doLogin(username: string, password: string): Promise<{ cookies: s
     }
     if (res.ok) {
       const text = await res.text();
-      try { const data = JSON.parse(text); if (data.status === true || data.logged === true) return { cookies, success: true }; } catch {}
+      try { const data = JSON.parse(text); if (data.status === true || data.logged === true) return { cookies, success: true }; } catch { /* ignore */ }
     }
-  } catch {}
+  } catch { /* ignore */ }
   return { cookies: '', success: false };
 }
 
@@ -187,15 +184,34 @@ async function getPlayerWinTotal(uuid: string, headers: Record<string, string>, 
 }
 
 export default async function handler(req: Request): Promise<Response> {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return optionsResponse(req);
+
+  const corsHeaders = getCorsHeaders(req);
+
+  const authResult = await verifyAuth(req);
+  if (!authResult) {
+    return new Response(JSON.stringify({ success: false, error: 'Não autorizado' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
 
   try {
     const body = await req.json();
-    const { campaign_id, username, password } = body;
+    const { campaign_id } = body;
+    let { username, password } = body;
 
     const supabaseUrl = process.env.SUPABASE_URL!;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Auto-fill credentials from platform_config if not provided
+    if (!username || !password || username === 'auto' || password === 'auto') {
+      const { data: config } = await supabase.from('platform_config')
+        .select('*').eq('active', true).order('created_at', { ascending: false }).limit(1).single();
+      if (config) {
+        username = config.username;
+        password = config.password;
+      }
+    }
 
     const { data: campaign, error: campErr } = await supabase
       .from('campaigns').select('*').eq('id', campaign_id).single();

@@ -8,7 +8,7 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-// Timeout de 15s: rejeita a promise mas não aborta o fetch (sem conexões zumbis)
+// Timeout de 30s: rejeita a promise mas não aborta o fetch (sem conexões zumbis)
 const fetchWithTimeout = (url: RequestInfo | URL, options?: RequestInit): Promise<Response> => {
   const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error('Supabase timeout')), 30000)

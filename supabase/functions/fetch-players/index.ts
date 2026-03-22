@@ -1,9 +1,27 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const ALLOWED_ORIGINS = [
+  'https://backofficepixbingo.vercel.app',
+  'https://pixbingobr.com',
+  'https://www.pixbingobr.com',
+  'https://pixbingobr.concurso.club',
+  'http://localhost:8080',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+function getCorsOrigin(req: Request): string {
+  const origin = req.headers.get('Origin') || '';
+  return ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+}
+
+function getCorsHeaders(req: Request) {
+  return {
+    'Access-Control-Allow-Origin': getCorsOrigin(req),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+}
 
 interface FetchPlayersRequest {
   site_url: string;
@@ -19,8 +37,30 @@ interface FetchPlayersRequest {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Auth verification
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ success: false, error: 'Não autorizado' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const supabaseAuth = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+  );
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(authHeader.replace('Bearer ', ''));
+  if (authError || !user) {
+    return new Response(JSON.stringify({ success: false, error: 'Token inválido' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -65,7 +105,7 @@ Deno.serve(async (req) => {
         const cookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
 
         let responseBody = '';
-        try { responseBody = await loginRes.text(); } catch {}
+        try { responseBody = await loginRes.text(); } catch { /* ignore */ }
         console.log(`[FetchPlayers] Login ${loginUrl} status=${loginRes.status} body=${responseBody.slice(0, 500)}`);
 
         if (loginRes.ok || loginRes.status === 302) {
@@ -78,7 +118,7 @@ Deno.serve(async (req) => {
             if (loginData.logged === true || loginData.success === true || bearerToken) {
               loginSuccess = true;
             }
-          } catch {}
+          } catch { /* ignore */ }
 
           if (cookies || bearerToken) {
             loginSuccess = true;

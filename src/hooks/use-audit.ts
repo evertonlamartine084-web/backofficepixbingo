@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -32,8 +33,9 @@ export async function logAudit(params: {
       resource_name: params.resource_name || null,
       details: params.details || null,
     } as any);
-  } catch {
-    // Never let audit failure break the app
+  } catch (err) {
+    // Never let audit failure break the app, but log for debugging
+    console.warn('[Audit] Failed to log action:', params.action, err);
   }
 }
 
