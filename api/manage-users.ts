@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@supabase/supabase-js';
-import { getCorsHeaders, optionsResponse } from './_cors';
+import { getCorsHeaders, optionsResponse } from './_cors.js';
 
 export const config = { runtime: 'edge' };
 
