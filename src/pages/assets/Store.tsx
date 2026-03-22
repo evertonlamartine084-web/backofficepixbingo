@@ -189,9 +189,9 @@ export default function Store() {
                 className={`group relative rounded-xl border border-border/50 bg-card overflow-hidden transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 ${!item.active ? 'opacity-60' : ''}`}
               >
                 {/* Image */}
-                <div className="relative aspect-[16/10] bg-secondary/50 overflow-hidden">
+                <div className="relative aspect-square bg-secondary/30 overflow-hidden">
                   {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                    <img src={item.image_url} alt={item.name} className="w-full h-full object-contain p-2 transition-transform group-hover:scale-105" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <ShoppingBag className="w-10 h-10 text-muted-foreground/20" />
@@ -229,8 +229,8 @@ export default function Store() {
 
                 {/* Content */}
                 <div className="p-3.5">
-                  <h3 className="font-semibold text-sm text-foreground leading-tight mb-1 line-clamp-1">{item.name}</h3>
-                  <p className="text-xs text-muted-foreground line-clamp-2 min-h-[2rem]">{item.description || 'Sem descrição'}</p>
+                  <h3 className="font-semibold text-sm text-foreground leading-tight mb-1">{item.name}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{item.description || 'Sem descrição'}</p>
 
                   {/* Meta info */}
                   <div className="flex items-center gap-3 mt-2.5 text-[11px] text-muted-foreground">
