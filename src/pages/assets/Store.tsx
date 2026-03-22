@@ -260,18 +260,19 @@ export default function Store() {
                   )}
 
                   {/* Actions */}
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+                  <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-border/50">
                     <Switch
                       checked={item.active}
                       onCheckedChange={(active) => toggleMutation.mutate({ id: item.id, active })}
+                      className="scale-75 origin-left"
                     />
-                    <div className="flex gap-0.5">
-                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary" onClick={() => openEdit(item)}>
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-destructive/10 hover:text-destructive" onClick={() => { if (confirm('Excluir item?')) deleteMutation.mutate(item.id); }}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                    <div className="flex gap-0">
+                      <button className="p-1.5 rounded-md text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => openEdit(item)}>
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button className="p-1.5 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors" onClick={() => { if (confirm('Excluir item?')) deleteMutation.mutate(item.id); }}>
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     </div>
                   </div>
                 </div>
