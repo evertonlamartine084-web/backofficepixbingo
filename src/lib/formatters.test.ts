@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   formatBRL, parseBRL, maskCPF, formatCPF,
-  formatDateTime, formatDateAPI, parseCPFList,
+  formatDateTime, formatDateAPI, parseCPFList, validateCPF,
 } from './formatters';
 
 describe('formatBRL', () => {
@@ -211,5 +211,30 @@ describe('parseCPFList', () => {
     expect(parseCPFList('12345678900,12345678900')).toEqual([
       '12345678900', '12345678900',
     ]);
+  });
+});
+
+describe('validateCPF', () => {
+  it('aceita CPFs válidos', () => {
+    expect(validateCPF('529.982.247-25')).toBe(true);
+    expect(validateCPF('52998224725')).toBe(true);
+    expect(validateCPF('111.444.777-35')).toBe(true);
+  });
+
+  it('rejeita checksum inválido', () => {
+    expect(validateCPF('52998224720')).toBe(false);
+    expect(validateCPF('11144477730')).toBe(false);
+  });
+
+  it('rejeita CPFs com todos os dígitos iguais', () => {
+    expect(validateCPF('00000000000')).toBe(false);
+    expect(validateCPF('11111111111')).toBe(false);
+    expect(validateCPF('99999999999')).toBe(false);
+  });
+
+  it('rejeita CPFs curtos ou longos', () => {
+    expect(validateCPF('1234567890')).toBe(false);
+    expect(validateCPF('123456789012')).toBe(false);
+    expect(validateCPF('')).toBe(false);
   });
 });

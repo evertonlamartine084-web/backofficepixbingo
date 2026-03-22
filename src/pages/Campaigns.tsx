@@ -154,7 +154,7 @@ export default function Campaigns() {
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-400" title="Processar" onClick={() => processCampaign(c)} disabled={processing || !c.segment_id}>
                             <Play className="w-3.5 h-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteMutation.mutate(c.id)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => { if (confirm('Excluir campanha?')) deleteMutation.mutate(c.id); }}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>

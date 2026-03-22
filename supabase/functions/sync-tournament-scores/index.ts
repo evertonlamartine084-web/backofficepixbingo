@@ -23,6 +23,12 @@ function getCorsHeaders(req: Request) {
   };
 }
 
+const ALLOWED_SITE_URLS = [
+  'https://pixbingobr.concurso.club',
+  'https://pixbingobr.com',
+  'https://www.pixbingobr.com',
+];
+
 // --- Platform login/fetch helpers (same as pixbingo-proxy) ---
 
 async function doLogin(siteUrl: string, username: string, password: string, loginUrl?: string | null): Promise<{ cookies: string; success: boolean }> {
@@ -360,6 +366,16 @@ Deno.serve(async (req) => {
     const siteUrl = config.site_url.replace(/\/+$/, '');
     const loginDomain = config.login_url ? config.login_url.replace(/\/+$/, '').replace(/\/login$/, '') : null;
     const baseUrl = loginDomain || siteUrl;
+
+    // SSRF protection: validate baseUrl against whitelist
+    if (!ALLOWED_SITE_URLS.some(u => baseUrl === u || baseUrl.startsWith(u + '/'))) {
+      log(`URL não permitida: ${baseUrl}`);
+      return new Response(JSON.stringify({ success: false, error: 'URL não permitida', logs }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     log(`Plataforma: ${baseUrl}${loginDomain ? ` (login_url usado como base)` : ''}`);
 
     // 2. Login to platform

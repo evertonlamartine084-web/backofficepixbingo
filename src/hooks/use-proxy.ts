@@ -37,22 +37,34 @@ export function useProxy() {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const res = await fetch('/api/pixbingo-proxy', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        action,
-        site_url: DEFAULT_SITE,
-        login_url: DEFAULT_LOGIN,
-        username: credentials?.username || '',
-        password: credentials?.password || '',
-        ...extra,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erro na requisição');
-    if (data && !data.success) throw new Error(data.error || 'Erro na requisição');
-    return data;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    try {
+      const res = await fetch('/api/pixbingo-proxy', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action,
+          site_url: DEFAULT_SITE,
+          login_url: DEFAULT_LOGIN,
+          username: credentials?.username || '',
+          password: credentials?.password || '',
+          ...extra,
+        }),
+        signal: controller.signal,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro na requisição');
+      if (data && !data.success) throw new Error(data.error || 'Erro na requisição');
+      return data;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        throw new Error('Timeout na requisição (30s)');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }, []);
 
   const callWithLoading = useCallback(async (

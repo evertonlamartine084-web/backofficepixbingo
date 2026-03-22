@@ -217,19 +217,19 @@ export default async function handler(req: Request): Promise<Response> {
       .from('campaigns').select('*').eq('id', campaign_id).single();
     if (campErr || !campaign) {
       return new Response(JSON.stringify({ success: false, error: 'Campanha não encontrada' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     if (!campaign.segment_id) {
       return new Response(JSON.stringify({ success: false, error: 'Campanha sem segmento vinculado' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const { data: segmentItems, error: segErr } = await supabase
       .from('segment_items').select('cpf, cpf_masked').eq('segment_id', campaign.segment_id);
     if (segErr || !segmentItems?.length) {
       return new Response(JSON.stringify({ success: false, error: 'Segmento vazio ou erro ao buscar jogadores' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     let eligibleCpfs = segmentItems;
@@ -255,7 +255,7 @@ export default async function handler(req: Request): Promise<Response> {
     const auth = await doLogin(username, password);
     if (!auth.success) {
       return new Response(JSON.stringify({ success: false, error: 'Login na plataforma falhou' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     const headers = buildHeaders(auth.cookies);
 
@@ -394,7 +394,8 @@ export default async function handler(req: Request): Promise<Response> {
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: (error as Error).message }),
+    console.error('[process-campaign]', (error as Error).message);
+    return new Response(JSON.stringify({ success: false, error: 'Erro interno do servidor' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 }

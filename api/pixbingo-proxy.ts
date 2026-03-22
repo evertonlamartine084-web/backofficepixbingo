@@ -714,9 +714,10 @@ export default async function handler(req: Request): Promise<Response> {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
+    console.error('[pixbingo-proxy]', (error as Error).message);
     return new Response(
-      JSON.stringify({ success: false, error: (error as Error).message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, error: 'Erro interno do servidor' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 }

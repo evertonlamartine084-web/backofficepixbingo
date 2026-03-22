@@ -23,6 +23,12 @@ function getCorsHeaders(req: Request) {
   };
 }
 
+const ALLOWED_SITE_URLS = [
+  'https://pixbingobr.concurso.club',
+  'https://pixbingobr.com',
+  'https://www.pixbingobr.com',
+];
+
 type Action = 'login' | 'list_users' | 'search_player' | 'player_transactions'
   | 'credit_bonus' | 'cancel_bonus' | 'list_transactions' | 'financeiro' | 'credit_batch' | 'list_partidas' | 'scrape_page';
 
@@ -193,6 +199,12 @@ Deno.serve(async (req) => {
   try {
     const body: ProxyRequest = await req.json();
     const baseUrl = body.site_url.replace(/\/+$/, '');
+
+    // SSRF protection: validate site_url against whitelist
+    if (!ALLOWED_SITE_URLS.some(u => baseUrl === u || baseUrl.startsWith(u + '/'))) {
+      return new Response(JSON.stringify({ success: false, error: 'URL não permitida' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     const auth = await doLogin(body);
     if (!auth.success) {

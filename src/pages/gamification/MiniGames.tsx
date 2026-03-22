@@ -104,7 +104,7 @@ export default function MiniGames() {
         const { error } = await supabase.from('mini_games').insert(payload as any);
         if (error) throw error;
       }
-      await logAudit(editGameId ? 'mini_game_update' : 'mini_game_create', { name: payload.name, type: payload.type });
+      await logAudit({ action: editGameId ? 'EDITAR' : 'CRIAR', resource_type: 'mini_game', resource_name: payload.name });
     },
     onSuccess: () => {
       toast.success(editGameId ? 'Jogo atualizado!' : 'Jogo criado!');
@@ -120,7 +120,7 @@ export default function MiniGames() {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('mini_games').delete().eq('id', id);
       if (error) throw error;
-      await logAudit('mini_game_delete', { id });
+      await logAudit({ action: 'EXCLUIR', resource_type: 'mini_game', resource_id: id });
     },
     onSuccess: () => {
       toast.success('Jogo excluído!');

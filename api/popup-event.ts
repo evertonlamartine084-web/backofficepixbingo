@@ -3,6 +3,18 @@ import { getCorsHeaders, optionsResponse } from './_cors';
 
 export const config = { runtime: 'edge' };
 
+function isValidCPF(cpf: string): boolean {
+  const digits = cpf.replace(/\D/g, '');
+  if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) return false;
+  for (let t = 9; t < 11; t++) {
+    let sum = 0;
+    for (let i = 0; i < t; i++) sum += parseInt(digits[i]) * (t + 1 - i);
+    const remainder = (sum * 10) % 11;
+    if ((remainder === 10 ? 0 : remainder) !== parseInt(digits[t])) return false;
+  }
+  return true;
+}
+
 export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return optionsResponse(req);
 
@@ -12,7 +24,7 @@ export default async function handler(req: Request): Promise<Response> {
     const { popup_id, cpf, event_type } = await req.json();
     const cleanCpf = (cpf || '').replace(/\D/g, '');
 
-    if (!popup_id || !cleanCpf || cleanCpf.length < 11 || !['view', 'click', 'dismiss'].includes(event_type)) {
+    if (!popup_id || !cleanCpf || !isValidCPF(cleanCpf) || !['view', 'click', 'dismiss'].includes(event_type)) {
       return new Response(JSON.stringify({ error: 'Parâmetros inválidos' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -38,7 +50,8 @@ export default async function handler(req: Request): Promise<Response> {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
+    console.error('[popup-event]', (error as Error).message);
+    return new Response(JSON.stringify({ error: 'Erro interno do servidor' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

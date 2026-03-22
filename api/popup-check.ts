@@ -3,12 +3,32 @@ import { getCorsHeaders, optionsResponse } from './_cors';
 
 export const config = { runtime: 'edge' };
 
+function sanitizeHtml(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/on\w+\s*=\s*[^\s>]*/gi, '');
+}
+
 const FREQUENCY_MS: Record<string, number> = {
   minute: 60 * 1000,
   hour: 60 * 60 * 1000,
   day: 24 * 60 * 60 * 1000,
   week: 7 * 24 * 60 * 60 * 1000,
 };
+
+function isValidCPF(cpf: string): boolean {
+  const digits = cpf.replace(/\D/g, '');
+  if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) return false;
+  for (let t = 9; t < 11; t++) {
+    let sum = 0;
+    for (let i = 0; i < t; i++) sum += parseInt(digits[i]) * (t + 1 - i);
+    const remainder = (sum * 10) % 11;
+    if ((remainder === 10 ? 0 : remainder) !== parseInt(digits[t])) return false;
+  }
+  return true;
+}
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return optionsResponse(req);
@@ -19,7 +39,7 @@ export default async function handler(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const cpf = url.searchParams.get('cpf')?.replace(/\D/g, '') || '';
 
-    if (!cpf || cpf.length < 11) {
+    if (!cpf || !isValidCPF(cpf)) {
       return new Response(JSON.stringify({ popups: [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -89,7 +109,7 @@ export default async function handler(req: Request): Promise<Response> {
       .map(p => ({
         id: p.id, title: p.title, message: p.message,
         image_url: p.image_url, button_text: p.button_text,
-        button_url: p.button_url, custom_html: p.custom_html,
+        button_url: p.button_url, custom_html: sanitizeHtml(p.custom_html),
         style: p.style, persistent: p.persistent || false,
         frequency: p.frequency || 'once',
       }));

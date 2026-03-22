@@ -7,7 +7,6 @@ import {
   Users, CircleDollarSign,
 } from 'lucide-react';
 import { DashboardInfoCard } from '@/components/DashboardInfoCard';
-import { ApiCredentialsBar } from '@/components/ApiCredentialsBar';
 import { useProxy } from '@/hooks/use-proxy';
 import { Button } from '@/components/ui/button';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
@@ -71,7 +70,7 @@ interface FinancialData {
 }
 
 export default function Dashboard() {
-  const [creds, setCreds] = useState({ username: 'auto', password: 'auto' });
+  const creds = { username: 'auto', password: 'auto' };
   const [period, setPeriod] = useState<PeriodFilter>('today');
   const [customStart, setCustomStart] = useState<Date>(new Date());
   const [customEnd, setCustomEnd] = useState<Date>(new Date());
@@ -146,9 +145,6 @@ export default function Dashboard() {
           <p className="text-sm text-muted-foreground mt-1">Visão geral financeira e de bônus</p>
         </div>
       </div>
-
-      {/* Auto-connect credentials from platform_config */}
-      <div className="hidden"><ApiCredentialsBar onCredentials={(c) => setCreds(c)} /></div>
 
       {/* Period Filter */}
       <div className="flex items-center justify-between flex-wrap gap-3">

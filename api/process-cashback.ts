@@ -164,7 +164,7 @@ export default async function handler(req: Request): Promise<Response> {
 
     if (!rule_id || !username || !password) {
       return new Response(JSON.stringify({ success: false, error: 'Parâmetros obrigatórios: rule_id, username, password' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const supabaseUrl = process.env.SUPABASE_URL!;
@@ -175,19 +175,19 @@ export default async function handler(req: Request): Promise<Response> {
       .from('cashback_rules').select('*').eq('id', rule_id).single();
     if (ruleErr || !rule) {
       return new Response(JSON.stringify({ success: false, error: 'Regra de cashback não encontrada' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     if (!rule.segment_id) {
       return new Response(JSON.stringify({ success: false, error: 'Regra sem segmento vinculado' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const { data: segmentItems, error: segErr } = await supabase
       .from('segment_items').select('cpf, cpf_masked').eq('segment_id', rule.segment_id);
     if (segErr || !segmentItems?.length) {
       return new Response(JSON.stringify({ success: false, error: 'Segmento vazio ou erro ao buscar jogadores' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // === ACTION: CREDIT - approve and credit an existing execution ===
@@ -204,7 +204,7 @@ export default async function handler(req: Request): Promise<Response> {
 
       if (itemsErr || !pendingItems?.length) {
         return new Response(JSON.stringify({ success: false, error: 'Nenhum item aguardando aprovação' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
       let credited = 0, errors = 0;
@@ -256,7 +256,7 @@ export default async function handler(req: Request): Promise<Response> {
     const auth = await doLogin(username, password);
     if (!auth.success) {
       return new Response(JSON.stringify({ success: false, error: 'Login na plataforma falhou' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     const headers = buildHeaders(auth.cookies);
 
@@ -296,8 +296,9 @@ export default async function handler(req: Request): Promise<Response> {
       .select('id').single();
 
     if (execErr || !execution) {
-      return new Response(JSON.stringify({ success: false, error: 'Erro ao criar execução: ' + (execErr?.message || '') }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      console.error('[process-cashback] Erro ao criar execução:', execErr?.message);
+      return new Response(JSON.stringify({ success: false, error: 'Erro ao criar execução' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const executionId = execution.id;
@@ -404,7 +405,8 @@ export default async function handler(req: Request): Promise<Response> {
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: (error as Error).message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    console.error('[process-cashback]', (error as Error).message);
+    return new Response(JSON.stringify({ success: false, error: 'Erro interno do servidor' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 }
