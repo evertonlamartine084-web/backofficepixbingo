@@ -186,7 +186,7 @@ export default async function handler(req: Request): Promise<Response> {
       'https://www.pixbingobr.com',
     ];
     const normalizedUrl = body.site_url.replace(/\/+$/, '');
-    if (!ALLOWED_SITE_URLS.some(u => normalizedUrl.startsWith(u))) {
+    if (!ALLOWED_SITE_URLS.some(u => normalizedUrl === u || normalizedUrl.startsWith(u + '/'))) {
       return new Response(JSON.stringify({ success: false, error: 'URL não permitida' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
