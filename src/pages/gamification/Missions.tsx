@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, Loader2, Target, Zap, Calendar, Clock, Lock, RefreshCw, MousePointer, Hand, ExternalLink, Archive } from 'lucide-react';
+import { Plus, Trash2, Edit2, Loader2, Target, Zap, Calendar, Clock, Lock, RefreshCw, MousePointer, Hand, ExternalLink, Archive, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -150,6 +150,20 @@ export default function Missions() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const duplicateMutation = useMutation({
+    mutationFn: async (m: any) => {
+      const { id, created_at, updated_at, ...rest } = m;
+      const { error } = await supabase.from('missions').insert({ ...rest, name: `${m.name} (cópia)` });
+      if (error) throw error;
+    },
+    onSuccess: (_d, m) => {
+      qc.invalidateQueries({ queryKey: ['missions'] });
+      toast.success('Missão duplicada');
+      logAudit({ action: 'DUPLICAR', resource_type: 'missao', resource_name: m.name });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const closeDialog = () => { setOpen(false); setEditId(null); setForm(emptyForm); };
 
   const openEdit = (m: any) => {
@@ -261,10 +275,16 @@ export default function Missions() {
                               {m.description && <p className="text-xs text-muted-foreground truncate">{m.description}</p>}
                             </div>
                           </div>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                            onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(m.id); }}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={(e) => { e.stopPropagation(); duplicateMutation.mutate(m); }}>
+                              <Copy className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                              onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(m.id); }}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
                         </div>
 
                         {/* Condition + Reward */}
