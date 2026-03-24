@@ -92,8 +92,7 @@
       }
     } catch (e) {}
   }
-  // Run CPF detection after a short delay to let the page load
-  setTimeout(() => { autoDetectCpf().then(() => { if (PLAYER_CPF && !data) fetchData(); }); }, 2000);
+  // CPF detection is now handled inside checkSegmentAndInit
 
   function isUserLoggedIn() {
     PLAYER_CPF = getPlayerCpf(); // re-check (may have logged in after page load)
@@ -3787,6 +3786,7 @@
 
   async function checkSegmentAndInit() {
     PLAYER_CPF = getPlayerCpf();
+    if (!PLAYER_CPF) await autoDetectCpf(); // try to detect CPF from platform
     // If segment specified in script tag, check via dedicated endpoint
     if (SEGMENT_ID) {
       if (!PLAYER_CPF) return false;
@@ -3796,18 +3796,17 @@
       } catch { return false; }
     }
     // Always pre-fetch data to check server-side widget_segment restriction
-    if (PLAYER_CPF) {
-      try {
-        const refCode = (function() {
-          try { return localStorage.getItem('__pbr_ref_code') || localStorage.getItem('codigo_indicacao') || ''; } catch(e) { return ''; }
-        })();
-        data = await apiCall('data', refCode ? { ref_code: refCode } : {});
-        if (data?._widget_hidden) return true; // server says hide widget = stop polling, don't show
-        if (data?._ref_registered) {
-          try { localStorage.removeItem('__pbr_ref_code'); } catch(e) {}
-        }
-      } catch { return false; }
-    }
+    if (!PLAYER_CPF) return false; // keep polling until CPF is detected
+    try {
+      const refCode = (function() {
+        try { return localStorage.getItem('__pbr_ref_code') || localStorage.getItem('codigo_indicacao') || ''; } catch(e) { return ''; }
+      })();
+      data = await apiCall('data', refCode ? { ref_code: refCode } : {});
+      if (data?._widget_hidden) return true; // server says hide widget = stop polling, don't show
+      if (data?._ref_registered) {
+        try { localStorage.removeItem('__pbr_ref_code'); } catch(e) {}
+      }
+    } catch { return false; }
     initWidget();
     return true;
   }
