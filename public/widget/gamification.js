@@ -1521,13 +1521,13 @@
                   </div>
                   <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px">
                     <span style="color:#71717a">${pct}%</span>
-                    <span style="color:#fff;font-weight:700">${progress ? `${progress.progress} / ${progress.target}` : '0 / ?'}</span>
+                    <span style="color:#fff;font-weight:700">${progress ? `${Math.min(progress.progress, progress.target)} / ${progress.target}` : '0 / ?'}</span>
                   </div>
                 </div>
               </div>
               <div class="pbg-m-detail-stats">
                 <div class="pbg-m-detail-stat">
-                  <div class="pbg-m-detail-stat-value" style="color:${color}">${progress?.progress || 0}</div>
+                  <div class="pbg-m-detail-stat-value" style="color:${color}">${progress ? Math.min(progress.progress, progress.target) : 0}</div>
                   <div class="pbg-m-detail-stat-label">Progresso</div>
                 </div>
                 <div class="pbg-m-detail-stat">
