@@ -3349,7 +3349,7 @@
       if (xpTrackEl) { xpTrackEl.style.display = 'block'; }
       if (xpFillEl) { xpFillEl.style.width = lvInfo.pct + '%'; xpFillEl.style.background = `linear-gradient(90deg,${col}cc,${col})`; }
       if (nextLvlEl) nextLvlEl.innerHTML = lvInfo.next
-        ? `0 / ${lvInfo.xpForNext.toLocaleString('pt-BR')} · Próximo nível é <span>${lvInfo.next.name}</span>`
+        ? `${lvInfo.xpInLevel.toLocaleString('pt-BR')} / ${lvInfo.xpForNext.toLocaleString('pt-BR')} · Próximo nível é <span>${lvInfo.next.name}</span>`
         : `<span>Nível máximo!</span>`;
     } else {
       if (levelRowEl) levelRowEl.innerHTML = `<div style="font-size:11px;color:#52525b">Sem nível configurado</div>`;
