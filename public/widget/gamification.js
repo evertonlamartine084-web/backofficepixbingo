@@ -1647,56 +1647,44 @@
         const progress = getMissionProgress(m.id);
         const pct = progress ? Math.min(100, Math.round((progress.progress / progress.target) * 100)) : 0;
         const isClaimed = progress?.claimed;
-        const countdown = getCountdown(m.end_date);
+        const dayLabel = getDayName(m.start_date);
         const rewardLabel = getMissionRewardLabel(m);
         const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
-        const timerSvg = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.681 7.526C12.681 10.39 10.37 12.711 7.52 12.711C4.669 12.711 2.358 10.39 2.358 7.526C2.358 4.663 4.669 2.341 7.52 2.341C10.37 2.341 12.681 4.663 12.681 7.526ZM14.089 7.526C14.089 11.17 11.148 14.125 7.52 14.125C3.892 14.125 0.95 11.17 0.95 7.526C0.95 3.882 3.892 0.927 7.52 0.927C11.148 0.927 14.089 3.882 14.089 7.526ZM8.223 4.227C8.223 3.836 7.908 3.52 7.52 3.52C7.131 3.52 6.816 3.836 6.816 4.227V7.526C6.816 7.749 6.92 7.958 7.097 8.092L8.974 9.506C9.285 9.74 9.726 9.677 9.96 9.364C10.193 9.052 10.13 8.609 9.819 8.374L8.223 7.173V4.227Z" fill="#A1A1AA"/></svg>';
-
-        const timeDisplay = countdown || (m.time_limit_hours ? String(m.time_limit_hours).padStart(2,'0') + ':00:00' : '--:--:--');
-
-        const iconBase = 'https://backofficepixbingobr.vercel.app/widget';
-        const chestSvg = `<img src="${iconBase}/chest-icon.svg" width="28" height="30" alt="" style="display:block"/>`;
-        const boltSvg = `<img src="${iconBase}/bolt-icon.svg" width="21" height="25" alt="" style="display:block"/>`;
-        const trophySvg = `<img src="${iconBase}/trophy-icon.svg" width="28" height="25" alt="" style="display:block"/>`;
+        const imgSrc = m.icon_url || defaultImg;
 
         html += `
-          <div class="pbg-m-part-card" onclick="window.__pbg('openMission',${globalIdx})">
-            <div class="pbg-m-badge-emalta"><span>EM ALTA</span></div>
-            <div class="pbg-m-part-top">
-              <div class="pbg-m-part-img-wrap">
-                <img src="${m.icon_url || defaultImg}" alt="" onerror="this.src='${defaultImg}'"/>
+          <div class="pbg-m-avail-card" onclick="window.__pbg('openMission',${globalIdx})">
+            <div class="pbg-m-day-label">${dayLabel}</div>
+            <div class="pbg-m-avail-img-wrap">
+              <img class="pbg-m-avail-img" src="${imgSrc}" alt="${m.name}" onerror="this.src='${defaultImg}'"/>
+            </div>
+            <div class="pbg-m-avail-body">
+              <div class="pbg-m-avail-name">${m.name}</div>
+              <div class="pbg-m-avail-desc">${m.description || conditionText(m.condition_type, m.condition_value)}</div>
+              <div class="pbg-m-avail-prize">
+                <div class="pbg-m-avail-prize-icon">${inlIcon('gift',14)}</div>
+                <div class="pbg-m-avail-prize-text">${rewardLabel}</div>
               </div>
-              <div class="pbg-m-part-info">
-                <div class="pbg-m-part-name">${m.name}</div>
-                <div class="pbg-m-part-desc">${m.description || conditionText(m.condition_type, m.condition_value)}</div>
-              </div>
-            </div>
-            <div class="pbg-m-part-duration">
-              <span class="pbg-m-part-duration-label">DURAÇÃO</span>
-              <div class="pbg-m-part-duration-time">${timerSvg}<span>${timeDisplay}</span></div>
-            </div>
-            <div class="pbg-m-part-prize-row">
-              ${chestSvg}
-              <div class="pbg-m-part-prize-text">${rewardLabel}</div>
-            </div>
-            <div class="pbg-m-part-progress-wrap">
-              <div class="pbg-m-part-progress-inner">
-                <div class="pbg-m-part-progress-icon">${boltSvg}</div>
-                <div class="pbg-m-part-progress-bar-wrap">
-                  <div class="pbg-m-part-progress-bar">
-                    <div class="pbg-m-part-progress-fill" style="width:${pct}%"></div>
+              <div style="padding:0 8px 6px">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div style="flex:1;height:6px;background:#27272a;border-radius:3px;overflow:hidden">
+                    <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#22c55e,#16a34a);border-radius:3px;transition:width .3s"></div>
                   </div>
-                  <span class="pbg-m-part-progress-pct">${pct}%</span>
+                  <span style="font-size:11px;font-weight:700;color:${pct >= 100 ? '#22c55e' : '#a1a1aa'}">${pct}%</span>
                 </div>
-                <div class="pbg-m-part-progress-icon">${trophySvg}</div>
               </div>
-            </div>
-            ${progress?.completed && m.manual_claim && !isClaimed && PLAYER_CPF ? `
-              <button class="pbg-m-claim-btn" onclick="event.stopPropagation();window.__pbg('claimMission','${m.id}')">${inlIcon('gift',12)} Resgatar</button>
-            ` : ''}
-            <div class="pbg-m-part-games" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">
-              <img class="pbg-m-part-games-thumb" src="${m.icon_url || defaultImg}" alt="" onerror="this.style.display='none'"/>
-              Jogos Elegíveis
+              ${progress?.completed && m.manual_claim && !isClaimed && PLAYER_CPF ? `
+                <div style="padding:0 8px 8px">
+                  <button class="pbg-m-btn-participar" style="width:100%;background:linear-gradient(135deg,#22c55e,#16a34a)" onclick="event.stopPropagation();window.__pbg('claimMission','${m.id}')">${inlIcon('gift',11)} Resgatar</button>
+                </div>
+              ` : `
+                <div class="pbg-m-avail-btns">
+                  <button class="pbg-m-btn-regras" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">Regras</button>
+                </div>
+              `}
+              <div class="pbg-m-avail-games" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">
+                ${inlIcon('dice',11)} Jogos Elegíveis
+              </div>
             </div>
           </div>
         `;
@@ -1721,34 +1709,40 @@
         const progress = getMissionProgress(m.id);
         const isClaimed = progress?.claimed;
         const rewardLabel = getMissionRewardLabel(m);
-
+        const dayLabel = getDayName(m.start_date);
         const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
+        const imgSrc = m.icon_url || defaultImg;
+
         html += `
-          <div class="pbg-m-part-card" style="opacity:0.6" onclick="window.__pbg('openMission',${globalIdx})">
-            <div style="padding:10px 12px 6px;text-align:center"><span class="pbg-m-tag pbg-m-complete-tag">${inlIcon('check',10)} COMPLETA</span></div>
-            <div class="pbg-m-part-top">
-              <div class="pbg-m-part-img-wrap">
-                <img src="${m.icon_url || defaultImg}" alt="" onerror="this.src='${defaultImg}'"/>
+          <div class="pbg-m-avail-card" style="opacity:0.7" onclick="window.__pbg('openMission',${globalIdx})">
+            <div class="pbg-m-day-label" style="background:#059669;color:#fff">${inlIcon('check',10)} COMPLETA</div>
+            <div class="pbg-m-avail-img-wrap">
+              <img class="pbg-m-avail-img" src="${imgSrc}" alt="${m.name}" onerror="this.src='${defaultImg}'"/>
+            </div>
+            <div class="pbg-m-avail-body">
+              <div class="pbg-m-avail-name">${m.name}</div>
+              <div class="pbg-m-avail-desc">${m.description || conditionText(m.condition_type, m.condition_value)}</div>
+              <div class="pbg-m-avail-prize">
+                <div class="pbg-m-avail-prize-icon">${inlIcon('gift',14)}</div>
+                <div class="pbg-m-avail-prize-text" style="color:#34d399">${rewardLabel}</div>
               </div>
-              <div class="pbg-m-part-info">
-                <div class="pbg-m-part-name">${m.name}</div>
-                <div class="pbg-m-part-desc">${m.description || conditionText(m.condition_type, m.condition_value)}</div>
+              <div style="padding:0 8px 6px">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div style="flex:1;height:6px;background:#27272a;border-radius:3px;overflow:hidden">
+                    <div style="height:100%;width:100%;background:linear-gradient(90deg,#10b981,#059669);border-radius:3px"></div>
+                  </div>
+                  <span style="font-size:11px;font-weight:700;color:#22c55e">100%</span>
+                </div>
+              </div>
+              ${!isClaimed && m.manual_claim && PLAYER_CPF ? `
+                <div style="padding:0 8px 8px">
+                  <button class="pbg-m-btn-participar" style="width:100%;background:linear-gradient(135deg,#22c55e,#16a34a)" onclick="event.stopPropagation();window.__pbg('claimMission','${m.id}')">${inlIcon('gift',11)} Resgatar</button>
+                </div>
+              ` : ''}
+              <div class="pbg-m-avail-games" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">
+                ${inlIcon('dice',11)} Jogos Elegíveis
               </div>
             </div>
-            <div class="pbg-m-part-prize-row">
-              <div class="pbg-m-part-prize-text" style="color:#34d399">${rewardLabel}</div>
-            </div>
-            <div class="pbg-m-part-progress-wrap">
-              <div class="pbg-m-part-progress-bar">
-                <div class="pbg-m-part-progress-fill" style="width:100%;background:linear-gradient(90deg,#10b981,#059669)"></div>
-              </div>
-              <div class="pbg-m-part-progress-row">
-                <span class="pbg-m-part-progress-pct" style="color:#34d399">100%</span>
-              </div>
-            </div>
-            ${!isClaimed && m.manual_claim && PLAYER_CPF ? `
-              <button class="pbg-m-claim-btn" onclick="event.stopPropagation();window.__pbg('claimMission','${m.id}')">${inlIcon('gift',12)} Resgatar</button>
-            ` : ''}
           </div>
         `;
       });
