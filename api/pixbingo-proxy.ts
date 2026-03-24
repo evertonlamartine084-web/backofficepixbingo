@@ -34,7 +34,7 @@ interface ProxyRequest {
   busca_agrupamento?: string;
 }
 
-async function doLogin(body: ProxyRequest): Promise<{ cookies: string; success: boolean }> {
+async function doLogin(body: ProxyRequest): Promise<{ cookies: string; success: boolean; _debug?: any }> {
   const siteUrl = body.site_url.replace(/\/+$/, '');
   // If login_url is provided, derive the base domain from it (strip /login suffix)
   let loginTarget = `${siteUrl}/login`;
@@ -44,6 +44,7 @@ async function doLogin(body: ProxyRequest): Promise<{ cookies: string; success: 
     loginTarget = cleanLogin.endsWith('/login') ? cleanLogin : `${cleanLogin}/login`;
     baseUrl = cleanLogin.replace(/\/login$/, '');
   }
+  const debugInfo: any = { baseUrl, loginTarget };
 
   let initialCookies = '';
   try {
@@ -89,8 +90,13 @@ async function doLogin(body: ProxyRequest): Promise<{ cookies: string; success: 
     }
     const cookies = Array.from(cookieMap.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
 
+    debugInfo.postStatus = res.status;
+    debugInfo.postCookiesCount = setCookies.length;
+    debugInfo.hasCookies = cookies.length > 0;
+
     if (res.status === 302 || res.status === 301) {
       const location = res.headers.get('location') || '';
+      debugInfo.redirectLocation = location;
       if (!location.includes('/login') && !location.includes('error')) {
         return { cookies, success: true };
       }
@@ -98,22 +104,30 @@ async function doLogin(body: ProxyRequest): Promise<{ cookies: string; success: 
 
     if (res.ok) {
       const text = await res.text();
+      debugInfo.responseLength = text.length;
+      debugInfo.responseSnippet = text.slice(0, 200);
       try {
         const data = JSON.parse(text);
+        debugInfo.isJson = true;
+        debugInfo.jsonKeys = Object.keys(data);
         if (data.status === true || data.logged === true) {
           return { cookies, success: true };
         }
-      } catch { /* ignore */ }
+      } catch {
+        debugInfo.isJson = false;
+        debugInfo.hasLoginForm = text.includes('name="usuario"') || text.includes('name="senha"');
+      }
       // If we got cookies back and the response isn't a login page, consider it success
       if (setCookies.length > 0 && !text.includes('name="usuario"') && !text.includes('name="senha"')) {
         return { cookies, success: true };
       }
     }
   } catch (e) {
+    debugInfo.postError = (e as Error).message;
     console.log(`[doLogin] POST ${loginTarget} failed: ${(e as Error).message}`);
   }
 
-  return { cookies: '', success: false };
+  return { cookies: '', success: false, _debug: debugInfo };
 }
 
 function buildHeaders(cookies: string, baseUrl: string): Record<string, string> {
@@ -207,7 +221,7 @@ export default async function handler(req: Request): Promise<Response> {
 
     const auth = await doLogin(body);
     if (!auth.success) {
-      return new Response(JSON.stringify({ success: false, error: 'Login falhou. Verifique credenciais e URL.' }),
+      return new Response(JSON.stringify({ success: false, error: 'Login falhou. Verifique credenciais e URL.', _debug: { ...auth._debug, site_url: body.site_url, login_url: body.login_url || 'not set', username: body.username ? body.username.slice(0, 3) + '***' : 'empty' } }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     const headers = buildHeaders(auth.cookies, baseUrl);
