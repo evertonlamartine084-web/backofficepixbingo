@@ -223,11 +223,11 @@
     .pbg-username { font-size: 13px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
     .pbg-level-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
     .pbg-level-img { width: 48px; height: 48px; object-fit: contain; flex-shrink: 0; }
-    .pbg-level-name-lbl { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.85); }
+    .pbg-level-name-lbl { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.85); font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; letter-spacing: 0.5px; }
     .pbg-xp-track { height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 3px; }
     .pbg-xp-fill { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
     .pbg-next-lvl-txt { font-size: 10px; color: #71717a; }
-    .pbg-next-lvl-txt span { color: #a78bfa; font-weight: 600; }
+    .pbg-next-lvl-txt span { color: #a78bfa; font-weight: 700; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; letter-spacing: 0.5px; }
     .pbg-close {
       position: absolute; top: 12px; right: 12px;
       background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
