@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
-import { Search, User, DollarSign, Gift, History, Loader2, CreditCard, XCircle, Wallet, Calendar, Phone, Mail, Shield, Hash } from 'lucide-react';
+import { Search, User, DollarSign, Gift, History, Loader2, CreditCard, XCircle, Wallet, Calendar, Phone, Mail, Shield, Hash, Activity, Target, Trophy, Swords, Star, Coins, Diamond, ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { PaginatedTable } from '@/components/PaginatedTable';
 import { formatBRL, parseBRL, formatDateTime, formatCPF } from '@/lib/formatters';
 import { logAudit } from '@/hooks/use-audit';
+import { supabase } from '@/integrations/supabase/client';
 
 const fmtBRL = (v: any) => {
   const n = parseBRL(v);
@@ -46,6 +47,8 @@ export default function PlayerLookup() {
   const [balance, setBalance] = useState<any>(null);
   const [transactions, setTransactions] = useState<any>(null);
   const [bonusHistory, setBonusHistory] = useState<any>(null);
+  const [events, setEvents] = useState<any[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
 
   useEffect(() => {
     const q = searchParams.get('q');
@@ -64,7 +67,7 @@ export default function PlayerLookup() {
     }
 
     setLoading(true);
-    setPlayer(null); setBalance(null); setTransactions(null); setBonusHistory(null);
+    setPlayer(null); setBalance(null); setTransactions(null); setBonusHistory(null); setEvents([]);
 
     try {
       const searchRes = await callProxy('search_player', creds, { cpf: searchQuery, uuid: searchQuery });
@@ -112,10 +115,92 @@ export default function PlayerLookup() {
       }
 
       toast.success('Dados carregados!');
+
+      // Fetch gamification events from Supabase
+      const cpfClean = (foundPlayer?.cpf || searchQuery).replace(/\D/g, '');
+      if (cpfClean) fetchEvents(cpfClean);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao buscar jogador');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEvents = async (cpf: string) => {
+    setEventsLoading(true);
+    try {
+      const [walletRes, activityRes, missionsRes, achievementsRes, tournamentsRes, spinsRes, xpHistRes, levelUpsRes, rewardsRes] = await Promise.all([
+        (supabase as any).from('player_wallets').select('*').eq('cpf', cpf).maybeSingle(),
+        (supabase as any).from('player_activity_log').select('*').eq('cpf', cpf).order('created_at', { ascending: false }).limit(100),
+        (supabase as any).from('player_mission_progress').select('*, missions(name, condition_type, reward_type, reward_value)').eq('cpf', cpf),
+        (supabase as any).from('player_achievements').select('*, achievements(name, category, reward_type, reward_value)').eq('cpf', cpf),
+        (supabase as any).from('player_tournament_entries').select('*, tournaments(name, metric, status)').eq('cpf', cpf),
+        (supabase as any).from('player_spins').select('*').eq('cpf', cpf).maybeSingle(),
+        (supabase as any).from('xp_history').select('*').eq('cpf', cpf).order('created_at', { ascending: false }).limit(50),
+        (supabase as any).from('level_ups').select('*').eq('cpf', cpf).order('created_at', { ascending: false }),
+        (supabase as any).from('player_rewards_pending').select('*').eq('cpf', cpf).order('created_at', { ascending: false }),
+      ]);
+
+      const allEvents: any[] = [];
+
+      // Wallet info
+      if (walletRes.data) {
+        const w = walletRes.data;
+        allEvents.push({ type: 'wallet', icon: 'coins', label: 'Carteira Gamificação', date: w.updated_at || w.created_at, details: `Moedas: ${w.coins || 0} · XP: ${w.xp || 0} · Diamantes: ${w.diamonds || 0} · Nível: ${w.level || 1}`, color: 'text-yellow-500' });
+      }
+
+      // Activity log
+      for (const a of (activityRes.data || [])) {
+        allEvents.push({ type: 'activity', icon: a.type || 'activity', label: a.description || a.source || 'Atividade', date: a.created_at, details: `${a.source || ''} · Qtd: ${a.amount ?? 0}`, color: (a.amount || 0) >= 0 ? 'text-green-500' : 'text-red-500' });
+      }
+
+      // Mission progress
+      for (const m of (missionsRes.data || [])) {
+        const missionName = m.missions?.name || `Missão #${m.mission_id}`;
+        const status = m.completed ? 'Concluída' : m.opted_in ? 'Participando' : 'Não inscrito';
+        allEvents.push({ type: 'mission', icon: 'target', label: `Missão: ${missionName}`, date: m.completed_at || m.updated_at || m.created_at, details: `Status: ${status} · Progresso: ${m.progress || 0}/${m.target || '?'}`, color: m.completed ? 'text-green-500' : 'text-blue-500' });
+      }
+
+      // Achievements
+      for (const a of (achievementsRes.data || [])) {
+        const achName = a.achievements?.name || `Conquista #${a.achievement_id}`;
+        allEvents.push({ type: 'achievement', icon: 'trophy', label: `Conquista: ${achName}`, date: a.earned_at || a.created_at, details: `Categoria: ${a.achievements?.category || '—'}`, color: 'text-amber-500' });
+      }
+
+      // Tournaments
+      for (const t of (tournamentsRes.data || [])) {
+        const tName = t.tournaments?.name || `Torneio #${t.tournament_id}`;
+        allEvents.push({ type: 'tournament', icon: 'swords', label: `Torneio: ${tName}`, date: t.updated_at || t.created_at, details: `Score: ${t.score || 0} · Rank: #${t.rank || '—'}`, color: 'text-purple-500' });
+      }
+
+      // XP history
+      for (const x of (xpHistRes.data || [])) {
+        allEvents.push({ type: 'xp', icon: 'star', label: `XP: ${x.action || 'ganho'}`, date: x.created_at, details: `+${x.xp_earned || 0} XP · ${x.description || ''}`, color: 'text-cyan-500' });
+      }
+
+      // Level ups
+      for (const l of (levelUpsRes.data || [])) {
+        allEvents.push({ type: 'level_up', icon: 'arrow-up', label: `Level Up: ${l.from_level} → ${l.to_level}`, date: l.created_at, details: `Recompensa: ${l.reward_coins || 0} moedas, ${l.reward_diamonds || 0} diamantes`, color: 'text-emerald-500' });
+      }
+
+      // Spins
+      if (spinsRes.data) {
+        const s = spinsRes.data;
+        allEvents.push({ type: 'spins', icon: 'wheel', label: 'Roleta Diária', date: s.last_spin_date || s.updated_at, details: `Giros hoje: ${s.spins_used_today || 0} · Total: ${s.total_spins || 0}`, color: 'text-pink-500' });
+      }
+
+      // Pending rewards
+      for (const r of (rewardsRes.data || [])) {
+        allEvents.push({ type: 'reward', icon: 'gift', label: `Recompensa: ${r.reward_type || '—'}`, date: r.created_at, details: `Valor: ${r.reward_value || 0} · Fonte: ${r.source || '—'} · ${r.claimed_at ? 'Resgatado' : 'Pendente'}`, color: r.claimed_at ? 'text-green-500' : 'text-orange-500' });
+      }
+
+      // Sort all by date descending
+      allEvents.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+      setEvents(allEvents);
+    } catch (e) {
+      console.error('Erro ao buscar eventos:', e);
+    } finally {
+      setEventsLoading(false);
     }
   };
 
@@ -430,6 +515,51 @@ export default function PlayerLookup() {
               />
             ) : (
               <p className="text-sm text-muted-foreground italic">Nenhuma transação encontrada</p>
+            )}
+          </div>
+
+          {/* Events (Gamification) */}
+          <div className="glass-card p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center">
+                <Activity className="w-4 h-4 text-violet-500" />
+              </div>
+              <h3 className="font-semibold text-foreground text-lg">Eventos de Gamificação</h3>
+              {events.length > 0 && (
+                <Badge variant="secondary" className="ml-2">{events.length} eventos</Badge>
+              )}
+            </div>
+            {eventsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : events.length > 0 ? (
+              <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+                {events.map((ev, i) => {
+                  const iconMap: Record<string, any> = {
+                    target: Target, trophy: Trophy, swords: Swords, star: Star,
+                    coins: Coins, 'arrow-up': ArrowUp, gift: Gift, wheel: Star,
+                    activity: Activity,
+                  };
+                  const IconComp = iconMap[ev.icon] || Activity;
+                  return (
+                    <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-secondary/40 hover:bg-secondary/60 transition-colors">
+                      <div className={`mt-0.5 shrink-0 ${ev.color || 'text-muted-foreground'}`}>
+                        <IconComp className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">{ev.label}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{ev.details}</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                        {ev.date ? formatDateTime(ev.date) : '—'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">Nenhum evento de gamificação encontrado</p>
             )}
           </div>
         </div>
