@@ -392,7 +392,7 @@
     .pbg-m-avail-games:hover { color: rgba(255,255,255,0.6); }
     /* Participating mission card - reference layout */
     .pbg-m-part-card {
-      flex: 0 0 210px; min-width: 210px; scroll-snap-align: start;
+      flex: 0 0 260px; min-width: 260px; scroll-snap-align: start;
       background: linear-gradient(180deg, #1a2444 0%, #151d3a 50%, #111832 100%);
       border: 1px solid rgba(60,90,180,0.35); border-radius: 14px; overflow: hidden;
       transition: all 0.2s; position: relative; cursor: pointer;
@@ -419,7 +419,7 @@
     .pbg-m-part-info { flex: 1; min-width: 0; }
     .pbg-m-part-name {
       font-size: 14px; font-weight: 900; color: #fff; margin: 0 0 4px; text-transform: uppercase;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.3;
+      overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3;
     }
     .pbg-m-part-desc {
       font-size: 10px; color: rgba(255,255,255,0.45); margin: 0; line-height: 1.4;
