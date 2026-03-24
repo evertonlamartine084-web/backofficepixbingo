@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backoffice Health Check — PixBingoBR</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0c0a1a; color: #e2e8f0; min-height: 100vh; }
+    .header { background: linear-gradient(135deg, #059669, #0d9488); padding: 24px 32px; }
+    .header h1 { font-size: 22px; font-weight: 700; }
+    .header p { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+    .section { margin-bottom: 20px; }
+    .section h2 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #34d399; display: flex; align-items: center; gap: 8px; }
+    .section h2 .count { font-size: 11px; background: #1a1730; padding: 2px 8px; border-radius: 10px; color: #94a3b8; font-weight: 400; }
+    .test-row { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: #1a1730; border-radius: 8px; margin-bottom: 4px; font-size: 12px; }
+    .status { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .status.pass { background: #065f4620; color: #34d399; }
+    .status.fail { background: #7f1d1d20; color: #f87171; }
+    .status.warn { background: #78350f20; color: #fbbf24; }
+    .status.running { background: #1e1b4b20; color: #818cf8; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;}50%{opacity:0.4;} }
+    .label { flex: 1; }
+    .detail { font-size: 10px; color: #94a3b8; max-width: 350px; text-align: right; font-family: monospace; }
+    .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-green { background: linear-gradient(135deg, #059669, #10b981); color: white; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-outline { background: transparent; border: 1px solid #374151; color: #e2e8f0; }
+    .summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+    .summary-card { padding: 14px; border-radius: 10px; text-align: center; }
+    .summary-card .num { font-size: 28px; font-weight: 700; }
+    .summary-card .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
+    .sc-pass { background: #065f4620; border: 1px solid #065f4640; } .sc-pass .num { color: #34d399; }
+    .sc-fail { background: #7f1d1d20; border: 1px solid #7f1d1d40; } .sc-fail .num { color: #f87171; }
+    .sc-warn { background: #78350f20; border: 1px solid #78350f40; } .sc-warn .num { color: #fbbf24; }
+    .sc-total { background: #1e1b4b20; border: 1px solid #1e1b4b40; } .sc-total .num { color: #818cf8; }
+    .sc-time { background: #0f172a; border: 1px solid #1e293b; } .sc-time .num { color: #94a3b8; }
+    .progress-bar { width: 100%; height: 5px; background: #1e1b4b; border-radius: 3px; overflow: hidden; margin-bottom: 16px; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #059669, #34d399); border-radius: 3px; transition: width 0.3s; }
+    .log { background: #0f0d1a; border: 1px solid #1e1b4b; border-radius: 8px; padding: 14px; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.5; color: #64748b; margin-top: 14px; white-space: pre-wrap; }
+    .links { display: flex; gap: 10px; font-size: 12px; margin-left: auto; }
+    .links a { color: #818cf8; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Backoffice Health Check</h1>
+  <p>Testa APIs, paginas, dados e integridade de todo o painel administrativo</p>
+</div>
+
+<div class="container">
+  <div class="controls">
+    <button class="btn btn-green" id="runBtn" onclick="runAll()">Executar Todos os Testes</button>
+    <button class="btn btn-outline" onclick="location.reload()">Resetar</button>
+    <div class="links">
+      <a href="/widget-test.html">Widget Basico</a>
+      <a href="/widget-test-advanced.html">Widget Avancado</a>
+    </div>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" id="progressBar" style="width:0%"></div></div>
+
+  <div class="summary" id="summary" style="display:none;">
+    <div class="summary-card sc-total"><div class="num" id="totalCount">0</div><div class="lbl">Total</div></div>
+    <div class="summary-card sc-pass"><div class="num" id="passCount">0</div><div class="lbl">Passou</div></div>
+    <div class="summary-card sc-fail"><div class="num" id="failCount">0</div><div class="lbl">Falhou</div></div>
+    <div class="summary-card sc-warn"><div class="num" id="warnCount">0</div><div class="lbl">Avisos</div></div>
+    <div class="summary-card sc-time"><div class="num" id="timeTotal">0s</div><div class="lbl">Tempo</div></div>
+  </div>
+
+  <div id="results"></div>
+  <div class="log" id="logArea" style="display:none;"></div>
+</div>
+
+<script>
+const BASE = window.location.origin;
+const API = `${BASE}/api/gamification-widget`;
+const SUPABASE_URL = 'https://nehmmvtpagncmldivnxn.supabase.co';
+
+let tests = [];
+let logLines = [];
+
+function log(msg) {
+  logLines.push(`[${new Date().toLocaleTimeString('pt-BR')}] ${msg}`);
+  const el = document.getElementById('logArea');
+  el.style.display = 'block';
+  el.textContent = logLines.join('\n');
+  el.scrollTop = el.scrollHeight;
+}
+
+function add(section, name, status, detail) {
+  tests.push({ section, name, status, detail: detail || '' });
+  render();
+}
+
+function updateLast(status, detail) {
+  tests[tests.length - 1].status = status;
+  if (detail !== undefined) tests[tests.length - 1].detail = detail;
+  render();
+}
+
+function render() {
+  const sections = {};
+  tests.forEach(t => { if (!sections[t.section]) sections[t.section] = []; sections[t.section].push(t); });
+  let html = '';
+  for (const [section, items] of Object.entries(sections)) {
+    const pass = items.filter(i => i.status === 'pass').length;
+    html += `<div class="section"><h2>${section} <span class="count">${pass}/${items.length}</span></h2>`;
+    items.forEach(t => {
+      const icon = t.status === 'pass' ? '✓' : t.status === 'fail' ? '✗' : t.status === 'running' ? '◌' : '⚠';
+      html += `<div class="test-row"><div class="status ${t.status}">${icon}</div><div class="label">${t.name}</div><div class="detail">${t.detail}</div></div>`;
+    });
+    html += '</div>';
+  }
+  document.getElementById('results').innerHTML = html;
+  const p = tests.filter(t => t.status === 'pass').length;
+  const f = tests.filter(t => t.status === 'fail').length;
+  const w = tests.filter(t => t.status === 'warn').length;
+  document.getElementById('summary').style.display = 'grid';
+  document.getElementById('totalCount').textContent = tests.length;
+  document.getElementById('passCount').textContent = p;
+  document.getElementById('failCount').textContent = f;
+  document.getElementById('warnCount').textContent = w;
+}
+
+async function timed(fn) {
+  const start = performance.now();
+  const result = await fn();
+  return { ...result, ms: Math.round(performance.now() - start) };
+}
+
+async function fetchJson(url) {
+  return timed(async () => {
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      return { ok: res.ok, status: res.status, data };
+    } catch(e) {
+      return { ok: false, status: 0, data: null, error: e.message };
+    }
+  });
+}
+
+async function fetchPage(url) {
+  return timed(async () => {
+    try {
+      const res = await fetch(url);
+      const text = await res.text();
+      return { ok: res.ok, status: res.status, size: text.length, hasRoot: text.includes('id="root"') };
+    } catch(e) {
+      return { ok: false, status: 0, size: 0, hasRoot: false, error: e.message };
+    }
+  });
+}
+
+async function runAll() {
+  tests = []; logLines = [];
+  document.getElementById('runBtn').disabled = true;
+  const totalStart = performance.now();
+  let done = 0;
+  const total = 52;
+  const step = () => { done++; document.getElementById('progressBar').style.width = `${Math.round(done/total*100)}%`; };
+
+  // ===== 1. GAMIFICATION API — DATA COMPLETENESS =====
+  log('=== GAMIFICATION API ===');
+  add('API Gamification', 'Endpoint responde', 'running');
+  const { data: apiData, ms: apiMs, ok: apiOk } = await fetchJson(`${API}?action=data&player=70791576418`);
+  updateLast(apiOk ? 'pass' : 'fail', `${apiMs}ms`);
+  step();
+
+  if (apiData) {
+    const checks = [
+      { key: 'missions', label: 'Missoes carregadas' },
+      { key: 'achievements', label: 'Conquistas carregadas' },
+      { key: 'tournaments', label: 'Torneios carregados' },
+      { key: 'store_items', label: 'Itens da loja carregados' },
+      { key: 'levels', label: 'Niveis carregados' },
+      { key: 'wheel_prizes', label: 'Premios da roleta carregados' },
+      { key: 'mini_games', label: 'Mini games carregados' },
+      { key: 'wallet', label: 'Wallet do jogador' },
+      { key: 'leaderboards', label: 'Leaderboards dos torneios' },
+      { key: 'mission_progress', label: 'Progresso de missoes' },
+      { key: 'achievement_progress', label: 'Progresso de conquistas' },
+      { key: 'pending_rewards', label: 'Recompensas pendentes' },
+      { key: 'activity_log', label: 'Log de atividade' },
+      { key: 'player_spins', label: 'Spins do jogador' },
+    ];
+
+    for (const c of checks) {
+      const val = apiData[c.key];
+      const isArray = Array.isArray(val);
+      const count = isArray ? val.length : (val ? 1 : 0);
+      const exists = val !== null && val !== undefined;
+      add('API Gamification — Dados', c.label, exists ? 'pass' : 'warn', isArray ? `${count} registros` : (exists ? 'OK' : 'vazio'));
+      step();
+    }
+
+    // Data quality checks
+    log('\n=== QUALIDADE DOS DADOS ===');
+
+    // Levels sequential
+    const levels = apiData.levels || [];
+    if (levels.length > 0) {
+      const lvlNums = levels.map(l => l.level_number || l.level).sort((a, b) => a - b);
+      let sequential = true;
+      for (let i = 1; i < lvlNums.length; i++) {
+        if (lvlNums[i] !== lvlNums[i-1] + 1) { sequential = false; break; }
+      }
+      add('Integridade dos Dados', 'Niveis sequenciais', sequential ? 'pass' : 'warn', `${levels.length} niveis`);
+    } else {
+      add('Integridade dos Dados', 'Niveis sequenciais', 'warn', '0 niveis');
+    }
+    step();
+
+    // Store items have reward_type
+    const storeItems = apiData.store_items || [];
+    const validRewardTypes = ['bonus','free_bet','cartelas','coins','xp','diamonds','physical','coupon','gem_chest','gem_roulette','diamond_chest','bonus_deposit','free_spins'];
+    const badStore = storeItems.filter(i => i.reward_type && !validRewardTypes.includes(i.reward_type));
+    add('Integridade dos Dados', 'Itens da loja com reward_type valido', badStore.length === 0 ? 'pass' : 'warn', `${storeItems.length} itens, ${badStore.length} invalidos`);
+    step();
+
+    // Wallet sanity
+    const w = apiData.wallet;
+    if (w) {
+      add('Integridade dos Dados', 'Wallet sem saldos negativos', (w.coins >= 0 && w.xp >= 0 && w.diamonds >= 0) ? 'pass' : 'fail',
+        `coins=${w.coins} xp=${w.xp} diamonds=${w.diamonds}`);
+      step();
+      add('Integridade dos Dados', 'Level coerente', (w.level >= 1 && w.level <= 100) ? 'pass' : 'warn', `level=${w.level}`);
+      step();
+    } else {
+      add('Integridade dos Dados', 'Wallet sem saldos negativos', 'warn', 'sem wallet');
+      step();
+      add('Integridade dos Dados', 'Level coerente', 'warn', 'sem wallet');
+      step();
+    }
+
+    // Tournaments have prizes
+    const tournaments = apiData.tournaments || [];
+    const tWithPrizes = tournaments.filter(t => t.prizes?.length > 0);
+    add('Integridade dos Dados', 'Torneios com premios configurados', tWithPrizes.length === tournaments.length ? 'pass' : (tournaments.length === 0 ? 'warn' : 'warn'),
+      `${tWithPrizes.length}/${tournaments.length} com premios`);
+    step();
+
+    // Wheel prizes probability sums
+    const wheelPrizes = apiData.wheel_prizes || [];
+    if (wheelPrizes.length > 0) {
+      const totalProb = wheelPrizes.reduce((s, p) => s + (p.probability || 0), 0);
+      add('Integridade dos Dados', 'Probabilidades da roleta somam > 0', totalProb > 0 ? 'pass' : 'fail', `soma: ${totalProb}`);
+    } else {
+      add('Integridade dos Dados', 'Probabilidades da roleta', 'warn', '0 premios');
+    }
+    step();
+  } else {
+    for (let i = 0; i < 20; i++) { add('API Gamification', 'Pulado (API falhou)', 'fail', ''); step(); }
+  }
+
+  // ===== 2. API ENDPOINTS =====
+  log('\n=== ENDPOINTS DA API ===');
+
+  add('APIs Vercel', 'popup-check responde', 'running');
+  const { ok: pcOk, ms: pcMs, data: pcData } = await fetchJson(`${BASE}/api/popup-check?cpf=70791576418`);
+  updateLast(pcOk ? 'pass' : 'fail', `${pcMs}ms`);
+  step();
+
+  add('APIs Vercel', 'sync_progress valida CPF', 'running');
+  const { data: spData, ms: spMs } = await fetchJson(`${API}?action=sync_progress&player=11111111111&event_type=login&event_value=1`);
+  updateLast(spData?.error?.includes('inv') ? 'pass' : 'fail', `${spMs}ms | ${spData?.error || 'sem erro'}`);
+  step();
+
+  add('APIs Vercel', 'store_buy valida item_id', 'running');
+  const { data: sbData, ms: sbMs } = await fetchJson(`${API}?action=store_buy&player=70791576418`);
+  updateLast(sbData?.error ? 'pass' : 'fail', `${sbMs}ms`);
+  step();
+
+  add('APIs Vercel', 'action desconhecida retorna erro', 'running');
+  const { data: ukData, ms: ukMs } = await fetchJson(`${API}?action=xyzfake`);
+  updateLast(ukData?.error ? 'pass' : 'fail', `${ukMs}ms`);
+  step();
+
+  // ===== 3. SUPABASE EDGE FUNCTIONS =====
+  log('\n=== EDGE FUNCTIONS ===');
+
+  add('Edge Functions', 'gamification-widget (Supabase)', 'running');
+  const { ok: efOk, ms: efMs } = await fetchJson(`${SUPABASE_URL}/functions/v1/gamification-widget?action=data`);
+  updateLast(efOk ? 'pass' : 'warn', `${efMs}ms`);
+  step();
+
+  add('Edge Functions', 'manage-users CORS', 'running');
+  try {
+    const start = performance.now();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-users`, { method: 'OPTIONS' });
+    const ms = Math.round(performance.now() - start);
+    updateLast((res.ok || res.status === 204) ? 'pass' : 'warn', `${res.status} | ${ms}ms`);
+  } catch { updateLast('warn', 'CORS blocked'); }
+  step();
+
+  // ===== 4. PAGE ROUTES =====
+  log('\n=== PAGINAS DO BACKOFFICE ===');
+  const pages = [
+    { path: '/', label: 'Dashboard' },
+    { path: '/login', label: 'Login' },
+    { path: '/player', label: 'Consultar Jogador' },
+    { path: '/transactions', label: 'Transacoes' },
+    { path: '/partidas', label: 'Partidas' },
+    { path: '/segments', label: 'Segmentos' },
+    { path: '/campaigns', label: 'Campanhas' },
+    { path: '/cashback', label: 'Cashback' },
+    { path: '/assets/html', label: 'Assets HTML' },
+    { path: '/assets/popups', label: 'Popups GTM' },
+    { path: '/assets/levels', label: 'Niveis' },
+    { path: '/assets/store', label: 'Loja' },
+    { path: '/assets/push', label: 'Push Notifications' },
+    { path: '/assets/inbox', label: 'Inbox' },
+    { path: '/gamification/achievements', label: 'Conquistas' },
+    { path: '/gamification/missions', label: 'Missoes' },
+    { path: '/gamification/tournaments', label: 'Torneios' },
+    { path: '/gamification/wheel', label: 'Roleta Diaria' },
+    { path: '/gamification/mini-games', label: 'Mini Games' },
+    { path: '/gamification/mini-games-player', label: 'Baus e Premios' },
+    { path: '/gamification/player-analytics', label: 'Analytics Jogador' },
+    { path: '/gamification/store-deliveries', label: 'Entregas Loja' },
+    { path: '/gamification/widget', label: 'Widget Embed' },
+    { path: '/admin/manage-users', label: 'Gestao de Usuarios' },
+    { path: '/admin/audit', label: 'Log de Auditoria' },
+    { path: '/admin/platform', label: 'Config Plataforma' },
+    { path: '/profile', label: 'Meu Perfil' },
+  ];
+
+  // Test in batches of 6
+  for (let i = 0; i < pages.length; i += 6) {
+    const batch = pages.slice(i, i + 6);
+    await Promise.all(batch.map(async (page) => {
+      add('Paginas do Backoffice', `${page.label} (${page.path})`, 'running');
+      const idx = tests.length - 1;
+      const result = await fetchPage(`${BASE}${page.path}`);
+      if (result.ok && result.hasRoot) {
+        tests[idx] = { ...tests[idx], status: 'pass', detail: `${result.status} | ${(result.size/1024).toFixed(0)}KB | ${result.ms}ms` };
+      } else if (result.ok) {
+        tests[idx] = { ...tests[idx], status: 'warn', detail: `${result.status} | sem root | ${result.ms}ms` };
+      } else {
+        tests[idx] = { ...tests[idx], status: 'fail', detail: `${result.status} ${result.error || ''} | ${result.ms}ms` };
+      }
+      render();
+      step();
+    }));
+  }
+
+  // ===== 5. STATIC ASSETS =====
+  log('\n=== ASSETS ===');
+  const assets = [
+    { path: '/widget/gamification.js', label: 'Widget JS', minSize: 10000 },
+    { path: '/favicon.ico', label: 'Favicon', minSize: 0 },
+    { path: '/widget-test.html', label: 'Pagina de teste basico', minSize: 500 },
+    { path: '/widget-test-advanced.html', label: 'Pagina de teste avancado', minSize: 500 },
+  ];
+
+  for (const asset of assets) {
+    add('Assets Estaticos', asset.label, 'running');
+    try {
+      const start = performance.now();
+      const res = await fetch(`${BASE}${asset.path}`);
+      const blob = await res.blob();
+      const ms = Math.round(performance.now() - start);
+      updateLast(res.ok && blob.size >= asset.minSize ? 'pass' : 'warn', `${res.status} | ${(blob.size/1024).toFixed(0)}KB | ${ms}ms`);
+    } catch(e) { updateLast('fail', e.message); }
+    step();
+  }
+
+  // DONE
+  const totalMs = Math.round(performance.now() - totalStart);
+  document.getElementById('timeTotal').textContent = (totalMs / 1000).toFixed(1) + 's';
+  log(`\n=== FINALIZADO em ${(totalMs/1000).toFixed(1)}s ===`);
+  const p = tests.filter(t => t.status === 'pass').length;
+  const f = tests.filter(t => t.status === 'fail').length;
+  const w = tests.filter(t => t.status === 'warn').length;
+  log(`Resultado: ${p} passou | ${f} falhou | ${w} avisos`);
+  document.getElementById('runBtn').disabled = false;
+}
+</script>
+
+</body>
+</html>

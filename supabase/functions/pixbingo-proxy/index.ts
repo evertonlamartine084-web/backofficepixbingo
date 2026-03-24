@@ -30,7 +30,8 @@ const ALLOWED_SITE_URLS = [
 ];
 
 type Action = 'login' | 'list_users' | 'search_player' | 'player_transactions'
-  | 'credit_bonus' | 'cancel_bonus' | 'list_transactions' | 'financeiro' | 'credit_batch' | 'list_partidas' | 'scrape_page';
+  | 'credit_bonus' | 'cancel_bonus' | 'list_transactions' | 'financeiro' | 'credit_batch' | 'list_partidas' | 'scrape_page'
+  | 'list_vendedores' | 'vendedor_detail' | 'vendedor_indicados';
 
 interface ProxyRequest {
   action: Action;
@@ -58,6 +59,9 @@ interface ProxyRequest {
   busca_tipo_transacao?: string;
   busca_email?: string;
   busca_agrupamento?: string;
+  busca_vendedor?: string;
+  busca_login?: string;
+  vendedor_id?: string;
 }
 
 async function doLogin(body: ProxyRequest): Promise<{ cookies: string; success: boolean }> {
@@ -209,7 +213,7 @@ Deno.serve(async (req) => {
     const auth = await doLogin(body);
     if (!auth.success) {
       return new Response(JSON.stringify({ success: false, error: 'Login falhou. Verifique credenciais e URL.' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     const headers = buildHeaders(auth.cookies, baseUrl);
 
@@ -753,6 +757,78 @@ Deno.serve(async (req) => {
         result = { credited, errors, total: items.length };
         break;
       }
+      case 'list_vendedores': {
+        const params = new URLSearchParams();
+        params.set('draw', String(body.draw || 1));
+        params.set('start', String(body.start || 0));
+        params.set('length', String(body.length || 50));
+        const vendCols = ['id', 'distribuidor', 'vendedor', 'email', 'ativo', 'codigo'];
+        vendCols.forEach((col, i) => {
+          params.set(`columns[${i}][data]`, col);
+          params.set(`columns[${i}][name]`, '');
+          params.set(`columns[${i}][searchable]`, 'true');
+          params.set(`columns[${i}][orderable]`, 'true');
+          params.set(`columns[${i}][search][value]`, '');
+          params.set(`columns[${i}][search][regex]`, 'false');
+        });
+        params.set('order[0][column]', '0');
+        params.set('order[0][dir]', 'asc');
+        params.set('search[value]', '');
+        params.set('search[regex]', 'false');
+        if (body.busca_vendedor) params.set('busca_vendedor', body.busca_vendedor);
+        if (body.busca_login) params.set('busca_login', body.busca_login);
+        if (body.search) {
+          params.set('search[value]', body.search);
+        }
+        result = await fetchJSON(`${baseUrl}/vendedores/listar?${params}`, headers);
+        break;
+      }
+
+      case 'vendedor_detail': {
+        const vid = body.vendedor_id || '';
+        if (!vid) { result = { error: 'vendedor_id obrigatório' }; break; }
+        // Try to get vendedor detail page
+        const detailRes = await fetch(`${baseUrl}/vendedores/${vid}`, {
+          method: 'GET',
+          headers: { ...headers, Accept: 'text/html,application/xhtml+xml,*/*' },
+          signal: AbortSignal.timeout(12000),
+        });
+        const html = await detailRes.text();
+        try {
+          result = JSON.parse(html);
+        } catch {
+          // Extract data from HTML
+          const inputs = [...html.matchAll(/<input[^>]*name=['"]([^'"]+)['"][^>]*value=['"]([^'"]*)['"]/gi)]
+            .reduce((acc: Record<string, string>, m) => { acc[m[1]] = m[2]; return acc; }, {});
+          result = { html_status: detailRes.status, fields: inputs };
+        }
+        break;
+      }
+
+      case 'vendedor_indicados': {
+        const vid = body.vendedor_id || '';
+        if (!vid) { result = { error: 'vendedor_id obrigatório' }; break; }
+        const params = new URLSearchParams();
+        params.set('draw', String(body.draw || 1));
+        params.set('start', String(body.start || 0));
+        params.set('length', String(body.length || 50));
+        const indCols = ['id', 'username', 'cpf', 'created_at', 'depositos', 'apostas'];
+        indCols.forEach((col, i) => {
+          params.set(`columns[${i}][data]`, col);
+          params.set(`columns[${i}][name]`, '');
+          params.set(`columns[${i}][searchable]`, 'true');
+          params.set(`columns[${i}][orderable]`, 'true');
+          params.set(`columns[${i}][search][value]`, '');
+          params.set(`columns[${i}][search][regex]`, 'false');
+        });
+        params.set('order[0][column]', '0');
+        params.set('order[0][dir]', 'desc');
+        params.set('search[value]', '');
+        params.set('search[regex]', 'false');
+        result = await fetchJSON(`${baseUrl}/vendedores/${vid}/indicados/listar?${params}`, headers);
+        break;
+      }
+
       case 'cancel_bonus': {
         result = { status: false, msg: 'A plataforma não suporta cancelamento de bônus. Use o painel original para esta operação.' };
         break;

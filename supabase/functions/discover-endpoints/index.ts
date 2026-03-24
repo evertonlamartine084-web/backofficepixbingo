@@ -192,8 +192,8 @@ Deno.serve(async (req) => {
 
         if (contentType.includes('json') && res.ok) {
           try {
-            const text = await res.text();
-            sampleResponse = text.slice(0, 500);
+            await res.text();
+            sampleResponse = '[dados disponíveis]';
           } catch { /* ignore */ }
         }
 

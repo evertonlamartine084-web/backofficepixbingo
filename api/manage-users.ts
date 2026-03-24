@@ -49,7 +49,13 @@ export default async function handler(req: Request): Promise<Response> {
       return json({ error: 'Apenas admins podem gerenciar usuários' }, 403);
     }
 
-    const { action, ...params } = await req.json();
+    let body: Record<string, any>;
+    try {
+      body = await req.json();
+    } catch {
+      return json({ error: 'Body JSON inválido' }, 400);
+    }
+    const { action, ...params } = body;
 
     if (action === 'list') {
       const { data: { users }, error } = await adminClient.auth.admin.listUsers({ perPage: 100 });

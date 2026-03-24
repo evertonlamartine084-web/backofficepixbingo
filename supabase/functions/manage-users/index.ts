@@ -78,7 +78,13 @@ Deno.serve(async (req) => {
       return json({ error: 'Apenas admins podem gerenciar usuários' });
     }
 
-    const { action, ...params } = await req.json();
+    let body: Record<string, any>;
+    try {
+      body = await req.json();
+    } catch {
+      return json({ error: 'Body JSON inválido' });
+    }
+    const { action, ...params } = body;
 
     if (action === 'list') {
       const { data: { users }, error } = await adminClient.auth.admin.listUsers({ perPage: 100 });
@@ -210,6 +216,6 @@ Deno.serve(async (req) => {
     return json({ error: 'Ação não reconhecida' });
   } catch (err) {
     console.error('manage-users error:', (err as Error).message);
-    return json({ error: (err as Error).message });
+    return json({ error: 'Erro interno do servidor' });
   }
 });

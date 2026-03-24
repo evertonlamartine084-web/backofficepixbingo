@@ -34,6 +34,10 @@ const DailyWheel = lazy(() => import("@/pages/gamification/DailyWheel"));
 const WidgetPreview = lazy(() => import("@/pages/gamification/WidgetPreview"));
 const MiniGames = lazy(() => import("@/pages/gamification/MiniGames"));
 const MiniGamesPlayer = lazy(() => import("@/pages/gamification/MiniGamesPlayer"));
+const PlayerAnalytics = lazy(() => import("@/pages/gamification/PlayerAnalytics"));
+const StoreDeliveries = lazy(() => import("@/pages/gamification/StoreDeliveries"));
+const Referrals = lazy(() => import("@/pages/gamification/Referrals"));
+const Partidas = lazy(() => import("@/pages/Partidas"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -66,12 +70,12 @@ const App = () => (
               <Route path="/assets/html" element={<PopupAssets />} />
               <Route path="/cashback" element={<Cashback />} />
               <Route path="/player" element={<PlayerLookup />} />
+              <Route path="/partidas" element={<Partidas />} />
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/admin/manage-users" element={<ManageUsers />} />
               <Route path="/admin/audit" element={<AuditLog />} />
               <Route path="/admin/platform" element={<PlatformConfig />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/popups" element={<Popups />} />
               <Route path="/assets/levels" element={<Levels />} />
               <Route path="/assets/store" element={<Store />} />
               <Route path="/assets/push" element={<Push />} />
@@ -83,6 +87,9 @@ const App = () => (
               <Route path="/gamification/widget" element={<WidgetPreview />} />
               <Route path="/gamification/mini-games" element={<MiniGames />} />
               <Route path="/gamification/mini-games-player" element={<MiniGamesPlayer />} />
+              <Route path="/gamification/player-analytics" element={<PlayerAnalytics />} />
+              <Route path="/gamification/store-deliveries" element={<StoreDeliveries />} />
+              <Route path="/gamification/referrals" element={<Referrals />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

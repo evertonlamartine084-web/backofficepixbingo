@@ -366,6 +366,16 @@ export default async function handler(req: Request): Promise<Response> {
             credit_result: JSON.stringify(creditResult).slice(0, 200),
           }).eq('id', participant.id);
           credited++;
+
+          // Sync gamification progress (deposit-type campaign)
+          try {
+            const cpf = participant.cpf?.replace(/\D/g, '');
+            if (cpf) {
+              const evtType = campaign.type === 'deposite_e_ganhe' ? 'deposit' : 'bet';
+              const evtValue = Number(participant.total_value || campaign.min_value || 1);
+              await fetch(`${process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000'}/api/gamification-widget?action=sync_progress&player=${cpf}&event_type=${evtType}&event_value=${evtValue}`);
+            }
+          } catch { /* non-blocking */ }
         } else {
           await supabase.from('campaign_participants').update({
             status: 'ERRO', credit_result: JSON.stringify(creditResult).slice(0, 200),

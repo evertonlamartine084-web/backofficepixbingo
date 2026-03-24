@@ -7,7 +7,7 @@ import {
   Users, CircleDollarSign,
 } from 'lucide-react';
 import { DashboardInfoCard } from '@/components/DashboardInfoCard';
-import { useProxy } from '@/hooks/use-proxy';
+import { useProxy, getSavedCredentials } from '@/hooks/use-proxy';
 import { Button } from '@/components/ui/button';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -70,7 +70,7 @@ interface FinancialData {
 }
 
 export default function Dashboard() {
-  const creds = { username: 'auto', password: 'auto' };
+  const creds = getSavedCredentials();
   const [period, setPeriod] = useState<PeriodFilter>('today');
   const [customStart, setCustomStart] = useState<Date>(new Date());
   const [customEnd, setCustomEnd] = useState<Date>(new Date());

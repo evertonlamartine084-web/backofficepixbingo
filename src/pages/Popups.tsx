@@ -958,8 +958,8 @@ export default function Popups() {
                   <TableBody>
                     {statsEvents.filter(e => e.event_type === 'view').length === 0 ? (
                       <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground text-xs">Nenhuma visualização</TableCell></TableRow>
-                    ) : statsEvents.filter(e => e.event_type === 'view').map((e, i) => (
-                      <TableRow key={i}>
+                    ) : statsEvents.filter(e => e.event_type === 'view').map((e) => (
+                      <TableRow key={e.id}>
                         <TableCell className="text-xs font-mono">{e.cpf_masked}</TableCell>
                         <TableCell className="text-xs">{new Date(e.created_at).toLocaleString('pt-BR')}</TableCell>
                       </TableRow>
@@ -980,8 +980,8 @@ export default function Popups() {
                   <TableBody>
                     {statsEvents.filter(e => e.event_type === 'click').length === 0 ? (
                       <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground text-xs">Nenhum clique</TableCell></TableRow>
-                    ) : statsEvents.filter(e => e.event_type === 'click').map((e, i) => (
-                      <TableRow key={i}>
+                    ) : statsEvents.filter(e => e.event_type === 'click').map((e) => (
+                      <TableRow key={e.id}>
                         <TableCell className="text-xs font-mono">{e.cpf_masked}</TableCell>
                         <TableCell className="text-xs">{new Date(e.created_at).toLocaleString('pt-BR')}</TableCell>
                       </TableRow>

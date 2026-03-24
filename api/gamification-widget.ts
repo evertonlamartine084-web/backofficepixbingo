@@ -3,6 +3,18 @@ import { createClient } from '@supabase/supabase-js';
 import { getCorsHeaders, optionsResponse } from './_cors.js';
 export const config = { runtime: 'edge' };
 
+function isValidCPF(cpf: string): boolean {
+  const digits = cpf.replace(/\D/g, '');
+  if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) return false;
+  for (let t = 9; t < 11; t++) {
+    let sum = 0;
+    for (let i = 0; i < t; i++) sum += parseInt(digits[i]) * (t + 1 - i);
+    const remainder = (sum * 10) % 11;
+    if ((remainder === 10 ? 0 : remainder) !== parseInt(digits[t])) return false;
+  }
+  return true;
+}
+
 // Inline XP sync to avoid import issues with Vercel Edge
 async function syncPlayerXpInline(cpf: string, supabase: any): Promise<void> {
   try {
@@ -309,6 +321,41 @@ async function creditBonusOnPlatform(baseUrl: string, headers: Record<string, st
   }
 }
 
+// Process referral rewards for both referrer and referred
+async function processReferralRewards(supabase: any, referralId: string, referrerCpf: string, referredCpf: string, config: any) {
+  if (!config) return;
+  // Reward referrer
+  if (config.referrer_reward_value > 0) {
+    const { data: rw } = await supabase.from('player_wallets').select('*').eq('cpf', referrerCpf).maybeSingle();
+    if (rw) {
+      if (config.referrer_reward_type === 'coins') {
+        await supabase.from('player_wallets').update({ coins: (rw.coins || 0) + config.referrer_reward_value, total_coins_earned: (rw.total_coins_earned || 0) + config.referrer_reward_value } as any).eq('cpf', referrerCpf);
+      } else if (config.referrer_reward_type === 'diamonds') {
+        await supabase.from('player_wallets').update({ diamonds: (rw.diamonds || 0) + config.referrer_reward_value } as any).eq('cpf', referrerCpf);
+      } else if (config.referrer_reward_type === 'xp') {
+        await supabase.from('player_wallets').update({ xp: (rw.xp || 0) + config.referrer_reward_value, total_xp_earned: (rw.total_xp_earned || 0) + config.referrer_reward_value } as any).eq('cpf', referrerCpf);
+      }
+      await supabase.from('player_activity_log').insert({ cpf: referrerCpf, type: 'referral', amount: config.referrer_reward_value, source: 'referral_reward', description: `Recompensa por indicação` } as any);
+    }
+    await supabase.from('referrals').update({ referrer_rewarded: true, referrer_reward_amount: config.referrer_reward_value } as any).eq('id', referralId);
+  }
+  // Reward referred
+  if (config.referred_reward_value > 0) {
+    const { data: rw2 } = await supabase.from('player_wallets').select('*').eq('cpf', referredCpf).maybeSingle();
+    if (rw2) {
+      if (config.referred_reward_type === 'coins') {
+        await supabase.from('player_wallets').update({ coins: (rw2.coins || 0) + config.referred_reward_value, total_coins_earned: (rw2.total_coins_earned || 0) + config.referred_reward_value } as any).eq('cpf', referredCpf);
+      } else if (config.referred_reward_type === 'diamonds') {
+        await supabase.from('player_wallets').update({ diamonds: (rw2.diamonds || 0) + config.referred_reward_value } as any).eq('cpf', referredCpf);
+      } else if (config.referred_reward_type === 'xp') {
+        await supabase.from('player_wallets').update({ xp: (rw2.xp || 0) + config.referred_reward_value, total_xp_earned: (rw2.total_xp_earned || 0) + config.referred_reward_value } as any).eq('cpf', referredCpf);
+      }
+      await supabase.from('player_activity_log').insert({ cpf: referredCpf, type: 'referral', amount: config.referred_reward_value, source: 'referral_welcome', description: `Bônus de boas-vindas (indicação)` } as any);
+    }
+    await supabase.from('referrals').update({ referred_rewarded: true, referred_reward_amount: config.referred_reward_value, completed_at: new Date().toISOString(), status: 'completed' } as any).eq('id', referralId);
+  }
+}
+
 export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return optionsResponse(req);
 
@@ -322,7 +369,15 @@ export default async function handler(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const action = url.searchParams.get('action') || 'data';
     const segmentId = url.searchParams.get('segment') || null;
-    const playerCpf = url.searchParams.get('player') || null;
+    const rawCpf = (url.searchParams.get('player') || '').replace(/\D/g, '');
+    const playerCpf = rawCpf && isValidCPF(rawCpf) ? rawCpf : (rawCpf ? null : null);
+
+    // Reject invalid CPF early for actions that require it
+    if (rawCpf && !isValidCPF(rawCpf) && ['sync_progress', 'store_buy', 'spin', 'play_mini_game', 'claim_reward'].includes(action)) {
+      return new Response(JSON.stringify({ error: 'CPF inválido' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Helper: filter by segment (show items matching segment OR items with no segment)
     const applySegmentFilter = (query: any) => {
@@ -349,6 +404,64 @@ export default async function handler(req: Request): Promise<Response> {
     async function dataHandler() {
       const now = new Date().toISOString();
 
+      // Auto-register referral BEFORE segment check (referral must work even if widget is hidden)
+      const refCodeParam = url.searchParams.get('ref_code') || '';
+      let refRegistered = false;
+      if (refCodeParam && playerCpf) {
+        try {
+          const { data: existingRef } = await supabase.from('referrals')
+            .select('id').eq('referred_cpf', playerCpf).maybeSingle();
+          if (!existingRef) {
+            const { data: codeData } = await supabase.from('referral_codes')
+              .select('id, cpf, code').eq('code', refCodeParam).maybeSingle();
+            if (codeData && codeData.cpf !== playerCpf) {
+              const { data: refCfg, error: refCfgErr } = await supabase.from('referral_config')
+                .select('require_deposit, require_bet, referrer_reward_type, referrer_reward_value')
+                .eq('active', true).limit(1).maybeSingle();
+              const cfg = refCfg || {};
+              let initialStatus = 'completed';
+              if (cfg.require_deposit) initialStatus = 'deposit_required';
+              else if (cfg.require_bet) initialStatus = 'bet_required';
+              const { error: insertErr } = await supabase.from('referrals').insert({
+                referrer_cpf: codeData.cpf, referred_cpf: playerCpf,
+                referral_code_id: codeData.id, status: initialStatus,
+              });
+              if (!insertErr) {
+                refRegistered = true;
+                if (initialStatus === 'completed') {
+                  try {
+                    await supabase.rpc('add_wallet_balance', {
+                      p_cpf: codeData.cpf, p_field: cfg.referrer_reward_type || 'coins', p_amount: cfg.referrer_reward_value || 100,
+                    });
+                  } catch (_e) {}
+                }
+              }
+            }
+          }
+        } catch (_e) {}
+      }
+
+      // Check widget segment restriction — if configured, only show widget to players in that segment
+      if (playerCpf) {
+        const { data: pCfg } = await supabase.from('platform_config')
+          .select('widget_segment_id')
+          .eq('active', true)
+          .limit(1)
+          .maybeSingle();
+        if (pCfg?.widget_segment_id) {
+          const { data: inSeg } = await supabase.from('segment_items')
+            .select('id')
+            .eq('segment_id', pCfg.widget_segment_id)
+            .eq('cpf', playerCpf)
+            .maybeSingle();
+          if (!inSeg) {
+            return new Response(JSON.stringify({ _widget_hidden: true, _ref_registered: refRegistered }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+        }
+      }
+
       const achievementsQ = supabase.from('achievements').select('id, name, description, icon_url, category, condition_type, condition_value, reward_type, reward_value, segment_id, segments(name), stages, start_date, end_date, hide_if_not_earned, manual_claim, priority')
         .eq('active', true).order('priority').order('category').order('condition_value');
       const missionsQ = supabase.from('missions').select('id, name, description, icon_url, type, condition_type, condition_value, reward_type, reward_value, segment_id, segments(name), status, priority, require_optin, time_limit_hours, start_date, end_date, recurrence, cta_text, cta_url, manual_claim')
@@ -370,17 +483,20 @@ export default async function handler(req: Request): Promise<Response> {
         supabase.from('levels').select('*').order('level'),          // 5
         supabase.from('store_items').select('*').eq('active', true).order('price_coins'),  // 6
         supabase.from('wheel_config').select('*').limit(1).maybeSingle(),          // 7
+        supabase.from('referral_config').select('*').eq('active', true).limit(1).maybeSingle(), // 8
       ];
       if (playerCpf) {
         baseQueries.push(
-          supabase.from('player_wallets').select('*').eq('cpf', playerCpf).maybeSingle(),       // 8
-          supabase.from('player_spins').select('*').eq('cpf', playerCpf).maybeSingle(),         // 9
-          supabase.from('player_mission_progress').select('*').eq('cpf', playerCpf),            // 10
-          supabase.from('player_achievements').select('*').eq('cpf', playerCpf),                // 11
-          supabase.from('player_activity_log').select('*').eq('cpf', playerCpf).order('created_at', { ascending: false }).limit(50), // 12
-          supabase.from('player_rewards_pending').select('*').eq('cpf', playerCpf).is('claimed_at', null), // 13
-          supabase.from('player_tournament_entries').select('*').eq('cpf', playerCpf),          // 14
-          supabase.from('player_mini_game_attempts').select('*').eq('cpf', playerCpf),          // 15
+          supabase.from('player_wallets').select('*').eq('cpf', playerCpf).maybeSingle(),       // 9
+          supabase.from('player_spins').select('*').eq('cpf', playerCpf).maybeSingle(),         // 10
+          supabase.from('player_mission_progress').select('*').eq('cpf', playerCpf),            // 11
+          supabase.from('player_achievements').select('*').eq('cpf', playerCpf),                // 12
+          supabase.from('player_activity_log').select('*').eq('cpf', playerCpf).order('created_at', { ascending: false }).limit(50), // 13
+          supabase.from('player_rewards_pending').select('*').eq('cpf', playerCpf).is('claimed_at', null), // 14
+          supabase.from('player_tournament_entries').select('*').eq('cpf', playerCpf),          // 15
+          supabase.from('player_mini_game_attempts').select('*').eq('cpf', playerCpf),          // 16
+          supabase.from('referral_codes').select('*').eq('cpf', playerCpf).maybeSingle(),       // 17
+          supabase.from('referrals').select('*').eq('referrer_cpf', playerCpf).order('created_at', { ascending: false }), // 18
         );
       }
       const allResults = await Promise.all(baseQueries);
@@ -402,6 +518,7 @@ export default async function handler(req: Request): Promise<Response> {
       const levels = allResults[5];
       const storeItems = allResults[6];
       const wheelConfigResult = allResults[7];
+      const referralConfigResult = allResults[8]; // global, always fetched
 
       // Player-specific data
       let wallet = null;
@@ -412,16 +529,19 @@ export default async function handler(req: Request): Promise<Response> {
       let pendingRewards: any[] = [];
       let tournamentEntries: any[] = [];
       let miniGameAttempts: any[] = [];
+      let referralConfig: any = referralConfigResult?.data || null;
+      let referralCode: any = null;
+      let playerReferrals: any[] = [];
 
       if (playerCpf) {
-        const walletResult = allResults[8];
-        const spinsResult = allResults[9];
-        const missionProgressResult = allResults[10];
-        const achievementProgressResult = allResults[11];
-        const activityLogResult = allResults[12];
-        const pendingRewardsResult = allResults[13];
-        const tournamentEntriesResult = allResults[14];
-        const miniGameAttemptsResult = allResults[15];
+        const walletResult = allResults[9];
+        const spinsResult = allResults[10];
+        const missionProgressResult = allResults[11];
+        const achievementProgressResult = allResults[12];
+        const activityLogResult = allResults[13];
+        const pendingRewardsResult = allResults[14];
+        const tournamentEntriesResult = allResults[15];
+        const miniGameAttemptsResult = allResults[16];
 
         wallet = walletResult?.data || null;
         playerSpins = spinsResult?.data || null;
@@ -431,6 +551,27 @@ export default async function handler(req: Request): Promise<Response> {
         pendingRewards = pendingRewardsResult?.data || [];
         tournamentEntries = tournamentEntriesResult?.data || [];
         miniGameAttempts = miniGameAttemptsResult?.data || [];
+
+        // Referral player data
+        const referralCodeResult = allResults[17];
+        const referralsResult = allResults[18];
+        referralCode = referralCodeResult?.data || null;
+        playerReferrals = referralsResult?.data || [];
+
+        // Check segment restriction on referral program
+        if (referralConfig?.segment_id && playerCpf) {
+          const { data: segItem } = await supabase.from('segment_items')
+            .select('id')
+            .eq('segment_id', referralConfig.segment_id)
+            .eq('cpf', playerCpf)
+            .maybeSingle();
+          if (!segItem) {
+            // Player not in required segment — hide referral program
+            referralConfig = null;
+            referralCode = null;
+            playerReferrals = [];
+          }
+        }
 
         // If player doesn't have a wallet yet, create one
         if (!wallet) {
@@ -449,10 +590,9 @@ export default async function handler(req: Request): Promise<Response> {
           playerSpins.spins_used_today = 0;
         }
 
-        // Trigger non-blocking XP sync from platform transactions
-        // This runs in the background and does NOT delay the widget response
-        const cleanCpfForSync = playerCpf.replace(/[.\-\s/]/g, '');
-        syncPlayerXpInline(cleanCpfForSync, supabase).catch(() => { /* ignore */ });
+        // NOTE: syncPlayerXpInline removed from action=data to prevent race condition
+        // with sync_progress XP updates. XP sync from platform is now only triggered
+        // by sync_progress events (deposit/bet) which calculate XP inline.
       }
 
       // Get tournament leaderboards for active tournaments
@@ -493,6 +633,10 @@ export default async function handler(req: Request): Promise<Response> {
         mini_games: miniGames,
         mini_game_prizes: miniGamePrizes,
         mini_game_attempts: miniGameAttempts,
+        referral_config: referralConfig || null,
+        referral_code: referralCode || null,
+        referrals: playerReferrals || [],
+        _ref_registered: refRegistered,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=30' },
       });
@@ -859,6 +1003,38 @@ export default async function handler(req: Request): Promise<Response> {
         });
       }
 
+      // Check purchase limits
+      if (item.purchase_limit && item.purchase_limit > 0) {
+        const limitPeriod = item.limit_period || 'total';
+        let sinceDate: string | null = null;
+        const nowDate = new Date();
+        if (limitPeriod === 'day') sinceDate = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).toISOString();
+        else if (limitPeriod === 'week') { const d = new Date(nowDate); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); sinceDate = d.toISOString(); }
+        else if (limitPeriod === 'month') sinceDate = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1).toISOString();
+
+        let countQuery = supabase.from('store_purchases').select('id', { count: 'exact', head: true })
+          .eq('cpf', playerCpf).eq('store_item_id', itemId);
+        if (sinceDate) countQuery = countQuery.gte('created_at', sinceDate);
+        const { count: purchaseCount } = await countQuery;
+
+        if ((purchaseCount || 0) >= item.purchase_limit) {
+          const periodLabels: Record<string, string> = { day: 'hoje', week: 'esta semana', month: 'este mês', total: 'no total' };
+          return new Response(JSON.stringify({ error: `Limite de compra atingido (${item.purchase_limit}x ${periodLabels[limitPeriod] || periodLabels.total})` }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
+      // Check min level
+      if (item.min_level && item.min_level > 1) {
+        const { data: pw } = await supabase.from('player_wallets').select('level').eq('cpf', playerCpf).maybeSingle();
+        if ((pw?.level || 1) < item.min_level) {
+          return new Response(JSON.stringify({ error: `Nível mínimo ${item.min_level} necessário (seu nível: ${pw?.level || 1})` }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
       // Check wallet
       const { data: wallet } = await supabase.from('player_wallets').select('*').eq('cpf', playerCpf).maybeSingle();
       const coins = wallet?.coins || 0;
@@ -1056,6 +1232,7 @@ export default async function handler(req: Request): Promise<Response> {
         cpf: playerCpf,
         store_item_id: itemId,
         price_coins: item.price_coins || 0,
+        price_diamonds: item.price_diamonds || 0,
         price_xp: item.price_xp || 0,
         status: deliveryStatus,
         reward_type: rewardType,
@@ -1438,6 +1615,738 @@ export default async function handler(req: Request): Promise<Response> {
         free_attempts: freeAttempts,
         coins_spent: coinsCost,
         purchased_remaining: hasPurchased && !isFree ? purchasedAttempts - 1 : purchasedAttempts,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ─── Referral: generate code ───
+    if (action === 'referral_generate') {
+      if (!playerCpf) {
+        return new Response(JSON.stringify({ error: 'CPF obrigatório' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // Check if player already has a code
+      const { data: existing } = await supabase.from('referral_codes').select('*').eq('cpf', playerCpf).maybeSingle();
+      if (existing) {
+        return new Response(JSON.stringify({ code: existing.code, custom_code: existing.custom_code, clicks: existing.clicks }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // Generate unique code
+      const code = 'PBR' + playerCpf.slice(-4) + Math.random().toString(36).substring(2, 6).toUpperCase();
+      const { data: newCode, error: codeErr } = await supabase.from('referral_codes')
+        .insert({ cpf: playerCpf, code } as any).select().single();
+      if (codeErr) {
+        return new Response(JSON.stringify({ error: codeErr.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ code: newCode.code, clicks: 0 }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ─── Referral: track click ───
+    if (action === 'referral_click') {
+      const refCode = url.searchParams.get('code') || '';
+      if (!refCode) {
+        return new Response(JSON.stringify({ error: 'code obrigatório' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      await supabase.from('referral_codes').update({ clicks: supabase.rpc ? undefined : 0 } as any).eq('code', refCode);
+      // Increment clicks via raw update
+      const { data: rc } = await supabase.from('referral_codes').select('clicks').eq('code', refCode).maybeSingle();
+      if (rc) {
+        await supabase.from('referral_codes').update({ clicks: (rc.clicks || 0) + 1 } as any).eq('code', refCode);
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ─── Referral: register referred player ───
+    if (action === 'referral_register') {
+      if (!playerCpf) {
+        return new Response(JSON.stringify({ error: 'CPF obrigatório' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const refCode = url.searchParams.get('code') || '';
+      if (!refCode) {
+        return new Response(JSON.stringify({ error: 'code obrigatório' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // Find referral code owner
+      const { data: codeData } = await supabase.from('referral_codes').select('*').eq('code', refCode).maybeSingle();
+      if (!codeData) {
+        return new Response(JSON.stringify({ error: 'Código de indicação inválido' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // Can't refer yourself
+      if (codeData.cpf === playerCpf) {
+        return new Response(JSON.stringify({ error: 'Você não pode se auto-indicar' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // Check if already referred
+      const { data: existingRef } = await supabase.from('referrals').select('id').eq('referred_cpf', playerCpf).maybeSingle();
+      if (existingRef) {
+        return new Response(JSON.stringify({ error: 'Você já foi indicado por outro jogador' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // Check max referrals limit
+      const { data: config } = await supabase.from('referral_config').select('*').eq('active', true).limit(1).maybeSingle();
+      if (config?.max_referrals_per_player && config.max_referrals_per_player > 0) {
+        const { count } = await supabase.from('referrals').select('id', { count: 'exact', head: true }).eq('referrer_cpf', codeData.cpf);
+        if ((count || 0) >= config.max_referrals_per_player) {
+          return new Response(JSON.stringify({ error: 'Este jogador atingiu o limite de indicações' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+      // Create referral — determine initial status based on requirements
+      let status = 'completed';
+      if (config?.require_deposit) status = 'deposit_required';
+      else if (config?.require_bet) status = 'bet_required';
+
+      const commissionExpires = config?.commission_enabled && config?.commission_duration_days
+        ? new Date(Date.now() + config.commission_duration_days * 86400000).toISOString()
+        : null;
+      const { data: referral, error: refErr } = await supabase.from('referrals').insert({
+        referrer_cpf: codeData.cpf,
+        referred_cpf: playerCpf,
+        referral_code_id: codeData.id,
+        status,
+        commission_expires_at: commissionExpires,
+      } as any).select().single();
+      if (refErr) {
+        return new Response(JSON.stringify({ error: refErr.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // If no requirements, reward immediately
+      if (status === 'completed' && referral) {
+        await processReferralRewards(supabase, referral.id, codeData.cpf, playerCpf, config);
+      }
+      return new Response(JSON.stringify({ ok: true, status, referral_id: referral?.id }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ─── Referral: check qualification (deposit + bet) ───
+    if (action === 'referral_check') {
+      if (!playerCpf) {
+        return new Response(JSON.stringify({ error: 'CPF obrigatório' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // Find pending referral where this player is the referred
+      const { data: pendingRef } = await supabase.from('referrals').select('*')
+        .eq('referred_cpf', playerCpf)
+        .in('status', ['deposit_required', 'bet_required'])
+        .maybeSingle();
+      if (!pendingRef) {
+        return new Response(JSON.stringify({ ok: true, message: 'Sem indicação pendente' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const { data: config } = await supabase.from('referral_config').select('*').eq('active', true).limit(1).maybeSingle();
+      if (!config) {
+        return new Response(JSON.stringify({ ok: true, message: 'Config inativa' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      let newStatus = pendingRef.status;
+      const updates: any = {};
+
+      // Check deposit if required and not yet fulfilled
+      if (pendingRef.status === 'deposit_required' && config.require_deposit) {
+        // Fetch player wallet to check deposit
+        const { data: wallet } = await supabase.from('player_wallets').select('total_deposited').eq('cpf', playerCpf).maybeSingle();
+        const totalDeposited = wallet?.total_deposited || 0;
+        if (totalDeposited >= (config.min_deposit_amount || 0)) {
+          updates.referred_first_deposit = totalDeposited;
+          updates.referred_first_deposit_at = new Date().toISOString();
+          // Move to next step
+          if (config.require_bet) {
+            newStatus = 'bet_required';
+          } else {
+            newStatus = 'completed';
+          }
+        }
+      }
+
+      // Check bet if required and status is bet_required (or just became bet_required)
+      if (newStatus === 'bet_required' && config.require_bet) {
+        const { data: wallet } = await supabase.from('player_wallets').select('total_bet').eq('cpf', playerCpf).maybeSingle();
+        const totalBet = wallet?.total_bet || 0;
+        if (totalBet >= (config.min_bet_amount || 0)) {
+          updates.referred_first_bet = totalBet;
+          updates.referred_first_bet_at = new Date().toISOString();
+          newStatus = 'completed';
+        }
+      }
+
+      // Update if status changed
+      if (newStatus !== pendingRef.status || Object.keys(updates).length > 0) {
+        updates.status = newStatus;
+        if (newStatus === 'completed') {
+          updates.completed_at = new Date().toISOString();
+        }
+        await supabase.from('referrals').update(updates).eq('id', pendingRef.id);
+        // Process rewards if completed
+        if (newStatus === 'completed') {
+          await processReferralRewards(supabase, pendingRef.id, pendingRef.referrer_cpf, playerCpf, config);
+        }
+      }
+      return new Response(JSON.stringify({ ok: true, status: newStatus, previous: pendingRef.status }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ─── Referral: claim tier reward ───
+    if (action === 'referral_claim_tier') {
+      if (!playerCpf) {
+        return new Response(JSON.stringify({ error: 'CPF obrigatório' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const tierIdx = parseInt(url.searchParams.get('tier') || '-1');
+      if (tierIdx < 0) {
+        return new Response(JSON.stringify({ error: 'tier obrigatório' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const { data: config } = await supabase.from('referral_config').select('*').eq('active', true).limit(1).maybeSingle();
+      const tiers = config?.tiers || [];
+      if (tierIdx >= tiers.length) {
+        return new Response(JSON.stringify({ error: 'Tier inválido' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const tier = tiers[tierIdx];
+      // Count completed referrals
+      const { count: completedCount } = await supabase.from('referrals')
+        .select('id', { count: 'exact', head: true })
+        .eq('referrer_cpf', playerCpf)
+        .eq('status', 'completed');
+      if ((completedCount || 0) < tier.min_referrals) {
+        return new Response(JSON.stringify({ error: `Você precisa de ${tier.min_referrals} indicações completas` }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // Check if already claimed (store in activity_log)
+      const { data: alreadyClaimed } = await supabase.from('player_activity_log')
+        .select('id').eq('cpf', playerCpf).eq('source', `referral_tier_${tierIdx}`).maybeSingle();
+      if (alreadyClaimed) {
+        return new Response(JSON.stringify({ error: 'Recompensa de tier já resgatada' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // Award tier reward
+      const { data: w } = await supabase.from('player_wallets').select('*').eq('cpf', playerCpf).maybeSingle();
+      if (tier.reward_type === 'coins') {
+        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + tier.reward_value, total_coins_earned: (w?.total_coins_earned || 0) + tier.reward_value } as any).eq('cpf', playerCpf);
+      } else if (tier.reward_type === 'diamonds') {
+        await supabase.from('player_wallets').update({ diamonds: (w?.diamonds || 0) + tier.reward_value } as any).eq('cpf', playerCpf);
+      } else if (tier.reward_type === 'xp') {
+        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + tier.reward_value, total_xp_earned: (w?.total_xp_earned || 0) + tier.reward_value } as any).eq('cpf', playerCpf);
+      }
+      // Log
+      await supabase.from('player_activity_log').insert({
+        cpf: playerCpf, type: 'referral', amount: tier.reward_value,
+        source: `referral_tier_${tierIdx}`, description: `Bônus tier: ${tier.label}`,
+      } as any);
+      return new Response(JSON.stringify({ ok: true, reward_type: tier.reward_type, reward_value: tier.reward_value }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ─── Sync player progress for missions & achievements ───
+    if (action === 'sync_progress') {
+      if (!playerCpf) {
+        return new Response(JSON.stringify({ error: 'CPF obrigatório' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const eventType = url.searchParams.get('event_type') || '';
+      const eventValue = Number(url.searchParams.get('event_value') || 0);
+
+      // Map event_type to mission condition_types
+      const CONDITION_MAP: Record<string, string[]> = {
+        deposit: ['deposit'],
+        bet: ['bet'],
+        win: ['win'],
+        login: ['login', 'consecutive_days'],
+        play_keno: ['play_keno', 'total_games'],
+        play_cassino: ['play_cassino', 'total_games'],
+        spin_wheel: ['spin_wheel'],
+        store_purchase: ['store_purchase'],
+        referral: ['referral'],
+      };
+
+      // Achievement condition mapping
+      const ACHIEVEMENT_MAP: Record<string, string[]> = {
+        deposit: ['first_deposit', 'total_deposited'],
+        bet: ['total_bet'],
+        login: ['consecutive_days'],
+        win: ['total_wins'],
+        play_keno: ['total_games'],
+        play_cassino: ['total_games'],
+        referral: ['referrals'],
+      };
+
+      const matchingConditions = CONDITION_MAP[eventType] || [];
+      const matchingAchConditions = ACHIEVEMENT_MAP[eventType] || [];
+
+      if (matchingConditions.length === 0 && matchingAchConditions.length === 0) {
+        return new Response(JSON.stringify({ error: 'event_type inválido', valid: Object.keys(CONDITION_MAP) }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Check player segment membership
+      const { data: playerSegments } = await supabase
+        .from('segment_items').select('segment_id').eq('cpf', playerCpf);
+      const playerSegmentIds = new Set((playerSegments || []).map((s: any) => s.segment_id));
+
+      let missionsUpdated = 0;
+      let missionsCompleted = 0;
+      let achievementsUpdated = 0;
+      let achievementsCompleted = 0;
+
+      // ── MISSIONS ──
+      if (matchingConditions.length > 0) {
+        const now = new Date().toISOString();
+        const { data: missions } = await supabase
+          .from('missions')
+          .select('*')
+          .eq('status', 'ATIVO')
+          .eq('active', true)
+          .in('condition_type', matchingConditions);
+
+        for (const mission of (missions || [])) {
+          // Check segment targeting
+          if (mission.segment_id && !playerSegmentIds.has(mission.segment_id)) continue;
+
+          // Check date range
+          if (mission.start_date && now < mission.start_date) continue;
+          if (mission.end_date && now > mission.end_date) continue;
+
+          // Get or create progress
+          const { data: existing } = await supabase
+            .from('player_mission_progress')
+            .select('*')
+            .eq('cpf', playerCpf)
+            .eq('mission_id', mission.id)
+            .maybeSingle();
+
+          // If requires opt-in and player hasn't opted in, skip
+          if (mission.require_optin && (!existing || !existing.opted_in)) continue;
+
+          // If already completed and claimed, check recurrence
+          if (existing?.completed && existing?.claimed) {
+            if (mission.recurrence === 'none') continue;
+
+            // Check if it's time to reset
+            const resetAt = existing.reset_at ? new Date(existing.reset_at) : new Date(existing.completed_at || existing.created_at);
+            const nowDate = new Date();
+            let shouldReset = false;
+
+            if (mission.recurrence === 'daily') {
+              shouldReset = nowDate.toDateString() !== resetAt.toDateString();
+            } else if (mission.recurrence === 'weekly') {
+              const diffDays = (nowDate.getTime() - resetAt.getTime()) / (1000 * 60 * 60 * 24);
+              shouldReset = diffDays >= 7;
+            } else if (mission.recurrence === 'monthly') {
+              shouldReset = nowDate.getMonth() !== resetAt.getMonth() || nowDate.getFullYear() !== resetAt.getFullYear();
+            }
+
+            if (shouldReset) {
+              await supabase.from('player_mission_progress').update({
+                progress: 0, completed: false, claimed: false,
+                completed_at: null, claimed_at: null, reset_at: now,
+              } as any).eq('cpf', playerCpf).eq('mission_id', mission.id);
+            } else {
+              continue;
+            }
+          }
+
+          // If already completed but not claimed, skip update
+          if (existing?.completed && !existing?.claimed) continue;
+
+          const currentProgress = existing?.progress || 0;
+          const target = mission.condition_value || 1;
+          const increment = eventValue || 1;
+          const newProgress = Math.min(currentProgress + increment, target);
+          const isCompleted = newProgress >= target;
+
+          const upsertData: any = {
+            cpf: playerCpf,
+            mission_id: mission.id,
+            progress: newProgress,
+            target,
+            completed: isCompleted,
+            started_at: existing?.started_at || now,
+          };
+          if (isCompleted && !existing?.completed) {
+            upsertData.completed_at = now;
+          }
+          if (!mission.require_optin) {
+            upsertData.opted_in = true;
+          }
+
+          await supabase.from('player_mission_progress').upsert(
+            upsertData, { onConflict: 'cpf,mission_id' }
+          );
+          missionsUpdated++;
+          if (isCompleted && !existing?.completed) {
+            missionsCompleted++;
+
+            // Auto-reward if not manual_claim
+            if (!mission.manual_claim && mission.reward_value > 0) {
+              if (mission.reward_type === 'coins') {
+                const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
+                if (w) await supabase.from('player_wallets').update({ coins: (w.coins || 0) + mission.reward_value } as any).eq('cpf', playerCpf);
+              } else if (mission.reward_type === 'xp') {
+                const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
+                if (w) await supabase.from('player_wallets').update({ xp: (w.xp || 0) + mission.reward_value } as any).eq('cpf', playerCpf);
+              } else {
+                await supabase.from('player_rewards_pending').insert({
+                  cpf: playerCpf, reward_type: mission.reward_type,
+                  reward_value: mission.reward_value, source: mission.name,
+                  description: `Missão completada: ${mission.name}`,
+                } as any);
+              }
+              await supabase.from('player_mission_progress').update({
+                claimed: true, claimed_at: now,
+              } as any).eq('cpf', playerCpf).eq('mission_id', mission.id);
+
+              try {
+                await supabase.from('player_activity_log').insert({
+                  cpf: playerCpf, type: 'mission_complete',
+                  amount: mission.reward_value, source: mission.name,
+                  description: `Missão completada: ${mission.name} — ${mission.reward_type} ${mission.reward_value}`,
+                } as any);
+              } catch { /* ignore */ }
+            }
+          }
+        }
+      }
+
+      // ── ACHIEVEMENTS ──
+      if (matchingAchConditions.length > 0) {
+        const now = new Date().toISOString();
+        const { data: achievements } = await supabase
+          .from('achievements')
+          .select('*')
+          .eq('active', true)
+          .in('condition_type', matchingAchConditions);
+
+        for (const ach of (achievements || [])) {
+          if (ach.segment_id && !playerSegmentIds.has(ach.segment_id)) continue;
+          if (ach.start_date && now < ach.start_date) continue;
+          if (ach.end_date && now > ach.end_date) continue;
+
+          const { data: existing } = await supabase
+            .from('player_achievements')
+            .select('*')
+            .eq('cpf', playerCpf)
+            .eq('achievement_id', ach.id)
+            .maybeSingle();
+
+          if (existing?.completed) continue;
+
+          const currentProgress = existing?.progress || 0;
+          const target = ach.condition_value || 1;
+
+          // For first_deposit, just mark complete
+          let newProgress: number;
+          if (ach.condition_type === 'first_deposit') {
+            newProgress = target;
+          } else {
+            newProgress = Math.min(currentProgress + (eventValue || 1), target);
+          }
+
+          const isCompleted = newProgress >= target;
+
+          await supabase.from('player_achievements').upsert({
+            cpf: playerCpf,
+            achievement_id: ach.id,
+            progress: newProgress,
+            completed: isCompleted,
+            completed_at: isCompleted ? now : null,
+          } as any, { onConflict: 'cpf,achievement_id' });
+
+          achievementsUpdated++;
+          if (isCompleted) {
+            achievementsCompleted++;
+
+            // Auto-reward
+            if (ach.reward_value > 0) {
+              if (ach.reward_type === 'coins') {
+                const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
+                if (w) await supabase.from('player_wallets').update({ coins: (w.coins || 0) + ach.reward_value } as any).eq('cpf', playerCpf);
+              } else if (ach.reward_type === 'xp') {
+                const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
+                if (w) await supabase.from('player_wallets').update({ xp: (w.xp || 0) + ach.reward_value } as any).eq('cpf', playerCpf);
+              } else {
+                await supabase.from('player_rewards_pending').insert({
+                  cpf: playerCpf, reward_type: ach.reward_type,
+                  reward_value: ach.reward_value, source: ach.name,
+                  description: `Conquista desbloqueada: ${ach.name}`,
+                } as any);
+              }
+
+              try {
+                await supabase.from('player_activity_log').insert({
+                  cpf: playerCpf, type: 'achievement_unlock',
+                  amount: ach.reward_value, source: ach.name,
+                  description: `Conquista: ${ach.name} — ${ach.reward_type} ${ach.reward_value}`,
+                } as any);
+              } catch { /* ignore */ }
+            }
+          }
+        }
+      }
+
+      // ── XP + LEVEL-UP (on bet/deposit events) ──
+      let xpEarned = 0;
+      let newLevel = 0;
+      let leveledUp = false;
+
+      if ((eventType === 'bet' || eventType === 'deposit') && eventValue > 0) {
+        try {
+          // Get XP weights
+          const { data: xpConfigs } = await supabase.from('xp_config').select('*').eq('active', true);
+          const apostaWeight = xpConfigs?.find((c: any) => c.action === 'aposta')?.xp_per_real ?? 1;
+          const depositoWeight = xpConfigs?.find((c: any) => c.action === 'deposito')?.xp_per_real ?? 0.3;
+
+          const weight = eventType === 'bet' ? apostaWeight : depositoWeight;
+          xpEarned = Math.floor(eventValue * weight);
+
+          if (xpEarned > 0) {
+            // Get or create wallet
+            let { data: wallet } = await supabase.from('player_wallets')
+              .select('*').eq('cpf', playerCpf).maybeSingle();
+
+            if (!wallet) {
+              await supabase.from('player_wallets').insert({
+                cpf: playerCpf, coins: 0, xp: 0, level: 1, diamonds: 0,
+                total_xp_earned: 0, total_diamonds_earned: 0,
+              } as any);
+              wallet = { cpf: playerCpf, coins: 0, xp: 0, level: 1, diamonds: 0, total_xp_earned: 0, total_diamonds_earned: 0 };
+            }
+
+            const currentTotalXp = (wallet.total_xp_earned || 0) + xpEarned;
+            const currentXp = (wallet.xp || 0) + xpEarned;
+            const currentLevel = wallet.level || 1;
+
+            // Check level-ups
+            const { data: levels } = await supabase.from('levels')
+              .select('*').gt('level', currentLevel).order('level', { ascending: true });
+
+            let bonusCoins = 0;
+            let bonusDiamonds = 0;
+            newLevel = currentLevel;
+            const levelsGained: any[] = [];
+
+            for (const lvl of (levels || [])) {
+              if (currentTotalXp >= lvl.xp_required) {
+                newLevel = lvl.level;
+                bonusCoins += lvl.reward_coins || 0;
+                bonusDiamonds += lvl.reward_diamonds || 0;
+                levelsGained.push(lvl);
+              } else {
+                break;
+              }
+            }
+
+            leveledUp = newLevel > currentLevel;
+
+            // Update wallet
+            const walletUpdate: any = {
+              xp: currentXp,
+              total_xp_earned: currentTotalXp,
+              level: newLevel,
+              updated_at: new Date().toISOString(),
+            };
+            if (bonusCoins > 0) walletUpdate.coins = (wallet.coins || 0) + bonusCoins;
+            if (bonusDiamonds > 0) {
+              walletUpdate.diamonds = (wallet.diamonds || 0) + bonusDiamonds;
+              walletUpdate.total_diamonds_earned = (wallet.total_diamonds_earned || 0) + bonusDiamonds;
+            }
+
+            const { error: xpUpdateErr, count: xpUpdateCount } = await supabase.from('player_wallets').update(walletUpdate).eq('cpf', playerCpf);
+            // Debug: include update result in response
+            if (xpUpdateErr) {
+              console.error('XP wallet update failed:', xpUpdateErr.message, JSON.stringify(walletUpdate));
+            }
+
+            // Log XP earn
+            try {
+              await supabase.from('xp_history').insert({
+                cpf: playerCpf, xp_earned: xpEarned, source: eventType,
+                description: `${eventType} R$${eventValue.toFixed(2)} → ${xpEarned} XP`,
+              } as any);
+            } catch { /* ignore */ }
+
+            // Log level-ups
+            if (leveledUp) {
+              for (const lvl of levelsGained) {
+                try {
+                  await supabase.from('level_rewards_log').insert({
+                    cpf: playerCpf, level: lvl.level, from_level: currentLevel,
+                    reward_coins: lvl.reward_coins || 0, reward_diamonds: lvl.reward_diamonds || 0,
+                  } as any);
+                  await supabase.from('player_activity_log').insert({
+                    cpf: playerCpf, type: 'level_up', amount: lvl.level,
+                    source: `Level ${lvl.level} - ${lvl.tier || ''} ${lvl.name || ''}`,
+                    description: `Subiu para nível ${lvl.level}! +${lvl.reward_coins || 0} coins, +${lvl.reward_diamonds || 0} diamonds`,
+                  } as any);
+                } catch { /* ignore */ }
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[sync_progress] XP error:', e);
+        }
+      }
+
+      // ── TOURNAMENT SCORE UPDATE (on bet events) ──
+      let tournamentsUpdated = 0;
+
+      if ((eventType === 'bet' || eventType === 'play_keno' || eventType === 'play_cassino') && eventValue > 0) {
+        try {
+          const now = new Date().toISOString();
+          // Get active tournaments the player is enrolled in
+          const { data: entries } = await supabase
+            .from('player_tournament_entries')
+            .select('id, tournament_id, score')
+            .eq('cpf', playerCpf)
+            .eq('opted_in', true);
+
+          if (entries?.length) {
+            const tournamentIds = entries.map((e: any) => e.tournament_id);
+            const { data: tournaments } = await supabase
+              .from('tournaments')
+              .select('id, metric, game_filter, min_bet, points_per, start_date, end_date')
+              .in('id', tournamentIds)
+              .eq('status', 'ATIVO')
+              .lte('start_date', now)
+              .gte('end_date', now);
+
+            for (const t of (tournaments || [])) {
+              // Check game filter match
+              if (t.game_filter === 'keno' && eventType === 'play_cassino') continue;
+              if (t.game_filter === 'cassino' && eventType === 'play_keno') continue;
+
+              // Check min bet
+              if (t.min_bet && eventValue < Number(t.min_bet)) continue;
+
+              // Calculate score increment
+              const metric = t.metric || 'total_bet';
+              if (metric === 'total_bet' && eventType !== 'bet' && eventType !== 'play_keno' && eventType !== 'play_cassino') continue;
+
+              const divisor = t.points_per === '1_centavo' ? 0.01 : t.points_per === '10_centavos' ? 0.1 : 1;
+              const scoreIncrement = Math.floor(eventValue / divisor);
+
+              if (scoreIncrement > 0) {
+                const entry = entries.find((e: any) => e.tournament_id === t.id);
+                if (entry) {
+                  const newScore = (entry.score || 0) + scoreIncrement;
+                  await supabase.from('player_tournament_entries')
+                    .update({ score: newScore, updated_at: new Date().toISOString() } as any)
+                    .eq('id', entry.id);
+                  tournamentsUpdated++;
+                }
+              }
+            }
+
+            // Recalculate ranks for updated tournaments
+            if (tournamentsUpdated > 0) {
+              for (const t of (tournaments || [])) {
+                const { data: allEntries } = await supabase
+                  .from('player_tournament_entries')
+                  .select('id, score')
+                  .eq('tournament_id', t.id)
+                  .order('score', { ascending: false });
+                if (allEntries) {
+                  for (let i = 0; i < allEntries.length; i++) {
+                    await supabase.from('player_tournament_entries')
+                      .update({ rank: i + 1 } as any)
+                      .eq('id', allEntries[i].id);
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[sync_progress] Tournament error:', e);
+        }
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        missions_updated: missionsUpdated,
+        missions_completed: missionsCompleted,
+        achievements_updated: achievementsUpdated,
+        achievements_completed: achievementsCompleted,
+        xp_earned: xpEarned,
+        leveled_up: leveledUp,
+        new_level: newLevel || undefined,
+        tournaments_updated: tournamentsUpdated,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ─── Debug: scrape platform page ───
+    if (action === 'scrape_platform') {
+      const path = url.searchParams.get('path') || '/';
+      const { data: config } = await supabase.from('platform_config').select('*').limit(1).maybeSingle();
+      if (!config?.username || !config?.password) {
+        return new Response(JSON.stringify({ error: 'No platform config' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const siteUrl = (config.site_url || 'https://pixbingobr.concurso.club').replace(/\/+$/, '');
+      const login = await platformLogin(siteUrl, config.username, config.password, config.login_url);
+      if (!login.success) {
+        return new Response(JSON.stringify({ error: 'Login failed' }), {
+          status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const hdrs: Record<string, string> = {
+        'Cookie': login.cookies, 'Accept': 'text/html,*/*', 'X-Requested-With': 'XMLHttpRequest', 'Referer': siteUrl,
+      };
+      const pageRes = await fetch(`${siteUrl}${path}`, { method: 'GET', headers: hdrs, signal: AbortSignal.timeout(12000) });
+      const html = await pageRes.text();
+      const menuLinks = [...html.matchAll(/href=['"]([^'"]+)['"]/gi)].map(m => m[1]).filter(h => h.startsWith('/'));
+      const ajaxUrls = [...html.matchAll(/ajax\s*:\s*['"`]([^'"`]+)['"`]/gi)].map(m => m[1]);
+      const formActions = [...html.matchAll(/action=['"]([^'"]+)['"]/gi)].map(m => m[1]);
+      const selectOptions = [...html.matchAll(/<option[^>]*value=['"]([^'"]*?)['"][^>]*>([^<]*?)<\/option>/gi)].map(m => ({ value: m[1], label: m[2].trim() }));
+      const inputFields = [...html.matchAll(/<input[^>]*name=['"]([^'"]+)['"][^>]*/gi)].map(m => m[0]);
+      const labels = [...html.matchAll(/<label[^>]*>(.*?)<\/label>/gi)].map(m => m[1].replace(/<[^>]+>/g, '').trim()).filter(Boolean);
+      return new Response(JSON.stringify({
+        status: pageRes.status,
+        html_length: html.length,
+        title: html.match(/<title>(.*?)<\/title>/i)?.[1] || '',
+        menu_links: [...new Set(menuLinks)],
+        ajax_urls: ajaxUrls,
+        form_actions: formActions,
+        select_options: selectOptions,
+        input_fields: inputFields.slice(0, 50),
+        labels: labels.slice(0, 50),
+        html_snippet: html.slice(0, 5000),
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

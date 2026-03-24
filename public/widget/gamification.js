@@ -31,7 +31,24 @@
   const REQUIRE_LOGIN = currentScript?.getAttribute('data-require-login') || cfg.requireLogin || srcParams.get('require-login') || null;
   const AUTH_SELECTOR = currentScript?.getAttribute('data-auth-selector') || cfg.authSelector || srcParams.get('auth-selector') || null;
 
-  // CPF: 1) data-player attribute, 2) localStorage __pbr_cpf
+  // Capture referral code from URL and persist to localStorage
+  // Platform uses: /registrar/CODE (path-based) and saves as 'codigo_indicacao'
+  // Widget also supports: ?ref=CODE (query-based)
+  try {
+    const pageUrl = new URL(window.location.href);
+    const refParam = pageUrl.searchParams.get('ref');
+    if (refParam) {
+      localStorage.setItem('codigo_indicacao', refParam);
+      localStorage.setItem('__pbr_ref_code', refParam);
+    }
+    // Also capture from path: /registrar/CODE or /CODE
+    const pathParts = pageUrl.pathname.split('/').filter(Boolean);
+    if (pathParts.length >= 2 && pathParts[0] === 'registrar' && /^[A-Za-z0-9]+$/.test(pathParts[1])) {
+      localStorage.setItem('__pbr_ref_code', pathParts[1]);
+    }
+  } catch (e) {}
+
+  // CPF: 1) data-player attribute, 2) localStorage __pbr_cpf, 3) auto-detect from page
   function getPlayerCpf() {
     const attr = currentScript ? currentScript.getAttribute('data-player') : null;
     if (attr) return attr;
@@ -39,6 +56,44 @@
     return null;
   }
   let PLAYER_CPF = getPlayerCpf();
+
+  // Auto-detect player CPF from platform if not set
+  async function autoDetectCpf() {
+    if (PLAYER_CPF) return;
+    try {
+      // 1) Try data-cpf attribute on any element
+      const cpfEl = document.querySelector('[data-cpf]');
+      if (cpfEl) {
+        const cpf = cpfEl.getAttribute('data-cpf').replace(/\D/g, '');
+        if (cpf.length === 11) { PLAYER_CPF = cpf; localStorage.setItem('__pbr_cpf', cpf); return; }
+      }
+      // 2) Try window vars set by platform
+      if (window.cpf_usuario) {
+        const cpf = String(window.cpf_usuario).replace(/\D/g, '');
+        if (cpf.length === 11) { PLAYER_CPF = cpf; localStorage.setItem('__pbr_cpf', cpf); return; }
+      }
+      // 3) Try platform's /api/wallet/saldo to check if logged in and get CPF
+      if (document.querySelector('.menu-saldo-body') || document.querySelector('.desc-saldo')) {
+        const res = await fetch('/api/wallet/saldo', { credentials: 'same-origin' });
+        const d = await res.json();
+        if (d.logged && d.cpf) {
+          const cpf = String(d.cpf).replace(/\D/g, '');
+          if (cpf.length === 11) { PLAYER_CPF = cpf; localStorage.setItem('__pbr_cpf', cpf); return; }
+        }
+        // If API returns logged but no cpf, try /api/perfil or similar
+        if (d.logged && !d.cpf) {
+          try {
+            const pRes = await fetch('/api/perfil', { credentials: 'same-origin' });
+            const pData = await pRes.json();
+            const cpf = String(pData.cpf || pData.documento || '').replace(/\D/g, '');
+            if (cpf.length === 11) { PLAYER_CPF = cpf; localStorage.setItem('__pbr_cpf', cpf); return; }
+          } catch (e2) {}
+        }
+      }
+    } catch (e) {}
+  }
+  // Run CPF detection after a short delay to let the page load
+  setTimeout(() => { autoDetectCpf().then(() => { if (PLAYER_CPF && !data) fetchData(); }); }, 2000);
 
   function isUserLoggedIn() {
     PLAYER_CPF = getPlayerCpf(); // re-check (may have logged in after page load)
@@ -66,6 +121,7 @@
   let miniGamePlaying = false;
   let scratchRevealed = [];
   let giftBoxOpened = null;
+  let selectedLevel = null;
 
   // ---- STYLES ----
   const css = `
@@ -472,6 +528,100 @@
     .pbg-progress-fill { height: 100%; background: linear-gradient(90deg, #8b5cf6, #6366f1); border-radius: 3px; transition: width 0.3s; }
     .pbg-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #52525b; margin-bottom: 10px; padding-left: 2px; }
     .pbg-segment-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 5px; font-size: 9px; font-weight: 600; background: rgba(139,92,246,0.12); color: #a78bfa; }
+
+    /* ---- Levels Tab ---- */
+    .pbg-lvl-current {
+      background: linear-gradient(135deg, rgba(139,92,246,0.12), rgba(6,182,212,0.08));
+      border: 1px solid rgba(139,92,246,0.3); border-radius: 16px; padding: 20px; margin-bottom: 16px; text-align: center;
+    }
+    .pbg-lvl-current-badge { width: 80px; height: 80px; margin: 0 auto 10px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5)); }
+    .pbg-lvl-current-badge img { width: 100%; height: 100%; object-fit: contain; }
+    .pbg-lvl-current-name { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 2px; }
+    .pbg-lvl-current-tier { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+    .pbg-lvl-xp-bar-wrap { margin: 0 auto; max-width: 280px; }
+    .pbg-lvl-xp-bar { height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
+    .pbg-lvl-xp-fill { height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+    .pbg-lvl-xp-text { font-size: 11px; color: #71717a; }
+    .pbg-lvl-xp-text span { font-weight: 700; }
+
+    .pbg-lvl-xp-info {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;
+    }
+    .pbg-lvl-xp-info-title { font-size: 11px; font-weight: 700; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .pbg-lvl-xp-info-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+    .pbg-lvl-xp-info-row + .pbg-lvl-xp-info-row { border-top: 1px solid rgba(255,255,255,0.04); }
+    .pbg-lvl-xp-info-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .pbg-lvl-xp-info-label { font-size: 12px; color: #a1a1aa; flex: 1; }
+    .pbg-lvl-xp-info-val { font-size: 12px; font-weight: 700; color: #fff; }
+
+    .pbg-lvl-tier-section { margin-bottom: 16px; }
+    .pbg-lvl-tier-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 6px 10px;
+      border-radius: 8px; cursor: pointer; transition: background 0.15s;
+    }
+    .pbg-lvl-tier-header:hover { background: rgba(255,255,255,0.03); }
+    .pbg-lvl-tier-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .pbg-lvl-tier-name { font-size: 13px; font-weight: 700; color: #fff; flex: 1; }
+    .pbg-lvl-tier-range { font-size: 10px; color: #52525b; }
+    .pbg-lvl-tier-arrow { width: 12px; height: 12px; color: #52525b; transition: transform 0.2s; }
+    .pbg-lvl-tier-arrow.open { transform: rotate(180deg); }
+
+    .pbg-lvl-grid {
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 0 4px;
+    }
+    .pbg-lvl-cell {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 8px 4px; border-radius: 10px; cursor: pointer; transition: all 0.15s;
+      border: 2px solid transparent; position: relative; background: rgba(255,255,255,0.02);
+    }
+    .pbg-lvl-cell:hover { background: rgba(255,255,255,0.05); }
+    .pbg-lvl-cell.locked { opacity: 0.35; cursor: default; }
+    .pbg-lvl-cell.locked:hover { background: rgba(255,255,255,0.02); }
+    .pbg-lvl-cell.current { border-color: rgba(139,92,246,0.5); background: rgba(139,92,246,0.08); }
+    .pbg-lvl-cell.completed .pbg-lvl-cell-check {
+      position: absolute; top: 2px; right: 2px; width: 14px; height: 14px;
+      background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    }
+    .pbg-lvl-cell-icon { width: 36px; height: 36px; object-fit: contain; }
+    .pbg-lvl-cell.locked .pbg-lvl-cell-icon { filter: grayscale(1) brightness(0.5); }
+    .pbg-lvl-cell-num { font-size: 9px; font-weight: 700; color: #71717a; }
+    .pbg-lvl-cell.current .pbg-lvl-cell-num { color: #a78bfa; }
+
+    .pbg-lvl-detail-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2147483647;
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+      animation: pbg-fade-in 0.15s ease;
+    }
+    .pbg-lvl-detail-card {
+      background: linear-gradient(180deg, #1a1f35, #0e1228); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 24px; width: 100%; max-width: 320px; text-align: center;
+      position: relative; box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    }
+    .pbg-lvl-detail-close {
+      position: absolute; top: 10px; right: 10px; width: 28px; height: 28px;
+      border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      color: #a1a1aa; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 16px; transition: all 0.2s; font-family: inherit; padding: 0;
+    }
+    .pbg-lvl-detail-close:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    .pbg-lvl-detail-icon { width: 64px; height: 64px; margin: 0 auto 10px; }
+    .pbg-lvl-detail-icon img { width: 100%; height: 100%; object-fit: contain; }
+    .pbg-lvl-detail-name { font-size: 16px; font-weight: 800; color: #fff; margin-bottom: 2px; }
+    .pbg-lvl-detail-tier { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+    .pbg-lvl-detail-xp { font-size: 11px; color: #71717a; margin-bottom: 14px; }
+    .pbg-lvl-detail-rewards { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+    .pbg-lvl-detail-rwd {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px; min-width: 70px;
+    }
+    .pbg-lvl-detail-rwd-val { font-size: 16px; font-weight: 800; color: #fff; }
+    .pbg-lvl-detail-rwd-lbl { font-size: 9px; color: #71717a; text-transform: uppercase; letter-spacing: 0.05em; }
+    .pbg-lvl-detail-status {
+      margin-top: 14px; padding: 8px 16px; border-radius: 8px; font-size: 11px; font-weight: 700;
+      display: inline-block; text-transform: uppercase; letter-spacing: 0.06em;
+    }
 
     /* Tournament — Smartico style */
     /* ---- Tournament Hero Banner ---- */
@@ -939,7 +1089,7 @@
     .pbg-store-section-title { font-size: 15px; font-weight: 700; color: #f1f1f1; flex: 1; }
     .pbg-store-section-more { font-size: 11px; font-weight: 600; color: #71717a; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 10px; background: none; font-family: inherit; }
     .pbg-store-section-more:hover { color: #a1a1aa; border-color: rgba(255,255,255,0.2); }
-    .pbg-store-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x mandatory; }
+    .pbg-store-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; padding-top: 6px; scroll-snap-type: x mandatory; }
     .pbg-store-scroll::-webkit-scrollbar { display: none; }
     .pbg-store-item {
       border-radius: 12px; overflow: hidden; cursor: pointer; flex-shrink: 0;
@@ -1027,6 +1177,57 @@
     .pbg-log-negative { color: #f87171; }
     .pbg-log-time { font-size: 10px; color: #52525b; }
 
+    /* Referral / Indique e Ganhe */
+    .pbg-ref-banner { background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(6,182,212,0.1)); border: 1px solid rgba(139,92,246,0.2); border-radius: 16px; padding: 20px; text-align: center; margin-bottom: 12px; }
+    .pbg-ref-banner-title { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+    .pbg-ref-banner-desc { font-size: 12px; color: #a1a1aa; line-height: 1.5; }
+    .pbg-ref-rewards-row { display: flex; gap: 8px; margin: 16px 0 12px; }
+    .pbg-ref-reward-card { flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 8px; text-align: center; }
+    .pbg-ref-reward-card-label { font-size: 9px; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; font-weight: 600; }
+    .pbg-ref-reward-card-value { font-size: 18px; font-weight: 800; line-height: 1; }
+    .pbg-ref-reward-card-type { font-size: 10px; color: #a1a1aa; margin-top: 4px; }
+    .pbg-ref-code-box { background: rgba(0,0,0,0.3); border: 1px dashed rgba(139,92,246,0.4); border-radius: 12px; padding: 14px; margin: 12px 0; position: relative; }
+    .pbg-ref-code-label { font-size: 10px; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600; }
+    .pbg-ref-code-value { font-size: 20px; font-weight: 800; color: #8b5cf6; letter-spacing: 2px; font-family: 'JetBrains Mono', monospace; }
+    .pbg-ref-link-box { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+    .pbg-ref-link-text { flex: 1; font-size: 11px; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'JetBrains Mono', monospace; }
+    .pbg-ref-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; transition: all 0.2s; font-family: inherit; }
+    .pbg-ref-btn-primary { background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #fff; width: 100%; }
+    .pbg-ref-btn-primary:hover { transform: scale(1.02); box-shadow: 0 4px 16px rgba(139,92,246,0.4); }
+    .pbg-ref-btn-outline { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #d4d4d8; }
+    .pbg-ref-btn-outline:hover { background: rgba(255,255,255,0.1); }
+    .pbg-ref-btn-sm { padding: 6px 10px; font-size: 11px; }
+    .pbg-ref-share-btns { display: flex; gap: 6px; margin: 8px 0; }
+    .pbg-ref-share-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; color: #fff; transition: transform 0.15s; font-family: inherit; }
+    .pbg-ref-share-btn:hover { transform: scale(1.03); }
+    .pbg-ref-share-whatsapp { background: #25D366; }
+    .pbg-ref-share-telegram { background: #0088cc; }
+    .pbg-ref-share-copy { background: rgba(255,255,255,0.1); color: #d4d4d8; }
+    .pbg-ref-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+    .pbg-ref-stat { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 12px 8px; text-align: center; }
+    .pbg-ref-stat-val { font-size: 20px; font-weight: 800; color: #fff; line-height: 1; }
+    .pbg-ref-stat-lbl { font-size: 9px; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+    .pbg-ref-tier { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; margin-bottom: 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); transition: all 0.15s; }
+    .pbg-ref-tier.completed { border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.05); }
+    .pbg-ref-tier.claimable { border-color: rgba(139,92,246,0.4); background: rgba(139,92,246,0.08); animation: pbg-pulse-border 2s infinite; }
+    @keyframes pbg-pulse-border { 0%,100%{border-color:rgba(139,92,246,0.3)} 50%{border-color:rgba(139,92,246,0.6)} }
+    .pbg-ref-tier-progress { flex: 1; }
+    .pbg-ref-tier-label { font-size: 11px; color: #d4d4d8; font-weight: 600; }
+    .pbg-ref-tier-bar { height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+    .pbg-ref-tier-fill { height: 100%; border-radius: 2px; transition: width 0.4s; }
+    .pbg-ref-referral-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .pbg-ref-referral-item:last-child { border-bottom: none; }
+    .pbg-ref-referral-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(139,92,246,0.15); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #8b5cf6; flex-shrink: 0; }
+    .pbg-ref-referral-info { flex: 1; min-width: 0; }
+    .pbg-ref-referral-cpf { font-size: 12px; font-weight: 600; color: #d4d4d8; font-family: 'JetBrains Mono', monospace; }
+    .pbg-ref-referral-date { font-size: 10px; color: #52525b; }
+    .pbg-ref-status { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
+    .pbg-ref-status-completed { background: rgba(52,211,153,0.15); color: #34d399; }
+    .pbg-ref-status-pending { background: rgba(251,191,36,0.15); color: #fbbf24; }
+    .pbg-ref-status-deposit { background: rgba(96,165,250,0.15); color: #60a5fa; }
+    .pbg-ref-terms { font-size: 10px; color: #52525b; line-height: 1.5; padding: 12px; background: rgba(255,255,255,0.02); border-radius: 8px; margin-top: 8px; }
+    .pbg-ref-copied { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #22c55e; color: #fff; padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; z-index: 999999; animation: pbg-fade-in 0.2s ease; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+
     /* Leaderboard */
     .pbg-lb-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; }
     .pbg-lb-row:nth-child(odd) { background: rgba(255,255,255,0.02); }
@@ -1089,6 +1290,10 @@
     silver: '<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" fill="#c0c0c0" stroke="#9ca3af" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="12" font-weight="800" fill="#4b5563" font-family="sans-serif">2</text></svg>',
     bronze: '<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" fill="#cd7f32" stroke="#a16207" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="12" font-weight="800" fill="#451a03" font-family="sans-serif">3</text></svg>',
     hand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 13"/></svg>',
+    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
+    userPlus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
     timer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="12" y2="8"/><circle cx="12" cy="14" r="8"/></svg>',
     hourglass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>',
     diamond: '<svg viewBox="0 0 31 30" fill="none"><path d="M21.12 14.48L15.5 29.74c.54 0 1.07-.26 1.38-.78l9.44-15.87c.3-.5.44-1.07.43-1.62l-5.63 3.01z" fill="#0C80E3"/><path d="M26.75 11.47l-5.63 3.01L15.5.25c.79 0 1.57.3 2.17.9l8.17 8.19c.58.58.89 1.34.9 2.13z" fill="#12C0F1"/><path d="M21.12 14.48H9.88l.28-.71L15.5.25l2.05 5.2 3.57 9.03z" fill="#12C0F1"/><path d="M9.88 14.48L15.5 29.75l5.62-15.27H9.88z" fill="#12C0F1"/><path d="M15.5.25L9.88 14.48 4.25 11.47c.01-.78.32-1.55.9-2.13L13.33 1.15c.6-.6 1.39-.9 2.17-.9z" fill="#0C80E3"/><path d="M9.88 14.48L15.5 29.74c-.54 0-1.07-.26-1.38-.78L4.68 13.09c-.3-.5-.44-1.07-.43-1.62l5.63 3.01z" fill="#0C80E3"/><path d="M4.25 11.47c.01-.78.32-1.55.9-2.13l8.18-8.19c.6-.6 1.39-.9 2.17-.9l-5.62 14.23-5.63-3.01z" fill="#0C80E3"/><path d="M26.75 11.47c0 .56-.14 1.12-.43 1.62L16.88 28.96c-.29.49-.78.75-1.28.78-.57.03-1.15-.23-1.48-.78L4.68 13.09c-.3-.5-.44-1.06-.43-1.62l.03-.35c.07.25.05.77.19 1L14.11 26.61c.33.53.92.78 1.49.75.5-.03 1-.29 1.29-.75l9.7-14.74c.14-.23.06-.52.13-.77l.03.37z" fill="#0269B7"/></svg>',
@@ -1135,21 +1340,50 @@
   };
 
   async function fetchData() {
-    try { data = await apiCall('data'); updateFab(); renderContent(); } catch (e) { console.error('[PBG Widget]', e); }
+    try {
+      // Send ref code along with data request so API can auto-register
+      const refCode = (function() {
+        try { return localStorage.getItem('__pbr_ref_code') || localStorage.getItem('codigo_indicacao') || ''; } catch(e) { return ''; }
+      })();
+      data = await apiCall('data', refCode ? { ref_code: refCode } : {});
+      // If widget is hidden for this player (segment restriction), hide everything
+      if (data?._widget_hidden) {
+        const fab = document.getElementById('pbg-fab');
+        if (fab) fab.style.display = 'none';
+        const panel = document.getElementById('pbg-widget-panel');
+        if (panel) panel.style.display = 'none';
+        return;
+      }
+      // Clear ref code if API confirmed registration
+      if (data?._ref_registered) {
+        try { localStorage.removeItem('__pbr_ref_code'); } catch(e) {}
+      }
+      updateFab();
+      renderContent();
+      // Auto-check referral qualification (deposit + bet)
+      if (PLAYER_CPF && !window.__pbg_ref_checked) {
+        window.__pbg_ref_checked = true;
+        apiCall('referral_check').catch(() => {});
+      }
+    } catch (e) { console.error('[PBG Widget]', e); }
   }
 
   // ---- LEVEL HELPERS ----
+  // Supports both old schema (level_number/min_xp) and new schema (level/xp_required)
+  function getLevelNumber(lvl) { return lvl.level_number !== undefined ? lvl.level_number : lvl.level; }
+  function getLevelXp(lvl) { return lvl.min_xp !== undefined ? lvl.min_xp : lvl.xp_required; }
+
   function getLevelInfo() {
     if (!data?.wallet || !data?.levels?.length) return null;
     const w = data.wallet;
-    const levels = data.levels.sort((a,b) => a.level_number - b.level_number);
+    const levels = [...data.levels].sort((a,b) => getLevelNumber(a) - getLevelNumber(b));
     let current = levels[0];
     let next = levels.length > 1 ? levels[1] : null;
     for (let i = 0; i < levels.length; i++) {
-      if (w.xp >= levels[i].min_xp) { current = levels[i]; next = levels[i+1] || null; }
+      if (w.xp >= getLevelXp(levels[i])) { current = levels[i]; next = levels[i+1] || null; }
     }
-    const xpInLevel = w.xp - current.min_xp;
-    const xpForNext = next ? next.min_xp - current.min_xp : 1;
+    const xpInLevel = w.xp - getLevelXp(current);
+    const xpForNext = next ? getLevelXp(next) - getLevelXp(current) : 1;
     const pct = next ? Math.min(100, Math.round((xpInLevel / xpForNext) * 100)) : 100;
     return { current, next, pct, xpInLevel, xpForNext };
   }
@@ -2676,6 +2910,171 @@
     return html;
   }
 
+  function renderReferral() {
+    if (!PLAYER_CPF) return `<div style="text-align:center;padding:40px;color:#52525b"><div style="width:40px;height:40px;margin:0 auto;opacity:0.5;color:#71717a">${ICONS.userPlus}</div><div style="font-size:13px">Faça login para acessar o programa de indicação</div></div>`;
+
+    const cfg = data?.referral_config;
+    if (!cfg) return `<div style="text-align:center;padding:40px;color:#52525b"><div style="width:40px;height:40px;margin:0 auto;opacity:0.5;color:#71717a">${ICONS.userPlus}</div><div style="font-size:13px">Programa de indicação indisponível</div></div>`;
+
+    const code = data?.referral_code;
+    const refs = data?.referrals || [];
+    const completedRefs = refs.filter(r => r.status === 'completed');
+    const pendingRefs = refs.filter(r => r.status !== 'completed');
+    const totalEarned = refs.reduce((s, r) => s + (r.referrer_reward_amount || 0), 0);
+    const tiers = cfg.tiers || [];
+
+    const rewardTypeLabel = (type) => ({ coins: 'Moedas', xp: 'XP', diamonds: 'Diamantes', bonus: 'Bônus R$' }[type] || type);
+    const rewardTypeColor = (type) => ({ coins: '#fbbf24', xp: '#8b5cf6', diamonds: '#22d3ee', bonus: '#34d399' }[type] || '#8b5cf6');
+    const rewardIcon = (type) => ({ coins: inlIcon('coin',16), xp: inlIcon('star',16), diamonds: inlIcon('diamond',16), bonus: inlIcon('money',16) }[type] || inlIcon('gift',16));
+
+    const siteUrl = 'https://pixbingobr.com';
+    const refLink = code ? `${siteUrl}/registrar/${code.code}` : '';
+    const statusLabel = (s) => ({ completed: 'Concluído', pending: 'Pendente', deposit_required: 'Aguardando depósito', bet_required: 'Aguardando aposta', expired: 'Expirado' }[s] || s);
+    const statusClass = (s) => ({ completed: 'completed', pending: 'pending', deposit_required: 'deposit', bet_required: 'deposit' }[s] || 'pending');
+
+    // Auto-generate code if player doesn't have one yet
+    if (!code && !window.__pbg_ref_generating) {
+      window.__pbg_ref_generating = true;
+      apiCall('referral_generate').then(result => {
+        window.__pbg_ref_generating = false;
+        if (!result.error) fetchData();
+      }).catch(() => { window.__pbg_ref_generating = false; });
+    }
+
+    let codeSection = '';
+    if (!code) {
+      codeSection = `
+        <div style="text-align:center;padding:20px">
+          <div style="width:24px;height:24px;border:2px solid #8b5cf6;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto"></div>
+          <div style="font-size:12px;color:#71717a;margin-top:8px">Gerando seu código...</div>
+        </div>
+      `;
+    } else {
+      codeSection = `
+        <div class="pbg-ref-code-box">
+          <div class="pbg-ref-code-label">Seu código</div>
+          <div class="pbg-ref-code-value">${code.code}</div>
+        </div>
+        <div class="pbg-ref-link-box">
+          <span style="color:#71717a;flex-shrink:0">${inlIcon('link',14)}</span>
+          <span class="pbg-ref-link-text">${refLink}</span>
+          <button class="pbg-ref-btn pbg-ref-btn-outline pbg-ref-btn-sm" onclick="window.__pbg('copyReferral','${refLink}')">
+            ${inlIcon('copy',12)} Copiar
+          </button>
+        </div>
+        <div class="pbg-ref-share-btns">
+          <button class="pbg-ref-share-btn pbg-ref-share-whatsapp" onclick="window.open('https://wa.me/?text='+encodeURIComponent('Jogue na PixBingoBR e ganhe bônus! Use meu código: ${code.code}\\n${refLink}'),'_blank')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+            WhatsApp
+          </button>
+          <button class="pbg-ref-share-btn pbg-ref-share-telegram" onclick="window.open('https://t.me/share/url?url='+encodeURIComponent('${refLink}')+'&text='+encodeURIComponent('Jogue na PixBingoBR! Use meu código ${code.code} e ganhe bônus!'),'_blank')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+            Telegram
+          </button>
+          <button class="pbg-ref-share-btn pbg-ref-share-copy" onclick="window.__pbg('copyReferral','${refLink}')">
+            ${inlIcon('copy',12)} Copiar
+          </button>
+        </div>
+      `;
+    }
+
+    // Stats section
+    const statsSection = `
+      <div class="pbg-ref-stats">
+        <div class="pbg-ref-stat">
+          <div class="pbg-ref-stat-val" style="color:#8b5cf6">${refs.length}</div>
+          <div class="pbg-ref-stat-lbl">Indicados</div>
+        </div>
+        <div class="pbg-ref-stat">
+          <div class="pbg-ref-stat-val" style="color:#34d399">${completedRefs.length}</div>
+          <div class="pbg-ref-stat-lbl">Completos</div>
+        </div>
+        <div class="pbg-ref-stat">
+          <div class="pbg-ref-stat-val" style="color:#fbbf24">${totalEarned}</div>
+          <div class="pbg-ref-stat-lbl">Ganhos</div>
+        </div>
+      </div>
+    `;
+
+    // Tiers section
+    let tiersHtml = '';
+    if (tiers.length > 0) {
+      tiersHtml = `
+        <div class="pbg-section-title" style="margin-top:4px">${inlIcon('trophy',14)} Metas de Indicação</div>
+        ${tiers.map((tier, idx) => {
+          const pct = Math.min(100, (completedRefs.length / tier.min_referrals) * 100);
+          const reached = completedRefs.length >= tier.min_referrals;
+          const alreadyClaimed = (data?.activity_log || []).some(a => a.source === 'referral_tier_' + idx);
+          const claimable = reached && !alreadyClaimed;
+          return `
+            <div class="pbg-ref-tier ${reached ? 'completed' : ''} ${claimable ? 'claimable' : ''}">
+              <div style="width:28px;height:28px;border-radius:50%;background:${reached ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.05)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${reached ? '#34d399' : '#52525b'}">
+                ${reached ? inlIcon('check',14) : inlIcon('target',14)}
+              </div>
+              <div class="pbg-ref-tier-progress">
+                <div class="pbg-ref-tier-label">${tier.label}</div>
+                <div class="pbg-ref-tier-bar"><div class="pbg-ref-tier-fill" style="width:${pct}%;background:${reached ? '#34d399' : '#8b5cf6'}"></div></div>
+                <div style="font-size:9px;color:#52525b;margin-top:2px">${completedRefs.length}/${tier.min_referrals} indicações</div>
+              </div>
+              ${claimable ? `<button class="pbg-ref-btn pbg-ref-btn-primary pbg-ref-btn-sm" onclick="window.__pbg('claimTier',${idx})" style="flex-shrink:0;width:auto">Resgatar</button>` : ''}
+              ${alreadyClaimed ? `<span style="font-size:10px;color:#34d399;font-weight:600;flex-shrink:0">${inlIcon('check',12)} Resgatado</span>` : ''}
+            </div>
+          `;
+        }).join('')}
+      `;
+    }
+
+    // Referrals list
+    let referralsList = '';
+    if (refs.length > 0) {
+      referralsList = `
+        <div class="pbg-section-title" style="margin-top:4px">${inlIcon('users',14)} Seus Indicados (${refs.length})</div>
+        ${refs.slice(0, 20).map(r => `
+          <div class="pbg-ref-referral-item">
+            <div class="pbg-ref-referral-avatar">${(r.referred_cpf || '').slice(-2)}</div>
+            <div class="pbg-ref-referral-info">
+              <div class="pbg-ref-referral-cpf">${maskCpf(r.referred_cpf)}</div>
+              <div class="pbg-ref-referral-date">${timeAgo(r.created_at)}</div>
+            </div>
+            <span class="pbg-ref-status pbg-ref-status-${statusClass(r.status)}">${statusLabel(r.status)}</span>
+          </div>
+        `).join('')}
+      `;
+    }
+
+    return `
+      <div class="pbg-ref-banner">
+        <div style="font-size:28px;margin-bottom:6px">${inlIcon('gift',28)}</div>
+        <div class="pbg-ref-banner-title">${cfg.title || 'Indique e Ganhe'}</div>
+        <div class="pbg-ref-banner-desc">${cfg.description || 'Convide amigos e ganhe recompensas!'}</div>
+        <div class="pbg-ref-rewards-row">
+          <div class="pbg-ref-reward-card">
+            <div class="pbg-ref-reward-card-label">Você ganha</div>
+            <div class="pbg-ref-reward-card-value" style="color:${rewardTypeColor(cfg.referrer_reward_type)}">${rewardIcon(cfg.referrer_reward_type)} ${cfg.referrer_reward_value}</div>
+            <div class="pbg-ref-reward-card-type">${rewardTypeLabel(cfg.referrer_reward_type)}</div>
+          </div>
+          <div class="pbg-ref-reward-card">
+            <div class="pbg-ref-reward-card-label">Amigo ganha</div>
+            <div class="pbg-ref-reward-card-value" style="color:${rewardTypeColor(cfg.referred_reward_type)}">${rewardIcon(cfg.referred_reward_type)} ${cfg.referred_reward_value}</div>
+            <div class="pbg-ref-reward-card-type">${rewardTypeLabel(cfg.referred_reward_type)}</div>
+          </div>
+        </div>
+      </div>
+
+      ${codeSection}
+      ${code ? statsSection : ''}
+      ${code ? tiersHtml : ''}
+      ${code ? referralsList : ''}
+
+      ${cfg.require_deposit || cfg.require_bet ? `<div style="display:flex;align-items:flex-start;gap:6px;padding:8px 12px;background:rgba(96,165,250,0.08);border:1px solid rgba(96,165,250,0.15);border-radius:8px;margin-top:8px">
+        <span style="color:#60a5fa;flex-shrink:0;margin-top:1px">${inlIcon('zap',14)}</span>
+        <span style="font-size:11px;color:#93c5fd;line-height:1.5">Seu amigo precisa${cfg.require_deposit ? ` depositar no mínimo R$ ${Number(cfg.min_deposit_amount).toFixed(2)}` : ''}${cfg.require_deposit && cfg.require_bet ? ' e' : ''}${cfg.require_bet ? ` apostar no mínimo R$ ${Number(cfg.min_bet_amount).toFixed(2)}` : ''} para completar a indicação</span>
+      </div>` : ''}
+
+      ${cfg.terms_text ? `<div class="pbg-ref-terms">${cfg.terms_text}</div>` : ''}
+    `;
+  }
+
   function renderHistory() {
     if (!PLAYER_CPF) return `<div style="text-align:center;padding:40px;color:#52525b"><div style="width:40px;height:40px;margin:0 auto;opacity:0.5;color:#71717a">${ICONS.clipboard}</div><div style="font-size:13px">Faça login para ver seu histórico</div></div>`;
     const log = data?.activity_log || [];
@@ -2702,44 +3101,157 @@
     const levels = data?.levels || [];
     if (!levels.length) return `<div style="text-align:center;padding:40px;color:#52525b"><div style="width:40px;height:40px;margin:0 auto;opacity:0.5;color:#71717a">${ICONS.medal}</div><div style="font-size:13px">Níveis não configurados</div></div>`;
 
+    const iconBase = 'https://backofficepixbingobr.vercel.app';
     const lvInfo = getLevelInfo();
-    const sorted = [...levels].sort((a,b) => a.level_number - b.level_number);
+    const sorted = [...levels].sort((a,b) => getLevelNumber(a) - getLevelNumber(b));
+    const playerXp = data?.wallet?.xp || 0;
 
-    return `
-      ${lvInfo ? `
-        <div class="pbg-card" style="border-color:rgba(139,92,246,0.3);cursor:default;margin-bottom:16px">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-            <div style="width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;background:${lvInfo.current.color}20;color:${lvInfo.current.color}">
-              ${lvInfo.current.icon_url ? `<img src="${lvInfo.current.icon_url}" style="width:28px;height:28px">` : lvInfo.current.level_number}
-            </div>
-            <div style="flex:1">
-              <div style="font-size:15px;font-weight:700;color:#fff">${lvInfo.current.name}</div>
-              <div style="font-size:11px;color:#71717a">${lvInfo.next ? `${lvInfo.xpInLevel}/${lvInfo.xpForNext} XP para ${lvInfo.next.name}` : 'Nível máximo!'}</div>
-            </div>
-          </div>
-          <div class="pbg-xp-track"><div class="pbg-xp-fill" style="width:${lvInfo.pct}%;background:${lvInfo.current.color}"></div></div>
-        </div>
-      ` : ''}
-      <div class="pbg-section-title">${inlIcon('map',14)} Mapa de Níveis</div>
-      ${sorted.map(lvl => {
-        const isCurrent = lvInfo && lvl.id === lvInfo.current.id;
-        const isLocked = lvInfo && data.wallet && data.wallet.xp < lvl.min_xp;
-        return `
-          <div class="pbg-card" style="cursor:default;${isCurrent ? 'border-color:'+lvl.color+';background:rgba(255,255,255,0.04)' : isLocked ? 'opacity:0.5' : ''}">
-            <div style="display:flex;align-items:center;gap:10px">
-              <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;background:${lvl.color}20;color:${lvl.color};font-size:14px;${isLocked ? 'filter:grayscale(1)' : ''}">
-                ${lvl.icon_url ? `<img src="${lvl.icon_url}" style="width:20px;height:20px">` : lvl.level_number}
+    // Resolve icon URL with base
+    const resolveIcon = (url) => {
+      if (!url) return '';
+      if (url.startsWith('http')) return url;
+      return iconBase + url;
+    };
+
+    // Group levels by tier
+    const tierOrder = ['Iniciante','Bronze','Prata','Ouro','Titanio','Platina','Rubi','Diamante','Black','Elite','Lendario','Supremo'];
+    const tierColors = { Iniciante:'#71717a', Bronze:'#cd7f32', Prata:'#c0c0c0', Ouro:'#ffd700', Titanio:'#878681', Platina:'#e5e4e2', Rubi:'#e0115f', Diamante:'#06b6d4', Black:'#1a1a2e', Elite:'#7c3aed', Lendario:'#f59e0b', Supremo:'#ef4444' };
+    const tiers = {};
+    sorted.forEach(lvl => {
+      const t = lvl.tier || 'Outro';
+      if (!tiers[t]) tiers[t] = [];
+      tiers[t].push(lvl);
+    });
+    const tierKeys = tierOrder.filter(t => tiers[t]);
+    // Add any tiers not in the predefined order
+    Object.keys(tiers).forEach(t => { if (!tierKeys.includes(t)) tierKeys.push(t); });
+
+    // Find current tier for auto-expand
+    const currentTier = lvInfo?.current?.tier || '';
+
+    // Selected level detail overlay
+    let detailHtml = '';
+    if (selectedLevel !== null) {
+      const sl = sorted.find(l => getLevelNumber(l) === selectedLevel);
+      if (sl) {
+        const slXp = getLevelXp(sl);
+        const isCompleted = playerXp >= slXp;
+        const isCurrent = lvInfo && getLevelNumber(lvInfo.current) === getLevelNumber(sl);
+        const isLocked = !isCompleted && !isCurrent;
+        const col = sl.color || tierColors[sl.tier] || '#8b5cf6';
+        const hasRewards = (sl.reward_coins > 0 || sl.reward_gems > 0 || sl.reward_diamonds > 0);
+
+        detailHtml = `
+          <div class="pbg-lvl-detail-overlay" onclick="if(event.target===this)window.__pbg('closeLevel')">
+            <div class="pbg-lvl-detail-card">
+              <button class="pbg-lvl-detail-close" onclick="window.__pbg('closeLevel')">${inlIcon('x',14)}</button>
+              <div class="pbg-lvl-detail-icon"><img src="${resolveIcon(sl.icon_url)}" alt="" style="${isLocked ? 'filter:grayscale(1) brightness(0.5)' : 'filter:drop-shadow(0 2px 8px '+col+'80)'}"></div>
+              <div class="pbg-lvl-detail-name">${sl.name}</div>
+              <div class="pbg-lvl-detail-tier" style="color:${col}">${sl.tier}</div>
+              <div class="pbg-lvl-detail-xp">${slXp.toLocaleString('pt-BR')} XP necessários</div>
+              ${hasRewards ? `
+                <div style="font-size:10px;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Recompensas</div>
+                <div class="pbg-lvl-detail-rewards">
+                  ${sl.reward_coins > 0 ? `<div class="pbg-lvl-detail-rwd"><div class="pbg-lvl-detail-rwd-val" style="color:#fbbf24">${sl.reward_coins}</div><div class="pbg-lvl-detail-rwd-lbl">Moedas</div></div>` : ''}
+                  ${sl.reward_gems > 0 ? `<div class="pbg-lvl-detail-rwd"><div class="pbg-lvl-detail-rwd-val" style="color:#80e239">${sl.reward_gems}</div><div class="pbg-lvl-detail-rwd-lbl">Gemas</div></div>` : ''}
+                  ${sl.reward_diamonds > 0 ? `<div class="pbg-lvl-detail-rwd"><div class="pbg-lvl-detail-rwd-val" style="color:#22d3ee">${sl.reward_diamonds}</div><div class="pbg-lvl-detail-rwd-lbl">Diamantes</div></div>` : ''}
+                </div>
+              ` : '<div style="font-size:11px;color:#52525b;margin-top:4px">Sem recompensas</div>'}
+              <div class="pbg-lvl-detail-status" style="background:${isCompleted ? 'rgba(16,185,129,0.12);color:#10b981' : isCurrent ? 'rgba(139,92,246,0.12);color:#a78bfa' : 'rgba(255,255,255,0.04);color:#52525b'}">
+                ${isCompleted ? '✓ Conquistado' : isCurrent ? '◆ Nível Atual' : '🔒 Bloqueado'}
               </div>
-              <div style="flex:1">
-                <div style="font-size:13px;font-weight:600;color:${isCurrent ? '#fff' : '#a1a1aa'}">${lvl.name} ${isCurrent ? '← Você' : ''}</div>
-                <div style="font-size:10px;color:#52525b">${lvl.min_xp.toLocaleString()} XP${lvl.xp_multiplier > 1 ? ` · ${lvl.xp_multiplier}x XP` : ''}</div>
-              </div>
-              ${lvl.reward_type && lvl.reward_type !== 'none' ? `<div>${rewardBadge(lvl.reward_type, lvl.reward_value)}</div>` : ''}
             </div>
-            ${lvl.rewards_description ? `<div style="font-size:10px;color:#71717a;margin-top:6px;padding-left:46px">${lvl.rewards_description}</div>` : ''}
           </div>
         `;
-      }).join('')}
+      }
+    }
+
+    // Tier sections
+    let tierSections = '';
+    tierKeys.forEach(tierName => {
+      const tierLevels = tiers[tierName];
+      const col = tierColors[tierName] || tierLevels[0]?.color || '#8b5cf6';
+      const firstLvl = getLevelNumber(tierLevels[0]);
+      const lastLvl = getLevelNumber(tierLevels[tierLevels.length - 1]);
+      const rangeStr = firstLvl === lastLvl ? `Nv. ${firstLvl}` : `Nv. ${firstLvl}-${lastLvl}`;
+      // Auto-expand current tier and adjacent, collapse others
+      const isCurrentTier = tierName === currentTier;
+      const currentTierIdx = tierKeys.indexOf(currentTier);
+      const thisTierIdx = tierKeys.indexOf(tierName);
+      const isNearCurrent = Math.abs(thisTierIdx - currentTierIdx) <= 1;
+      const expanded = isCurrentTier || isNearCurrent || !lvInfo;
+
+      tierSections += `
+        <div class="pbg-lvl-tier-section">
+          <div class="pbg-lvl-tier-header" onclick="var g=this.nextElementSibling;var a=this.querySelector('.pbg-lvl-tier-arrow');if(g.style.display==='none'){g.style.display='';a.classList.add('open')}else{g.style.display='none';a.classList.remove('open')}">
+            <div class="pbg-lvl-tier-dot" style="background:${col};box-shadow:0 0 6px ${col}80"></div>
+            <div class="pbg-lvl-tier-name" style="color:${col === '#1a1a2e' ? '#9ca3af' : col}">${tierName}</div>
+            <div class="pbg-lvl-tier-range">${rangeStr}</div>
+            <svg class="pbg-lvl-tier-arrow ${expanded ? 'open' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="pbg-lvl-grid" style="${expanded ? '' : 'display:none'}">
+            ${tierLevels.map(lvl => {
+              const lvNum = getLevelNumber(lvl);
+              const lvXp = getLevelXp(lvl);
+              const isCurrent = lvInfo && getLevelNumber(lvInfo.current) === lvNum;
+              const isCompleted = playerXp >= lvXp && !isCurrent;
+              const isLocked = playerXp < lvXp && !isCurrent;
+              const cellClass = isCurrent ? 'current' : isCompleted ? 'completed' : isLocked ? 'locked' : '';
+              return `
+                <div class="pbg-lvl-cell ${cellClass}" onclick="${isLocked ? '' : "window.__pbg('openLevel',"+lvNum+")"}">
+                  ${isCompleted ? '<div class="pbg-lvl-cell-check"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>' : ''}
+                  <img class="pbg-lvl-cell-icon" src="${resolveIcon(lvl.icon_url)}" alt="Lv ${lvNum}" onerror="this.style.display='none'">
+                  <div class="pbg-lvl-cell-num">${lvNum}</div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    });
+
+    return `
+      <div style="position:relative">
+        ${lvInfo ? `
+          <div class="pbg-lvl-current">
+            <div class="pbg-lvl-current-badge"><img src="${resolveIcon(lvInfo.current.icon_url)}" alt="" style="filter:drop-shadow(0 4px 12px ${lvInfo.current.color || '#8b5cf6'}80)"></div>
+            <div class="pbg-lvl-current-name">${lvInfo.current.name}</div>
+            <div class="pbg-lvl-current-tier" style="color:${lvInfo.current.color || '#8b5cf6'}">${lvInfo.current.tier || ''}</div>
+            <div class="pbg-lvl-xp-bar-wrap">
+              <div class="pbg-lvl-xp-bar"><div class="pbg-lvl-xp-fill" style="width:${lvInfo.pct}%;background:linear-gradient(90deg,${lvInfo.current.color || '#8b5cf6'}cc,${lvInfo.current.color || '#8b5cf6'})"></div></div>
+              <div class="pbg-lvl-xp-text">
+                <span style="color:${lvInfo.current.color || '#8b5cf6'}">${lvInfo.xpInLevel.toLocaleString('pt-BR')}</span> / ${lvInfo.xpForNext.toLocaleString('pt-BR')} XP
+                ${lvInfo.next ? ` · Próximo: <span style="color:#fff">${lvInfo.next.name}</span>` : ' · <span style="color:#10b981">Nível Máximo!</span>'}
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
+        <div class="pbg-lvl-xp-info">
+          <div class="pbg-lvl-xp-info-title">${inlIcon('zap',12)} Como ganhar XP</div>
+          <div class="pbg-lvl-xp-info-row">
+            <div class="pbg-lvl-xp-info-icon" style="background:rgba(139,92,246,0.15)"><span style="color:#a78bfa">${inlIcon('gamepad',16)}</span></div>
+            <div class="pbg-lvl-xp-info-label">Apostas</div>
+            <div class="pbg-lvl-xp-info-val" style="color:#a78bfa">1 XP / R$1</div>
+          </div>
+          <div class="pbg-lvl-xp-info-row">
+            <div class="pbg-lvl-xp-info-icon" style="background:rgba(16,185,129,0.15)"><span style="color:#10b981">${inlIcon('money',16)}</span></div>
+            <div class="pbg-lvl-xp-info-label">Depósitos</div>
+            <div class="pbg-lvl-xp-info-val" style="color:#10b981">0.3 XP / R$1</div>
+          </div>
+          ${data?.wallet ? `
+            <div class="pbg-lvl-xp-info-row" style="margin-top:4px;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px">
+              <div class="pbg-lvl-xp-info-icon" style="background:rgba(245,158,11,0.15)"><span style="color:#f59e0b">${inlIcon('star',16)}</span></div>
+              <div class="pbg-lvl-xp-info-label">Seu XP Total</div>
+              <div class="pbg-lvl-xp-info-val" style="color:#f59e0b">${(data.wallet.total_xp_earned || data.wallet.xp || 0).toLocaleString('pt-BR')} XP</div>
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="pbg-section-title" style="margin-bottom:12px">${inlIcon('map',14)} Mapa de Níveis</div>
+        ${tierSections}
+        ${detailHtml}
+      </div>
     `;
   }
 
@@ -2774,10 +3286,12 @@
 
     if (lvInfo) {
       const col = lvInfo.current.color || '#8b5cf6';
+      const lvIconBase = 'https://backofficepixbingobr.vercel.app';
+      const lvIcon = lvInfo.current.icon_url ? (lvInfo.current.icon_url.startsWith('http') ? lvInfo.current.icon_url : lvIconBase + lvInfo.current.icon_url) : '';
       if (levelRowEl) levelRowEl.innerHTML = `
-        ${lvInfo.current.icon_url
-          ? `<img class="pbg-level-img" src="${lvInfo.current.icon_url}" style="filter:drop-shadow(0 1px 4px ${col}99)">`
-          : `<div style="width:22px;height:22px;border-radius:6px;background:${col}33;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${col}">${lvInfo.current.level_number}</div>`}
+        ${lvIcon
+          ? `<img class="pbg-level-img" src="${lvIcon}" style="filter:drop-shadow(0 1px 4px ${col}99)">`
+          : `<div style="width:22px;height:22px;border-radius:6px;background:${col}33;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${col}">${getLevelNumber(lvInfo.current)}</div>`}
         <span class="pbg-level-name-lbl">${lvInfo.current.name}</span>
       `;
       if (xpTrackEl) { xpTrackEl.style.display = 'block'; }
@@ -2870,7 +3384,7 @@
     if (!el) return;
     if (!data) { el.innerHTML = '<div style="display:flex;justify-content:center;padding:40px"><div style="width:24px;height:24px;border:2px solid #8b5cf6;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite"></div></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>'; return; }
 
-    const renderers = { missions: renderMissions, achievements: renderAchievements, tournaments: renderTournaments, wheel: renderWheel, games: renderMiniGames, store: renderStore, history: renderHistory, levels: renderLevels };
+    const renderers = { missions: renderMissions, achievements: renderAchievements, tournaments: renderTournaments, wheel: renderWheel, games: renderMiniGames, store: renderStore, referral: renderReferral, levels: renderLevels, history: renderHistory };
     el.innerHTML = (renderers[activeTab] || renderMissions)();
     el.classList.toggle('pbg-no-pad', activeTab === 'wheel');
     el.scrollTop = 0;
@@ -2963,6 +3477,9 @@
         <div class="pbg-nav-item" data-tab="store" onclick="window.__pbg('tab','store')">
           <div class="pbg-nav-icon">${inlIcon('cart',20)}</div><span class="pbg-nav-lbl">Loja</span>
         </div>
+        ${data?.referral_config ? `<div class="pbg-nav-item" data-tab="referral" onclick="window.__pbg('tab','referral')">
+          <div class="pbg-nav-icon">${inlIcon('userPlus',20)}</div><span class="pbg-nav-lbl">Indicar</span>
+        </div>` : ''}
         <div class="pbg-nav-item" data-tab="levels" onclick="window.__pbg('tab','levels')">
           <div class="pbg-nav-icon">${inlIcon('medal',20)}</div><span class="pbg-nav-lbl">Níveis</span>
         </div>
@@ -2992,8 +3509,9 @@
       }
     });
 
-    // Pre-fetch data so FAB shows level ring immediately
+    // Pre-fetch data so FAB shows level ring immediately (skip if already loaded by checkSegmentAndInit)
     if (PLAYER_CPF && !data) fetchData();
+    else if (data) { updateFab(); renderContent(); }
 
     // Global handler
     window.__pbg = async (action, arg) => {
@@ -3040,12 +3558,14 @@
         return;
       }
       else if (action === 'toggle') toggle(arg);
-      else if (action === 'tab') { activeTab = arg; selectedStoreItem = null; storeMessage = null; selectedTournament = null; selectedMission = null; selectedMiniGame = null; miniGameResult = null; miniGamePlaying = false; scratchRevealed = []; giftBoxOpened = null; renderContent(); }
+      else if (action === 'tab') { activeTab = arg; selectedStoreItem = null; storeMessage = null; selectedTournament = null; selectedMission = null; selectedMiniGame = null; miniGameResult = null; miniGamePlaying = false; scratchRevealed = []; giftBoxOpened = null; selectedLevel = null; renderContent(); }
       else if (action === 'spin') spinWheel();
       else if (action === 'openTournament') { selectedTournament = arg; renderContent(); }
       else if (action === 'closeTournament') { selectedTournament = null; renderContent(); }
       else if (action === 'openMission') { selectedMission = arg; renderContent(); }
       else if (action === 'closeMission') { selectedMission = null; renderContent(); }
+      else if (action === 'openLevel') { selectedLevel = arg; renderContent(); }
+      else if (action === 'closeLevel') { selectedLevel = null; renderContent(); }
       else if (action === 'openStore') { selectedStoreItem = arg; storeMessage = null; renderContent(); }
       else if (action === 'closeStore') { selectedStoreItem = null; storeMessage = null; renderContent(); }
       else if (action === 'buyItem') {
@@ -3173,6 +3693,38 @@
           renderContent();
         }
       }
+      else if (action === 'generateReferral') {
+        try {
+          const result = await apiCall('referral_generate');
+          if (result.error) { alert(result.error); }
+          else { await fetchData(); }
+        } catch (e) { alert('Erro ao gerar código'); }
+      }
+      else if (action === 'copyReferral') {
+        try {
+          await navigator.clipboard.writeText(arg);
+          // Show toast
+          const toast = document.createElement('div');
+          toast.className = 'pbg-ref-copied';
+          toast.textContent = 'Link copiado!';
+          document.body.appendChild(toast);
+          setTimeout(() => toast.remove(), 2000);
+        } catch { alert('Erro ao copiar link'); }
+      }
+      else if (action === 'claimTier') {
+        try {
+          const result = await apiCall('referral_claim_tier', { tier: arg });
+          if (result.error) { alert(result.error); }
+          else {
+            const toast = document.createElement('div');
+            toast.className = 'pbg-ref-copied';
+            toast.textContent = 'Recompensa resgatada!';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+            await fetchData();
+          }
+        } catch (e) { alert('Erro ao resgatar tier'); }
+      }
     };
     // Legacy compat
     window.__pbgToggle = (s) => toggle(s);
@@ -3182,18 +3734,30 @@
   }
 
   async function checkSegmentAndInit() {
-    // If no segment specified, show to everyone
-    if (!SEGMENT_ID) { initWidget(); return true; }
-    // Need CPF to check segment membership
     PLAYER_CPF = getPlayerCpf();
-    if (!PLAYER_CPF) return false; // no CPF yet = can't verify
-    try {
-      const res = await apiCall('check_segment');
-      if (res && res.belongs) { initWidget(); return true; }
-      return true; // checked but not in segment = stop polling
-    } catch {
-      return false; // error = retry later
+    // If segment specified in script tag, check via dedicated endpoint
+    if (SEGMENT_ID) {
+      if (!PLAYER_CPF) return false;
+      try {
+        const res = await apiCall('check_segment');
+        if (!res || !res.belongs) return true; // not in segment = stop polling, don't show
+      } catch { return false; }
     }
+    // Always pre-fetch data to check server-side widget_segment restriction
+    if (PLAYER_CPF) {
+      try {
+        const refCode = (function() {
+          try { return localStorage.getItem('__pbr_ref_code') || localStorage.getItem('codigo_indicacao') || ''; } catch(e) { return ''; }
+        })();
+        data = await apiCall('data', refCode ? { ref_code: refCode } : {});
+        if (data?._widget_hidden) return true; // server says hide widget = stop polling, don't show
+        if (data?._ref_registered) {
+          try { localStorage.removeItem('__pbr_ref_code'); } catch(e) {}
+        }
+      } catch { return false; }
+    }
+    initWidget();
+    return true;
   }
 
   function init() {
@@ -3227,7 +3791,7 @@
 
     if (lvInfo) {
       pct = lvInfo.pct;
-      levelNum = lvInfo.current.level_number;
+      levelNum = getLevelNumber(lvInfo.current);
       color = lvInfo.current.color || '#8b5cf6';
       coins = wallet?.coins || 0;
       diamondsVal = wallet?.diamonds || 0;

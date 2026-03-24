@@ -336,6 +336,21 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
     }
   };
 
+  const doStop = (ruleId: string) => {
+    const timer = autoProcessRef.current.get(ruleId);
+    if (timer) clearTimeout(timer);
+    autoProcessRef.current.delete(ruleId);
+    setAutoProcessing(prev => {
+      const next = new Set(prev);
+      next.delete(ruleId);
+      return next;
+    });
+  };
+
+  const stopAutoProcess = useCallback((ruleId: string) => {
+    doStop(ruleId);
+  }, []);
+
   const startAutoProcess = useCallback((rule: CashbackRule, silent = false) => {
     const creds = getSavedCredentials();
     if (!creds.username || !creds.password) {
@@ -369,7 +384,7 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
           .from('cashback_rules').select('status').eq('id', rule.id).single();
 
         if (ruleData?.status !== 'ATIVA') {
-          stopAutoProcess(rule.id);
+          doStop(rule.id);
           return;
         }
 
@@ -386,18 +401,8 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
     };
 
     runIteration();
-  }, [queryClient, stopAutoProcess]);
-
-  const stopAutoProcess = useCallback((ruleId: string) => {
-    const timer = autoProcessRef.current.get(ruleId);
-    if (timer) clearTimeout(timer);
-    autoProcessRef.current.delete(ruleId);
-    setAutoProcessing(prev => {
-      const next = new Set(prev);
-      next.delete(ruleId);
-      return next;
-    });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient]);
 
   // Auto-resume for ATIVA + auto rules on load
   useEffect(() => {

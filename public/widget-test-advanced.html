@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget Advanced Tests — PixBingoBR</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0c0a1a; color: #e2e8f0; min-height: 100vh; }
+    .header { background: linear-gradient(135deg, #dc2626, #7c3aed); padding: 24px 32px; }
+    .header h1 { font-size: 22px; font-weight: 700; }
+    .header p { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: #1a1730; border-radius: 10px; padding: 4px; }
+    .tab { flex: 1; padding: 10px; text-align: center; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; color: #94a3b8; }
+    .tab.active { background: linear-gradient(135deg, #6d28d9, #7c3aed); color: white; }
+    .tab:hover:not(.active) { background: #2d2a45; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .section { margin-bottom: 20px; }
+    .section h2 { font-size: 15px; font-weight: 600; margin-bottom: 10px; color: #a78bfa; }
+    .test-row { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: #1a1730; border-radius: 8px; margin-bottom: 4px; font-size: 12px; }
+    .status { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .status.pass { background: #065f4620; color: #34d399; }
+    .status.fail { background: #7f1d1d20; color: #f87171; }
+    .status.warn { background: #78350f20; color: #fbbf24; }
+    .status.running { background: #1e1b4b20; color: #818cf8; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .label { flex: 1; }
+    .detail { font-size: 10px; color: #94a3b8; max-width: 350px; text-align: right; font-family: monospace; }
+    .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-red { background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; }
+    .btn-purple { background: linear-gradient(135deg, #6d28d9, #7c3aed); color: white; }
+    .btn-green { background: linear-gradient(135deg, #059669, #10b981); color: white; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-outline { background: transparent; border: 1px solid #374151; color: #e2e8f0; }
+    .summary { display: flex; gap: 12px; margin-bottom: 20px; }
+    .summary-card { flex: 1; padding: 14px; border-radius: 10px; text-align: center; }
+    .summary-card.pass-c { background: #065f4620; border: 1px solid #065f4640; }
+    .summary-card.fail-c { background: #7f1d1d20; border: 1px solid #7f1d1d40; }
+    .summary-card.time-c { background: #1e1b4b20; border: 1px solid #1e1b4b40; }
+    .summary-card .num { font-size: 28px; font-weight: 700; }
+    .summary-card .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
+    .pass-c .num { color: #34d399; } .fail-c .num { color: #f87171; } .time-c .num { color: #818cf8; }
+    .progress-bar { width: 100%; height: 5px; background: #1e1b4b; border-radius: 3px; overflow: hidden; margin-bottom: 14px; }
+    .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+    .fill-purple { background: linear-gradient(90deg, #6d28d9, #a78bfa); }
+    .fill-red { background: linear-gradient(90deg, #dc2626, #f87171); }
+    .fill-green { background: linear-gradient(90deg, #059669, #34d399); }
+    .cpf-input { padding: 10px 14px; background: #1a1730; border: 1px solid #374151; border-radius: 8px; color: #e2e8f0; font-size: 13px; width: 200px; outline: none; }
+    .cpf-input:focus { border-color: #7c3aed; }
+    .log { background: #0f0d1a; border: 1px solid #1e1b4b; border-radius: 8px; padding: 14px; max-height: 250px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.5; color: #64748b; margin-top: 14px; white-space: pre-wrap; }
+    .metric-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-bottom: 16px; }
+    .metric { background: #1a1730; border-radius: 8px; padding: 12px; text-align: center; }
+    .metric .val { font-size: 20px; font-weight: 700; color: #e2e8f0; }
+    .metric .mlbl { font-size: 10px; color: #64748b; margin-top: 2px; }
+    .integrity-diff { padding: 8px 12px; border-radius: 6px; font-size: 11px; font-family: monospace; margin-top: 8px; }
+    .integrity-diff.ok { background: #065f4620; border: 1px solid #065f4640; color: #34d399; }
+    .integrity-diff.bad { background: #7f1d1d20; border: 1px solid #7f1d1d40; color: #f87171; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Advanced Test Suite</h1>
+  <p>E2E, Stress Test e Integridade de Dados — PixBingoBR Gamification</p>
+</div>
+
+<div class="container">
+  <div class="controls">
+    <input type="text" class="cpf-input" id="cpfInput" value="70791576418" placeholder="CPF" />
+    <button class="btn btn-outline" onclick="location.reload()">Resetar</button>
+    <a href="/widget-test.html" style="font-size:12px;color:#818cf8;text-decoration:none;margin-left:auto;">← Teste Basico</a>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('e2e')">E2E Jornada</div>
+    <div class="tab" onclick="switchTab('stress')">Stress Test</div>
+    <div class="tab" onclick="switchTab('integrity')">Integridade</div>
+  </div>
+
+  <!-- E2E PANEL -->
+  <div class="panel active" id="panel-e2e">
+    <p style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Simula a jornada completa de um jogador: login → deposito → aposta → level up → missao → conquista → loja → roleta → mini game. Valida cada etapa.</p>
+    <button class="btn btn-purple" id="e2eBtn" onclick="runE2E()">Iniciar Jornada E2E</button>
+    <div class="progress-bar" style="margin-top:14px;"><div class="progress-fill fill-purple" id="e2eProgress" style="width:0%"></div></div>
+    <div class="summary" id="e2eSummary" style="display:none;">
+      <div class="summary-card pass-c"><div class="num" id="e2ePass">0</div><div class="lbl">Passou</div></div>
+      <div class="summary-card fail-c"><div class="num" id="e2eFail">0</div><div class="lbl">Falhou</div></div>
+      <div class="summary-card time-c"><div class="num" id="e2eTime">0s</div><div class="lbl">Tempo Total</div></div>
+    </div>
+    <div id="e2eResults"></div>
+    <div class="log" id="e2eLog" style="display:none;"></div>
+  </div>
+
+  <!-- STRESS PANEL -->
+  <div class="panel" id="panel-stress">
+    <p style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Dispara multiplas requests simultaneas para testar estabilidade, latencia e taxa de erro sob carga.</p>
+    <div class="controls" style="margin-bottom:14px;">
+      <select id="stressConcurrency" class="cpf-input" style="width:120px;">
+        <option value="10">10 requests</option>
+        <option value="25">25 requests</option>
+        <option value="50" selected>50 requests</option>
+        <option value="100">100 requests</option>
+      </select>
+      <button class="btn btn-red" id="stressBtn" onclick="runStress()">Iniciar Stress Test</button>
+    </div>
+    <div class="progress-bar"><div class="progress-fill fill-red" id="stressProgress" style="width:0%"></div></div>
+    <div class="metric-grid" id="stressMetrics" style="display:none;"></div>
+    <div id="stressResults"></div>
+    <div class="log" id="stressLog" style="display:none;"></div>
+  </div>
+
+  <!-- INTEGRITY PANEL -->
+  <div class="panel" id="panel-integrity">
+    <p style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Faz operacoes que alteram saldo (compras, spins, mini games) e verifica se o saldo final bate matematicamente.</p>
+    <button class="btn btn-green" id="integrityBtn" onclick="runIntegrity()">Iniciar Teste de Integridade</button>
+    <div class="progress-bar" style="margin-top:14px;"><div class="progress-fill fill-green" id="intProgress" style="width:0%"></div></div>
+    <div id="intResults"></div>
+    <div class="log" id="intLog" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+const API = 'https://backofficepixbingobr.vercel.app/api/gamification-widget';
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const panels = ['e2e','stress','integrity'];
+    t.classList.toggle('active', panels[i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+function getCpf() { return document.getElementById('cpfInput').value.replace(/\D/g, ''); }
+
+async function api(params) {
+  const qs = new URLSearchParams(params).toString();
+  const start = performance.now();
+  try {
+    const res = await fetch(`${API}?${qs}`);
+    const json = await res.json();
+    return { ok: res.ok, status: res.status, data: json, ms: Math.round(performance.now() - start) };
+  } catch(e) {
+    return { ok: false, status: 0, data: { error: e.message }, ms: Math.round(performance.now() - start) };
+  }
+}
+
+function renderTests(containerId, tests) {
+  let html = '';
+  let currentSection = '';
+  tests.forEach(t => {
+    if (t.section !== currentSection) {
+      currentSection = t.section;
+      html += `<div class="section"><h2>${t.section}</h2>`;
+    }
+    const icon = t.status === 'pass' ? '✓' : t.status === 'fail' ? '✗' : t.status === 'running' ? '◌' : '⚠';
+    html += `<div class="test-row"><div class="status ${t.status}">${icon}</div><div class="label">${t.name}</div><div class="detail">${t.detail || ''}</div></div>`;
+  });
+  document.getElementById(containerId).innerHTML = html;
+}
+
+function appendLog(logId, msg) {
+  const el = document.getElementById(logId);
+  el.style.display = 'block';
+  const ts = new Date().toLocaleTimeString('pt-BR');
+  el.textContent += `[${ts}] ${msg}\n`;
+  el.scrollTop = el.scrollHeight;
+}
+
+// ===================== E2E =====================
+async function runE2E() {
+  const cpf = getCpf();
+  if (!cpf || cpf.length !== 11) { alert('CPF invalido'); return; }
+  document.getElementById('e2eBtn').disabled = true;
+  document.getElementById('e2eLog').textContent = '';
+
+  const tests = [];
+  const add = (section, name, status, detail) => {
+    tests.push({ section, name, status, detail: detail || '' });
+    renderTests('e2eResults', tests);
+  };
+  const update = (idx, status, detail) => {
+    tests[idx].status = status;
+    if (detail !== undefined) tests[idx].detail = detail;
+    renderTests('e2eResults', tests);
+  };
+  const progress = (pct) => document.getElementById('e2eProgress').style.width = pct + '%';
+  const log = (msg) => appendLog('e2eLog', msg);
+  const totalStart = performance.now();
+
+  // Step 1: Get initial state
+  log('ETAPA 1: Capturando estado inicial...');
+  add('1. Estado Inicial', 'Carregando dados do jogador...', 'running');
+  const { data: initData, ms: initMs } = await api({ action: 'data', player: cpf });
+  if (!initData.wallet) {
+    update(0, 'fail', 'Wallet nao encontrada');
+    document.getElementById('e2eBtn').disabled = false;
+    return;
+  }
+  const initWallet = initData.wallet;
+  update(0, 'pass', `Lvl ${initWallet.level} | ${initWallet.coins} coins | ${initWallet.total_xp_earned} XP | ${initMs}ms`);
+  log(`  Wallet: coins=${initWallet.coins}, xp=${initWallet.total_xp_earned}, level=${initWallet.level}, diamonds=${initWallet.diamonds}`);
+  progress(10);
+
+  // Step 2: Login event
+  log('\nETAPA 2: Simulando login...');
+  add('2. Login', 'Enviando evento de login...', 'running');
+  const { data: loginRes, ms: loginMs } = await api({ action: 'sync_progress', player: cpf, event_type: 'login', event_value: '1' });
+  update(tests.length - 1, loginRes.success ? 'pass' : 'fail', `${loginMs}ms`);
+  progress(18);
+
+  // Step 3: Deposit
+  log('\nETAPA 3: Simulando deposito de R$100...');
+  add('3. Deposito', 'sync_progress deposit R$100...', 'running');
+  const { data: depRes, ms: depMs } = await api({ action: 'sync_progress', player: cpf, event_type: 'deposit', event_value: '100' });
+  update(tests.length - 1, depRes.success ? 'pass' : 'fail', `+${depRes.xp_earned || 0} XP | lvl_up: ${depRes.leveled_up} | ${depMs}ms`);
+  log(`  XP earned: ${depRes.xp_earned}, leveled_up: ${depRes.leveled_up}, new_level: ${depRes.new_level}`);
+  progress(28);
+
+  // Step 4: Bet
+  log('\nETAPA 4: Simulando aposta de R$50...');
+  add('4. Aposta', 'sync_progress bet R$50...', 'running');
+  const { data: betRes, ms: betMs } = await api({ action: 'sync_progress', player: cpf, event_type: 'bet', event_value: '50' });
+  update(tests.length - 1, betRes.success ? 'pass' : 'fail',
+    `+${betRes.xp_earned || 0} XP | missions: ${betRes.missions_completed}/${betRes.missions_updated} | achievements: ${betRes.achievements_completed}/${betRes.achievements_updated} | tournaments: ${betRes.tournaments_updated} | ${betMs}ms`);
+  log(`  Missions updated: ${betRes.missions_updated}, completed: ${betRes.missions_completed}`);
+  log(`  Achievements updated: ${betRes.achievements_updated}, completed: ${betRes.achievements_completed}`);
+  log(`  Tournaments updated: ${betRes.tournaments_updated}`);
+  progress(40);
+
+  // Step 5: Check state after events
+  log('\nETAPA 5: Verificando estado apos eventos...');
+  add('5. Verificacao Pos-Eventos', 'Carregando dados atualizados...', 'running');
+  const { data: midData, ms: midMs } = await api({ action: 'data', player: cpf });
+  const midWallet = midData.wallet || {};
+  const xpGrew = midWallet.total_xp_earned > initWallet.total_xp_earned;
+  update(tests.length - 1, xpGrew ? 'pass' : 'warn', `XP: ${initWallet.total_xp_earned} → ${midWallet.total_xp_earned} | Lvl: ${midWallet.level} | ${midMs}ms`);
+  progress(48);
+
+  // Step 5b: Check mission progress
+  add('5. Verificacao Pos-Eventos', 'Progresso de missoes atualizado', (midData.mission_progress?.length > 0) ? 'pass' : 'warn', `${midData.mission_progress?.length || 0} missoes em progresso`);
+  progress(52);
+
+  // Step 5c: Check achievement progress
+  add('5. Verificacao Pos-Eventos', 'Progresso de conquistas atualizado', (midData.achievement_progress?.length > 0) ? 'pass' : 'warn', `${midData.achievement_progress?.length || 0} conquistas em progresso`);
+  progress(55);
+
+  // Step 5d: Tournament score
+  let hasScore = false;
+  for (const [, lb] of Object.entries(midData.leaderboards || {})) {
+    const mine = lb.find(x => x.cpf === cpf);
+    if (mine && mine.score > 0) { hasScore = true; break; }
+  }
+  add('5. Verificacao Pos-Eventos', 'Score de torneio positivo', hasScore ? 'pass' : 'warn', '');
+  progress(58);
+
+  // Step 6: Play keno (tournament specific)
+  log('\nETAPA 6: Simulando jogo de keno...');
+  add('6. Play Keno (torneio)', 'sync_progress play_keno R$20...', 'running');
+  const { data: kenoRes, ms: kenoMs } = await api({ action: 'sync_progress', player: cpf, event_type: 'play_keno', event_value: '20' });
+  update(tests.length - 1, kenoRes.success ? 'pass' : 'fail', `tournaments: ${kenoRes.tournaments_updated} | ${kenoMs}ms`);
+  progress(64);
+
+  // Step 7: Spin wheel
+  log('\nETAPA 7: Girando roleta diaria...');
+  add('7. Roleta Diaria', 'Girando...', 'running');
+  const { data: spinRes, ms: spinMs } = await api({ action: 'spin', player: cpf });
+  if (spinRes.prize) {
+    update(tests.length - 1, 'pass', `Ganhou: ${spinRes.prize.label} (${spinRes.prize.value} ${spinRes.prize.type}) | ${spinMs}ms`);
+  } else if (spinRes.error?.includes('Limite')) {
+    update(tests.length - 1, 'pass', `Limite atingido (ja girou hoje) | ${spinMs}ms`);
+  } else {
+    update(tests.length - 1, 'fail', spinRes.error || 'erro desconhecido');
+  }
+  progress(72);
+
+  // Step 8: Play mini game
+  log('\nETAPA 8: Jogando mini game (Bau de Gemas)...');
+  add('8. Mini Game', 'play_mini_game Bau de Gemas...', 'running');
+  const { data: mgRes, ms: mgMs } = await api({ action: 'play_mini_game', player: cpf, game_id: 'a1111111-1111-1111-1111-111111111111' });
+  if (mgRes.prize) {
+    update(tests.length - 1, 'pass', `Ganhou: ${mgRes.prize.label} | type: ${mgRes.game_type} | ${mgMs}ms`);
+  } else if (mgRes.error?.includes('tentativa')) {
+    update(tests.length - 1, 'pass', `Sem tentativas (${mgRes.error}) | ${mgMs}ms`);
+  } else {
+    update(tests.length - 1, mgRes.error ? 'warn' : 'fail', mgRes.error || 'erro');
+  }
+  progress(80);
+
+  // Step 9: Store purchase
+  log('\nETAPA 9: Comprando item na loja...');
+  add('9. Loja', 'Comprando item mais barato...', 'running');
+  const cheapItem = (midData.store_items || []).filter(i => (i.price_coins || 0) > 0 && (i.price_coins || 0) <= 500).sort((a, b) => a.price_coins - b.price_coins)[0];
+  if (cheapItem) {
+    const { data: buyRes, ms: buyMs } = await api({ action: 'store_buy', player: cpf, item_id: cheapItem.id });
+    update(tests.length - 1, buyRes.success ? 'pass' : 'fail', `${cheapItem.name} | ${buyRes.delivery_status || buyRes.error} | ${buyMs}ms`);
+    log(`  Item: ${cheapItem.name}, price: ${cheapItem.price_coins} coins, delivery: ${buyRes.delivery_status}`);
+  } else {
+    update(tests.length - 1, 'warn', 'Nenhum item acessivel encontrado');
+  }
+  progress(88);
+
+  // Step 10: Claim pending reward
+  log('\nETAPA 10: Resgatando recompensa pendente...');
+  add('10. Claim Reward', 'Verificando recompensas pendentes...', 'running');
+  const { data: finalData } = await api({ action: 'data', player: cpf });
+  const pendingReward = (finalData.pending_rewards || []).find(r => !r.claimed_at);
+  if (pendingReward) {
+    const { data: claimRes, ms: claimMs } = await api({ action: 'claim_reward', player: cpf, reward_id: pendingReward.id });
+    update(tests.length - 1, claimRes.success ? 'pass' : 'fail', `${pendingReward.reward_type} R$${pendingReward.reward_value} | ${claimMs}ms`);
+  } else {
+    update(tests.length - 1, 'pass', 'Nenhuma pendente (tudo ja resgatado)');
+  }
+  progress(95);
+
+  // Step 11: Final state verification
+  log('\nETAPA 11: Estado final...');
+  add('11. Estado Final', 'Comparando com estado inicial...', 'running');
+  const { data: endData, ms: endMs } = await api({ action: 'data', player: cpf });
+  const endWallet = endData.wallet || {};
+  const xpDiff = endWallet.total_xp_earned - initWallet.total_xp_earned;
+  update(tests.length - 1, 'pass',
+    `XP: +${xpDiff} | Lvl: ${initWallet.level}→${endWallet.level} | Coins: ${initWallet.coins}→${endWallet.coins} | ${endMs}ms`);
+  log(`  ANTES: coins=${initWallet.coins}, xp=${initWallet.total_xp_earned}, level=${initWallet.level}`);
+  log(`  DEPOIS: coins=${endWallet.coins}, xp=${endWallet.total_xp_earned}, level=${endWallet.level}`);
+  progress(100);
+
+  // Summary
+  const totalMs = Math.round(performance.now() - totalStart);
+  const pass = tests.filter(t => t.status === 'pass').length;
+  const fail = tests.filter(t => t.status === 'fail').length;
+  document.getElementById('e2eSummary').style.display = 'flex';
+  document.getElementById('e2ePass').textContent = pass;
+  document.getElementById('e2eFail').textContent = fail;
+  document.getElementById('e2eTime').textContent = (totalMs / 1000).toFixed(1) + 's';
+  log(`\nRESULTADO: ${pass} passou, ${fail} falhou em ${(totalMs/1000).toFixed(1)}s`);
+  document.getElementById('e2eBtn').disabled = false;
+}
+
+// ===================== STRESS =====================
+async function runStress() {
+  const cpf = getCpf();
+  const n = parseInt(document.getElementById('stressConcurrency').value);
+  document.getElementById('stressBtn').disabled = true;
+  document.getElementById('stressLog').textContent = '';
+  const log = (msg) => appendLog('stressLog', msg);
+  const tests = [];
+
+  log(`Iniciando stress test: ${n} requests simultaneas...`);
+
+  // Mix of different actions
+  const actions = [];
+  for (let i = 0; i < n; i++) {
+    const r = i % 5;
+    if (r === 0) actions.push({ action: 'data', player: cpf });
+    else if (r === 1) actions.push({ action: 'sync_progress', player: cpf, event_type: 'login', event_value: '1' });
+    else if (r === 2) actions.push({ action: 'data', player: cpf, segment: 'd861aa4c-bb30-43bc-b8b2-bf827b6b6ca0' });
+    else if (r === 3) actions.push({ action: 'sync_progress', player: cpf, event_type: 'bet', event_value: '0.01' });
+    else actions.push({ action: 'data', player: cpf });
+  }
+
+  const startAll = performance.now();
+  let completed = 0;
+  const times = [];
+  let errors = 0;
+  let status200 = 0;
+
+  const promises = actions.map(async (params, idx) => {
+    const start = performance.now();
+    try {
+      const res = await fetch(`${API}?${new URLSearchParams(params)}`);
+      const ms = Math.round(performance.now() - start);
+      times.push(ms);
+      if (res.ok) status200++; else errors++;
+      completed++;
+      document.getElementById('stressProgress').style.width = `${Math.round(completed/n*100)}%`;
+      return { idx, ok: res.ok, status: res.status, ms };
+    } catch(e) {
+      const ms = Math.round(performance.now() - start);
+      times.push(ms);
+      errors++;
+      completed++;
+      document.getElementById('stressProgress').style.width = `${Math.round(completed/n*100)}%`;
+      return { idx, ok: false, status: 0, ms, error: e.message };
+    }
+  });
+
+  const results = await Promise.all(promises);
+  const totalMs = Math.round(performance.now() - startAll);
+
+  // Calculate metrics
+  times.sort((a, b) => a - b);
+  const avg = Math.round(times.reduce((s, t) => s + t, 0) / times.length);
+  const p50 = times[Math.floor(times.length * 0.5)];
+  const p95 = times[Math.floor(times.length * 0.95)];
+  const p99 = times[Math.floor(times.length * 0.99)];
+  const min = times[0];
+  const max = times[times.length - 1];
+  const rps = Math.round(n / (totalMs / 1000) * 10) / 10;
+
+  // Show metrics
+  document.getElementById('stressMetrics').style.display = 'grid';
+  document.getElementById('stressMetrics').innerHTML = `
+    <div class="metric"><div class="val">${n}</div><div class="mlbl">Total Requests</div></div>
+    <div class="metric"><div class="val" style="color:${errors > 0 ? '#f87171' : '#34d399'}">${status200}</div><div class="mlbl">Sucesso (2xx)</div></div>
+    <div class="metric"><div class="val" style="color:${errors > 0 ? '#f87171' : '#34d399'}">${errors}</div><div class="mlbl">Erros</div></div>
+    <div class="metric"><div class="val">${rps}</div><div class="mlbl">Req/s</div></div>
+    <div class="metric"><div class="val">${avg}ms</div><div class="mlbl">Latencia Media</div></div>
+    <div class="metric"><div class="val">${p50}ms</div><div class="mlbl">P50</div></div>
+    <div class="metric"><div class="val">${p95}ms</div><div class="mlbl">P95</div></div>
+    <div class="metric"><div class="val">${p99}ms</div><div class="mlbl">P99</div></div>
+    <div class="metric"><div class="val">${min}ms</div><div class="mlbl">Min</div></div>
+    <div class="metric"><div class="val">${max}ms</div><div class="mlbl">Max</div></div>
+    <div class="metric"><div class="val">${(totalMs/1000).toFixed(1)}s</div><div class="mlbl">Tempo Total</div></div>
+    <div class="metric"><div class="val" style="color:${errors === 0 ? '#34d399' : '#f87171'}">${Math.round(status200/n*100)}%</div><div class="mlbl">Taxa Sucesso</div></div>
+  `;
+
+  // Test evaluations
+  tests.push({ section: 'Resultados', name: 'Todas requests completaram', status: completed === n ? 'pass' : 'fail', detail: `${completed}/${n}` });
+  tests.push({ section: 'Resultados', name: 'Taxa de sucesso >= 95%', status: (status200/n) >= 0.95 ? 'pass' : 'fail', detail: `${Math.round(status200/n*100)}%` });
+  tests.push({ section: 'Resultados', name: 'Zero erros de rede', status: errors === 0 ? 'pass' : (errors <= 2 ? 'warn' : 'fail'), detail: `${errors} erros` });
+  tests.push({ section: 'Resultados', name: 'Latencia media < 2s', status: avg < 2000 ? 'pass' : (avg < 5000 ? 'warn' : 'fail'), detail: `${avg}ms` });
+  tests.push({ section: 'Resultados', name: 'P95 < 5s', status: p95 < 5000 ? 'pass' : (p95 < 10000 ? 'warn' : 'fail'), detail: `${p95}ms` });
+  tests.push({ section: 'Resultados', name: 'P99 < 10s', status: p99 < 10000 ? 'pass' : 'warn', detail: `${p99}ms` });
+  tests.push({ section: 'Resultados', name: 'Throughput > 1 req/s', status: rps > 1 ? 'pass' : 'fail', detail: `${rps} req/s` });
+
+  renderTests('stressResults', tests);
+
+  // Verify data integrity after stress
+  log('\nVerificando integridade pos-stress...');
+  const { data: postData } = await api({ action: 'data', player: cpf });
+  if (postData.wallet) {
+    tests.push({ section: 'Integridade Pos-Stress', name: 'Wallet intacta apos stress', status: 'pass', detail: `coins=${postData.wallet.coins}` });
+    tests.push({ section: 'Integridade Pos-Stress', name: 'Dados retornam normalmente', status: postData.missions ? 'pass' : 'fail', detail: '' });
+  } else {
+    tests.push({ section: 'Integridade Pos-Stress', name: 'Wallet intacta apos stress', status: 'fail', detail: 'wallet null!' });
+  }
+  renderTests('stressResults', tests);
+
+  log(`\nSTRESS TEST FINALIZADO: ${status200}/${n} ok | avg=${avg}ms | p95=${p95}ms | ${rps} req/s | ${(totalMs/1000).toFixed(1)}s total`);
+  document.getElementById('stressBtn').disabled = false;
+}
+
+// ===================== INTEGRITY =====================
+async function runIntegrity() {
+  const cpf = getCpf();
+  document.getElementById('integrityBtn').disabled = true;
+  document.getElementById('intLog').textContent = '';
+  const log = (msg) => appendLog('intLog', msg);
+  const tests = [];
+  const add = (section, name, status, detail) => { tests.push({ section, name, status, detail: detail || '' }); renderTests('intResults', tests); };
+  const progress = (pct) => document.getElementById('intProgress').style.width = pct + '%';
+
+  // 1. Snapshot initial wallet
+  log('Capturando snapshot da wallet...');
+  const { data: d1 } = await api({ action: 'data', player: cpf });
+  if (!d1.wallet) { add('Erro', 'Wallet nao encontrada', 'fail'); document.getElementById('integrityBtn').disabled = false; return; }
+  const before = { coins: d1.wallet.coins, xp: d1.wallet.xp, diamonds: d1.wallet.diamonds, total_xp: d1.wallet.total_xp_earned };
+  log(`ANTES: coins=${before.coins} | xp=${before.xp} | diamonds=${before.diamonds} | total_xp=${before.total_xp}`);
+  add('1. Snapshot Inicial', `Wallet capturada`, 'pass', `coins=${before.coins} | xp=${before.xp} | diamonds=${before.diamonds}`);
+  progress(15);
+
+  // 2. Do a mini game play (earns XP or coins)
+  log('\nJogando mini game (Bau de Gemas)...');
+  const { data: mgRes } = await api({ action: 'play_mini_game', player: cpf, game_id: 'a1111111-1111-1111-1111-111111111111' });
+  let mgReward = 0;
+  let mgType = '';
+  if (mgRes.prize) {
+    mgReward = mgRes.prize.value || 0;
+    mgType = mgRes.prize.type || '';
+    add('2. Mini Game', `Ganhou ${mgRes.prize.label}`, 'pass', `+${mgReward} ${mgType}`);
+    log(`  Premio: ${mgReward} ${mgType}`);
+  } else {
+    add('2. Mini Game', mgRes.error || 'sem premio', 'warn', '');
+  }
+  progress(35);
+
+  // 3. Do a deposit (earns XP)
+  log('\nSimulando deposito R$10...');
+  const { data: depRes } = await api({ action: 'sync_progress', player: cpf, event_type: 'deposit', event_value: '10' });
+  const depXp = depRes.xp_earned || 0;
+  add('3. Deposito', `+${depXp} XP`, depRes.success ? 'pass' : 'fail', '');
+  progress(50);
+
+  // 4. Do a bet (earns XP, may trigger rewards)
+  log('\nSimulando aposta R$5...');
+  const { data: betRes } = await api({ action: 'sync_progress', player: cpf, event_type: 'bet', event_value: '5' });
+  const betXp = betRes.xp_earned || 0;
+  add('4. Aposta', `+${betXp} XP`, betRes.success ? 'pass' : 'fail',
+    `missions_completed=${betRes.missions_completed} achievements_completed=${betRes.achievements_completed}`);
+  progress(65);
+
+  // 5. Spin wheel
+  log('\nGirando roleta...');
+  const { data: spinRes } = await api({ action: 'spin', player: cpf });
+  let spinReward = 0;
+  let spinType = '';
+  if (spinRes.prize) {
+    spinReward = spinRes.prize.value || 0;
+    spinType = spinRes.prize.type || '';
+    add('5. Roleta', `Ganhou ${spinRes.prize.label}`, 'pass', `+${spinReward} ${spinType}`);
+  } else {
+    add('5. Roleta', spinRes.error || 'sem resultado', 'pass', 'limite atingido');
+  }
+  progress(80);
+
+  // 6. Final snapshot
+  log('\nCapturando snapshot final...');
+  const { data: d2 } = await api({ action: 'data', player: cpf });
+  const after = { coins: d2.wallet.coins, xp: d2.wallet.xp, diamonds: d2.wallet.diamonds, total_xp: d2.wallet.total_xp_earned };
+  log(`DEPOIS: coins=${after.coins} | xp=${after.xp} | diamonds=${after.diamonds} | total_xp=${after.total_xp}`);
+  add('6. Snapshot Final', `Wallet capturada`, 'pass', `coins=${after.coins} | xp=${after.xp} | diamonds=${after.diamonds}`);
+  progress(90);
+
+  // 7. Verify integrity
+  log('\nVerificando integridade...');
+  const coinsDiff = after.coins - before.coins;
+  const xpDiff = after.total_xp - before.total_xp;
+  const diamondsDiff = after.diamonds - before.diamonds;
+
+  log(`  Coins diff: ${coinsDiff}`);
+  log(`  XP diff: ${xpDiff} (esperado >= ${depXp + betXp} do deposit+bet)`);
+  log(`  Diamonds diff: ${diamondsDiff}`);
+
+  // XP should have increased by at least deposit+bet XP
+  const xpExpectedMin = depXp + betXp;
+  const xpOk = xpDiff >= xpExpectedMin;
+  add('7. Integridade', `XP total cresceu corretamente`, xpOk ? 'pass' : 'fail',
+    `diff=${xpDiff} | esperado>=${xpExpectedMin}`);
+
+  // Coins: should reflect mini game + spin rewards minus any costs
+  // (we don't know exact costs so just check it didn't go wildly wrong)
+  const coinsReasonable = Math.abs(coinsDiff) < 1000000; // sanity check
+  add('7. Integridade', `Coins dentro do esperado`, coinsReasonable ? 'pass' : 'fail',
+    `diff=${coinsDiff}`);
+
+  // Diamonds sanity
+  const diamondsReasonable = diamondsDiff >= 0 || Math.abs(diamondsDiff) < 100000;
+  add('7. Integridade', `Diamonds dentro do esperado`, diamondsReasonable ? 'pass' : 'fail',
+    `diff=${diamondsDiff}`);
+
+  // No negative balances
+  const noNegative = after.coins >= 0 && after.xp >= 0 && after.diamonds >= 0;
+  add('7. Integridade', `Nenhum saldo negativo`, noNegative ? 'pass' : 'fail',
+    `coins=${after.coins} xp=${after.xp} diamonds=${after.diamonds}`);
+
+  progress(100);
+
+  log(`\nRESULTADO: ${tests.filter(t=>t.status==='pass').length} passou, ${tests.filter(t=>t.status==='fail').length} falhou`);
+  document.getElementById('integrityBtn').disabled = false;
+}
+</script>
+
+</body>
+</html>

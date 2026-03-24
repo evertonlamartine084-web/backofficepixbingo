@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget Health Check — PixBingoBR</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0c0a1a; color: #e2e8f0; min-height: 100vh; }
+    .header { background: linear-gradient(135deg, #6d28d9, #7c3aed); padding: 24px 32px; }
+    .header h1 { font-size: 22px; font-weight: 700; }
+    .header p { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+    .container { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+    .section { margin-bottom: 24px; }
+    .section h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #a78bfa; }
+    .test-row { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #1a1730; border-radius: 8px; margin-bottom: 6px; font-size: 13px; }
+    .test-row .status { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .test-row .status.pass { background: #065f4620; color: #34d399; }
+    .test-row .status.fail { background: #7f1d1d20; color: #f87171; }
+    .test-row .status.warn { background: #78350f20; color: #fbbf24; }
+    .test-row .status.pending { background: #1e1b4b20; color: #818cf8; }
+    .test-row .label { flex: 1; }
+    .test-row .detail { font-size: 11px; color: #94a3b8; max-width: 300px; text-align: right; }
+    .controls { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-primary { background: linear-gradient(135deg, #6d28d9, #7c3aed); color: white; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px #6d28d930; }
+    .btn-outline { background: transparent; border: 1px solid #374151; color: #e2e8f0; }
+    .btn-outline:hover { background: #1a1730; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .summary { display: flex; gap: 16px; margin-bottom: 24px; }
+    .summary-card { flex: 1; padding: 16px; border-radius: 10px; text-align: center; }
+    .summary-card.pass-card { background: #065f4620; border: 1px solid #065f4640; }
+    .summary-card.fail-card { background: #7f1d1d20; border: 1px solid #7f1d1d40; }
+    .summary-card.warn-card { background: #78350f20; border: 1px solid #78350f40; }
+    .summary-card .num { font-size: 32px; font-weight: 700; }
+    .summary-card .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
+    .pass-card .num { color: #34d399; } .fail-card .num { color: #f87171; } .warn-card .num { color: #fbbf24; }
+    .progress-bar { width: 100%; height: 6px; background: #1e1b4b; border-radius: 3px; overflow: hidden; margin-bottom: 16px; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #6d28d9, #34d399); border-radius: 3px; transition: width 0.5s; }
+    .cpf-input { padding: 10px 16px; background: #1a1730; border: 1px solid #374151; border-radius: 8px; color: #e2e8f0; font-size: 14px; width: 220px; outline: none; }
+    .cpf-input:focus { border-color: #7c3aed; }
+    .log { background: #0f0d1a; border: 1px solid #1e1b4b; border-radius: 8px; padding: 16px; max-height: 300px; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.6; color: #94a3b8; margin-top: 16px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Widget Health Check</h1>
+  <p>Teste automatizado do widget de gamificacao PixBingoBR</p>
+</div>
+
+<div class="container">
+  <div class="controls">
+    <input type="text" class="cpf-input" id="cpfInput" placeholder="CPF do jogador" value="70791576418" />
+    <button class="btn btn-primary" id="runBtn" onclick="runAllTests()">Executar Todos os Testes</button>
+    <button class="btn btn-outline" onclick="location.reload()">Resetar</button>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" id="progressBar" style="width:0%"></div></div>
+
+  <div class="summary" id="summary" style="display:none">
+    <div class="summary-card pass-card"><div class="num" id="passCount">0</div><div class="lbl">Passou</div></div>
+    <div class="summary-card fail-card"><div class="num" id="failCount">0</div><div class="lbl">Falhou</div></div>
+    <div class="summary-card warn-card"><div class="num" id="warnCount">0</div><div class="lbl">Aviso</div></div>
+  </div>
+
+  <div id="testSections"></div>
+  <div class="log" id="logArea" style="display:none"></div>
+</div>
+
+<script>
+const API = 'https://backofficepixbingobr.vercel.app/api/gamification-widget';
+let results = [];
+let logLines = [];
+
+function log(msg) {
+  const ts = new Date().toLocaleTimeString('pt-BR');
+  logLines.push(`[${ts}] ${msg}`);
+  const el = document.getElementById('logArea');
+  el.style.display = 'block';
+  el.textContent = logLines.join('\n');
+  el.scrollTop = el.scrollHeight;
+}
+
+function addResult(section, name, status, detail = '') {
+  results.push({ section, name, status, detail });
+}
+
+function updateProgress(current, total) {
+  document.getElementById('progressBar').style.width = `${Math.round(current/total*100)}%`;
+}
+
+function renderResults() {
+  const sections = {};
+  results.forEach(r => {
+    if (!sections[r.section]) sections[r.section] = [];
+    sections[r.section].push(r);
+  });
+
+  let html = '';
+  for (const [section, tests] of Object.entries(sections)) {
+    html += `<div class="section"><h2>${section}</h2>`;
+    tests.forEach(t => {
+      const icon = t.status === 'pass' ? '✓' : t.status === 'fail' ? '✗' : '⚠';
+      html += `<div class="test-row">
+        <div class="status ${t.status}">${icon}</div>
+        <div class="label">${t.name}</div>
+        <div class="detail">${t.detail}</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  document.getElementById('testSections').innerHTML = html;
+
+  const pass = results.filter(r => r.status === 'pass').length;
+  const fail = results.filter(r => r.status === 'fail').length;
+  const warn = results.filter(r => r.status === 'warn').length;
+  document.getElementById('passCount').textContent = pass;
+  document.getElementById('failCount').textContent = fail;
+  document.getElementById('warnCount').textContent = warn;
+  document.getElementById('summary').style.display = 'flex';
+}
+
+async function fetchApi(params) {
+  const qs = new URLSearchParams(params).toString();
+  const url = `${API}?${qs}`;
+  log(`GET ${url}`);
+  const start = performance.now();
+  const res = await fetch(url);
+  const elapsed = Math.round(performance.now() - start);
+  const json = await res.json();
+  log(`  -> ${res.status} (${elapsed}ms) ${JSON.stringify(json).slice(0, 200)}`);
+  return { status: res.status, data: json, elapsed };
+}
+
+async function runAllTests() {
+  const cpf = document.getElementById('cpfInput').value.replace(/\D/g, '');
+  if (!cpf || cpf.length !== 11) { alert('CPF invalido'); return; }
+
+  results = [];
+  logLines = [];
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('logArea').style.display = 'block';
+
+  const totalTests = 28;
+  let done = 0;
+  const step = () => { done++; updateProgress(done, totalTests); renderResults(); };
+
+  // ===== 1. WIDGET LOAD =====
+  log('=== TESTE: Carregamento do Widget ===');
+  try {
+    const start = performance.now();
+    const res = await fetch('/widget/gamification.js');
+    const text = await res.text();
+    const elapsed = Math.round(performance.now() - start);
+    addResult('Widget JS', 'Arquivo carrega (200 OK)', res.ok ? 'pass' : 'fail', `${res.status} | ${elapsed}ms`);
+    step();
+    addResult('Widget JS', 'Tamanho adequado (>10KB)', text.length > 10000 ? 'pass' : 'fail', `${(text.length/1024).toFixed(0)}KB`);
+    step();
+    addResult('Widget JS', 'Contem FAB (botao flutuante)', text.includes('pbg-widget-fab') ? 'pass' : 'fail', '');
+    step();
+    addResult('Widget JS', 'Contem painel principal', text.includes('renderContent') ? 'pass' : 'fail', '');
+    step();
+    addResult('Widget JS', 'Contem todas as abas',
+      ['renderMissions','renderAchievements','renderTournaments','renderWheel','renderMiniGames','renderStore','renderLevels'].every(fn => text.includes(fn)) ? 'pass' : 'fail', '7 renderers');
+    step();
+    addResult('Widget JS', 'Contem API_URL correto', text.includes('backofficepixbingobr.vercel.app') ? 'pass' : 'fail', '');
+    step();
+  } catch(e) {
+    addResult('Widget JS', 'Arquivo carrega', 'fail', e.message);
+    for(let i=0;i<5;i++) { step(); }
+  }
+
+  // ===== 2. API DATA =====
+  log('\n=== TESTE: API action=data ===');
+  try {
+    const { data: d, elapsed } = await fetchApi({ action: 'data', player: cpf });
+    addResult('API — Dados', 'Endpoint responde', d.missions ? 'pass' : 'fail', `${elapsed}ms`);
+    step();
+    addResult('API — Dados', 'Missoes retornadas', (d.missions?.length >= 0) ? 'pass' : 'fail', `${d.missions?.length || 0} missoes`);
+    step();
+    addResult('API — Dados', 'Conquistas retornadas', (d.achievements?.length >= 0) ? 'pass' : 'fail', `${d.achievements?.length || 0} conquistas`);
+    step();
+    addResult('API — Dados', 'Torneios retornados', (d.tournaments?.length >= 0) ? 'pass' : 'fail', `${d.tournaments?.length || 0} torneios`);
+    step();
+    addResult('API — Dados', 'Loja retornada', (d.store_items?.length > 0) ? 'pass' : 'warn', `${d.store_items?.length || 0} itens`);
+    step();
+    addResult('API — Dados', 'Wallet carregou', d.wallet ? 'pass' : 'fail', d.wallet ? `Lvl ${d.wallet.level} | ${d.wallet.coins} coins` : 'null');
+    step();
+    addResult('API — Dados', 'Roleta configurada', d.wheel_prizes?.length > 0 ? 'pass' : 'warn', `${d.wheel_prizes?.length || 0} premios`);
+    step();
+    addResult('API — Dados', 'Mini games configurados', d.mini_games?.length > 0 ? 'pass' : 'warn', `${d.mini_games?.length || 0} jogos`);
+    step();
+    addResult('API — Dados', 'Niveis configurados', d.levels?.length > 0 ? 'pass' : 'warn', `${d.levels?.length || 0} niveis`);
+    step();
+    addResult('API — Dados', 'Latencia aceitavel (<3s)', elapsed < 3000 ? 'pass' : (elapsed < 6000 ? 'warn' : 'fail'), `${elapsed}ms`);
+    step();
+  } catch(e) {
+    addResult('API — Dados', 'Endpoint responde', 'fail', e.message);
+    for(let i=0;i<9;i++) { step(); }
+  }
+
+  // ===== 3. SYNC PROGRESS =====
+  log('\n=== TESTE: sync_progress ===');
+  try {
+    const { data: d1, elapsed: e1 } = await fetchApi({ action: 'sync_progress', player: cpf, event_type: 'login', event_value: '1' });
+    addResult('API — Sync Progress', 'Login event processa', d1.success ? 'pass' : 'fail', `${e1}ms`);
+    step();
+  } catch(e) {
+    addResult('API — Sync Progress', 'Login event processa', 'fail', e.message);
+    step();
+  }
+
+  // ===== 4. VALIDACOES =====
+  log('\n=== TESTE: Validacoes de seguranca ===');
+  try {
+    const { data: d1 } = await fetchApi({ action: 'sync_progress', event_type: 'login', event_value: '1' });
+    addResult('Validacoes', 'Rejeita sem CPF', d1.error ? 'pass' : 'fail', d1.error || '');
+    step();
+  } catch(e) { addResult('Validacoes', 'Rejeita sem CPF', 'fail', e.message); step(); }
+
+  try {
+    const { data: d2 } = await fetchApi({ action: 'sync_progress', player: '11111111111', event_type: 'login', event_value: '1' });
+    addResult('Validacoes', 'Rejeita CPF invalido', d2.error?.includes('inv') ? 'pass' : 'fail', d2.error || 'nao rejeitou');
+    step();
+  } catch(e) { addResult('Validacoes', 'Rejeita CPF invalido', 'fail', e.message); step(); }
+
+  try {
+    const { data: d3 } = await fetchApi({ action: 'hackertest', player: cpf });
+    addResult('Validacoes', 'Rejeita action desconhecida', d3.error ? 'pass' : 'fail', d3.error || '');
+    step();
+  } catch(e) { addResult('Validacoes', 'Rejeita action desconhecida', 'fail', e.message); step(); }
+
+  try {
+    const { data: d4 } = await fetchApi({ action: 'store_buy', player: cpf });
+    addResult('Validacoes', 'Rejeita compra sem item_id', d4.error ? 'pass' : 'fail', d4.error || '');
+    step();
+  } catch(e) { addResult('Validacoes', 'Rejeita compra sem item_id', 'fail', e.message); step(); }
+
+  try {
+    const { data: d5 } = await fetchApi({ action: 'claim_reward', player: cpf, reward_id: '00000000-0000-0000-0000-000000000000' });
+    addResult('Validacoes', 'Rejeita claim invalido', d5.error ? 'pass' : 'fail', d5.error || '');
+    step();
+  } catch(e) { addResult('Validacoes', 'Rejeita claim invalido', 'fail', e.message); step(); }
+
+  // ===== 5. DOM INJECTION =====
+  log('\n=== TESTE: Injecao do Widget no DOM ===');
+  try {
+    // Remove existing widget if any
+    document.querySelectorAll('#pbg-widget-fab, #pbg-widget-panel, #pbg-widget-style').forEach(el => el.remove());
+    window.__PIXBINGO_GAMIFICATION__ = false;
+
+    // Inject widget script with test CPF
+    const script = document.createElement('script');
+    script.src = '/widget/gamification.js';
+    script.setAttribute('data-player', cpf);
+    script.setAttribute('data-require-login', 'false');
+    document.body.appendChild(script);
+
+    // Wait for widget to render
+    await new Promise(r => setTimeout(r, 3000));
+
+    const fab = document.getElementById('pbg-widget-fab');
+    addResult('Widget DOM', 'FAB renderizado', fab ? 'pass' : 'fail', fab ? `${fab.offsetWidth}x${fab.offsetHeight}px` : 'nao encontrado');
+    step();
+
+    if (fab) {
+      // Check FAB is visible
+      const fabRect = fab.getBoundingClientRect();
+      const isVisible = fabRect.width > 0 && fabRect.height > 0;
+      addResult('Widget DOM', 'FAB visivel na tela', isVisible ? 'pass' : 'fail', `pos: ${Math.round(fabRect.right)}x${Math.round(fabRect.bottom)}`);
+      step();
+
+      // Click FAB to open panel
+      fab.click();
+      await new Promise(r => setTimeout(r, 1500));
+
+      const panel = document.getElementById('pbg-widget-panel');
+      addResult('Widget DOM', 'Painel abre ao clicar FAB', panel ? 'pass' : 'fail', '');
+      step();
+
+      if (panel) {
+        const panelRect = panel.getBoundingClientRect();
+        addResult('Widget DOM', 'Painel tem tamanho', (panelRect.width > 200 && panelRect.height > 200) ? 'pass' : 'fail', `${Math.round(panelRect.width)}x${Math.round(panelRect.height)}px`);
+        step();
+
+        // Check tabs exist
+        const tabs = panel.querySelectorAll('[data-tab]');
+        const tabNames = Array.from(tabs).map(t => t.getAttribute('data-tab'));
+        addResult('Widget DOM', 'Abas renderizadas', tabs.length >= 4 ? 'pass' : (tabs.length > 0 ? 'warn' : 'fail'), `${tabs.length} abas: ${tabNames.join(', ')}`);
+        step();
+
+        // Try clicking each tab
+        const expectedTabs = ['missions', 'achievements', 'tournaments', 'wheel', 'games', 'store', 'levels'];
+        let tabsWorking = 0;
+        for (const tabName of expectedTabs) {
+          const tab = panel.querySelector(`[data-tab="${tabName}"]`);
+          if (tab) {
+            tab.click();
+            await new Promise(r => setTimeout(r, 500));
+            tabsWorking++;
+          }
+        }
+        addResult('Widget DOM', 'Abas clicaveis', tabsWorking >= 4 ? 'pass' : 'warn', `${tabsWorking}/${expectedTabs.length} funcionaram`);
+        step();
+
+        // Check if wallet/coins display exists
+        const walletText = panel.textContent;
+        const hasWallet = walletText.includes('Moeda') || walletText.includes('coin') || walletText.includes('XP') || walletText.includes('Nivel') || walletText.includes('Level') || walletText.includes('Nv.');
+        addResult('Widget DOM', 'Info da wallet visivel', hasWallet ? 'pass' : 'warn', '');
+        step();
+
+      } else {
+        for(let i=0;i<4;i++) { addResult('Widget DOM', 'Teste pulado (painel nao abriu)', 'warn', ''); step(); }
+      }
+    } else {
+      for(let i=0;i<6;i++) { addResult('Widget DOM', 'Teste pulado (FAB nao renderizou)', 'warn', ''); step(); }
+    }
+  } catch(e) {
+    addResult('Widget DOM', 'Injecao do widget', 'fail', e.message);
+    log(`ERRO: ${e.stack}`);
+    for(let i=0;i<6;i++) { step(); }
+  }
+
+  log('\n=== TESTES CONCLUIDOS ===');
+  const pass = results.filter(r => r.status === 'pass').length;
+  const fail = results.filter(r => r.status === 'fail').length;
+  const warn = results.filter(r => r.status === 'warn').length;
+  log(`Resultado: ${pass} passou | ${fail} falhou | ${warn} avisos`);
+
+  document.getElementById('runBtn').disabled = false;
+  renderResults();
+}
+</script>
+
+</body>
+</html>

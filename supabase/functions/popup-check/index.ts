@@ -29,6 +29,13 @@ const FREQUENCY_MS: Record<string, number> = {
   week: 7 * 24 * 60 * 60 * 1000,
 };
 
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/\bon\w+\s*=\s*[^\s>]*/gi, '');
+}
+
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -37,7 +44,7 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     const cpf = url.searchParams.get('cpf')?.replace(/\D/g, '') || '';
 
-    if (!cpf || cpf.length < 11) {
+    if (!cpf || cpf.length !== 11) {
       return new Response(JSON.stringify({ popups: [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -120,7 +127,7 @@ Deno.serve(async (req: Request) => {
         image_url: p.image_url,
         button_text: p.button_text,
         button_url: p.button_url,
-        custom_html: p.custom_html,
+        custom_html: p.custom_html ? sanitizeHtml(p.custom_html) : null,
         style: p.style,
         persistent: p.persistent || false,
         frequency: p.frequency || 'once',

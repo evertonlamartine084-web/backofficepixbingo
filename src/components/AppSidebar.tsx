@@ -5,7 +5,7 @@ import {
   ArrowUpDown, ListFilter, ShieldCheck, Megaphone, Gamepad2,
   MessageSquare, Package, User, RotateCcw, ScrollText,
   Award, Target, Swords, RotateCw, Star, ShoppingBag,
-  Bell, Inbox, Trophy, Gift,
+  Bell, Inbox, Trophy, Gift, Dices, BarChart3, UserPlus,
 } from 'lucide-react';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +24,7 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/player', icon: UserSearch, label: 'Consultar Jogador' },
   { to: '/transactions', icon: ArrowUpDown, label: 'Transações' },
+  { to: '/partidas', icon: Dices, label: 'Partidas' },
   { to: '/segments', icon: ListFilter, label: 'Segmentos' },
   { to: '/campaigns', icon: Megaphone, label: 'Campanhas' },
   { to: '/cashback', icon: RotateCcw, label: 'Cashback' },
@@ -43,8 +44,11 @@ const gamificationItems = [
   { to: '/gamification/mini-games-player', icon: Gift, label: 'Baús & Prêmios' },
   { to: '/assets/levels', icon: Star, label: 'Níveis' },
   { to: '/assets/store', icon: ShoppingBag, label: 'Loja' },
+  { to: '/gamification/store-deliveries', icon: Package, label: 'Entregas Loja' },
+  { to: '/gamification/referrals', icon: UserPlus, label: 'Indique e Ganhe' },
   { to: '/assets/push', icon: Bell, label: 'Push Notifications' },
   { to: '/assets/inbox', icon: Inbox, label: 'Inbox' },
+  { to: '/gamification/player-analytics', icon: BarChart3, label: 'Analytics Jogador' },
   { to: '/gamification/widget', icon: Code2, label: 'Widget Embed' },
 ];
 

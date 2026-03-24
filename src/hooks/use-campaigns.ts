@@ -257,6 +257,21 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
   const [autoProcessing, setAutoProcessing] = useState<Set<string>>(new Set());
   const autoProcessRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
+  const doStop = (campaignId: string) => {
+    const timer = autoProcessRef.current.get(campaignId);
+    if (timer) clearTimeout(timer);
+    autoProcessRef.current.delete(campaignId);
+    setAutoProcessing(prev => {
+      const next = new Set(prev);
+      next.delete(campaignId);
+      return next;
+    });
+  };
+
+  const stopAutoProcess = useCallback((campaignId: string) => {
+    doStop(campaignId);
+  }, []);
+
   const startAutoProcess = useCallback((campaign: Campaign, silent = false) => {
     const creds = getSavedCredentials();
     if (!creds.username || !creds.password) {
@@ -296,7 +311,7 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
           .from('campaigns').select('status, popup_id').eq('id', campaign.id).single();
 
         if (campData?.status !== 'ATIVA') {
-          stopAutoProcess(campaign.id);
+          doStop(campaign.id);
           toast.success(`Processamento concluído: ${totalCredited} creditados, ${totalErrors} erros`);
           return;
         }
@@ -306,8 +321,8 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
           const timer = setTimeout(runIteration, 1500);
           autoProcessRef.current.set(campaign.id, timer);
         } else {
-          // All done for now, check again in 30s for new participants
-          stopAutoProcess(campaign.id);
+          // All done for now
+          doStop(campaign.id);
           if (totalCredited > 0 || totalErrors > 0) {
             toast.success(`Lote concluído: ${totalCredited} creditados, ${totalErrors} erros`);
           }
@@ -316,7 +331,7 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
         console.error('Erro no processamento automático:', e.message);
         consecutiveErrors++;
         if (consecutiveErrors >= 5) {
-          stopAutoProcess(campaign.id);
+          doStop(campaign.id);
           toast.error(`Processamento parado após 5 erros seguidos: ${e.message}`);
           return;
         }
@@ -329,17 +344,6 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
 
     runIteration();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const stopAutoProcess = useCallback((campaignId: string) => {
-    const timer = autoProcessRef.current.get(campaignId);
-    if (timer) clearTimeout(timer);
-    autoProcessRef.current.delete(campaignId);
-    setAutoProcessing(prev => {
-      const next = new Set(prev);
-      next.delete(campaignId);
-      return next;
-    });
   }, []);
 
   const processCampaign = async (campaign: Campaign, onDone?: () => void) => {

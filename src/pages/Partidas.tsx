@@ -40,8 +40,11 @@ function parseValor(v: string | number): number {
 function getStatusInfo(p: Partida) {
   const now = new Date();
   // Parse date "dd/mm/yyyy" and time "HH:mm:ss"
-  const [d, m, y] = p.data_partida.split('/');
-  const partidaDate = new Date(`${y}-${m}-${d}T${p.hora_partida}`);
+  const parts = p.data_partida?.split('/') || [];
+  if (parts.length !== 3) return { label: 'Desconhecido', variant: 'outline' as const, color: 'text-muted-foreground' };
+  const [d, m, y] = parts;
+  const partidaDate = new Date(`${y}-${m}-${d}T${p.hora_partida || '00:00:00'}`);
+  if (isNaN(partidaDate.getTime())) return { label: 'Desconhecido', variant: 'outline' as const, color: 'text-muted-foreground' };
 
   if (p.processado === '1') return { label: 'Finalizada', variant: 'secondary' as const, color: 'text-muted-foreground' };
   if (partidaDate <= now) return { label: 'Em andamento', variant: 'default' as const, color: 'text-warning' };

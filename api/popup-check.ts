@@ -114,6 +114,14 @@ export default async function handler(req: Request): Promise<Response> {
         frequency: p.frequency || 'once',
       }));
 
+    // Sync login event for gamification progress (non-blocking)
+    if (cpf && result.length >= 0) {
+      try {
+        const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+        fetch(`${baseUrl}/api/gamification-widget?action=sync_progress&player=${cpf}&event_type=login&event_value=1`).catch(() => {});
+      } catch { /* ignore */ }
+    }
+
     return new Response(JSON.stringify({ popups: result }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-cache, no-store, must-revalidate' },
     });
