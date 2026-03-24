@@ -52,45 +52,61 @@
   function getPlayerCpf() {
     const attr = currentScript ? currentScript.getAttribute('data-player') : null;
     if (attr) return attr;
-    try { const ls = localStorage.getItem('__pbr_cpf'); if (ls) return ls; } catch {}
+    // localStorage is only a hint — autoDetectCpf will validate against live session
     return null;
   }
   let PLAYER_CPF = getPlayerCpf();
 
-  // Auto-detect player CPF from platform if not set
+  // Auto-detect player CPF from platform — always re-validates against live session
   async function autoDetectCpf() {
-    if (PLAYER_CPF) return;
+    // If CPF is set via data-player attribute on script tag, trust it (static config)
+    const attr = currentScript ? currentScript.getAttribute('data-player') : null;
+    if (attr) { PLAYER_CPF = attr; return; }
+
+    let liveCpf = null;
     try {
       // 1) Try data-cpf attribute on any element
       const cpfEl = document.querySelector('[data-cpf]');
       if (cpfEl) {
         const cpf = cpfEl.getAttribute('data-cpf').replace(/\D/g, '');
-        if (cpf.length === 11) { PLAYER_CPF = cpf; localStorage.setItem('__pbr_cpf', cpf); return; }
+        if (cpf.length === 11) liveCpf = cpf;
       }
       // 2) Try window vars set by platform
-      if (window.cpf_usuario) {
+      if (!liveCpf && window.cpf_usuario) {
         const cpf = String(window.cpf_usuario).replace(/\D/g, '');
-        if (cpf.length === 11) { PLAYER_CPF = cpf; localStorage.setItem('__pbr_cpf', cpf); return; }
+        if (cpf.length === 11) liveCpf = cpf;
       }
       // 3) Try platform's /api/wallet/saldo to check if logged in and get CPF
-      if (document.querySelector('.menu-saldo-body') || document.querySelector('.desc-saldo')) {
+      if (!liveCpf && (document.querySelector('.menu-saldo-body') || document.querySelector('.desc-saldo'))) {
         const res = await fetch('/api/wallet/saldo', { credentials: 'same-origin' });
         const d = await res.json();
         if (d.logged && d.cpf) {
           const cpf = String(d.cpf).replace(/\D/g, '');
-          if (cpf.length === 11) { PLAYER_CPF = cpf; localStorage.setItem('__pbr_cpf', cpf); return; }
+          if (cpf.length === 11) liveCpf = cpf;
         }
-        // If API returns logged but no cpf, try /api/perfil or similar
-        if (d.logged && !d.cpf) {
+        // If API returns logged but no cpf, try /api/perfil
+        if (d.logged && !liveCpf) {
           try {
             const pRes = await fetch('/api/perfil', { credentials: 'same-origin' });
             const pData = await pRes.json();
             const cpf = String(pData.cpf || pData.documento || '').replace(/\D/g, '');
-            if (cpf.length === 11) { PLAYER_CPF = cpf; localStorage.setItem('__pbr_cpf', cpf); return; }
+            if (cpf.length === 11) liveCpf = cpf;
           } catch (e2) {}
         }
       }
     } catch (e) {}
+
+    if (liveCpf) {
+      // Update cached CPF if it changed (user switched accounts)
+      if (PLAYER_CPF && PLAYER_CPF !== liveCpf) {
+        data = null; // clear stale data from previous user
+      }
+      PLAYER_CPF = liveCpf;
+      try { localStorage.setItem('__pbr_cpf', liveCpf); } catch {}
+    } else if (!PLAYER_CPF) {
+      // No live detection and no cache — try localStorage as last resort
+      try { const ls = localStorage.getItem('__pbr_cpf'); if (ls) PLAYER_CPF = ls; } catch {}
+    }
   }
   // CPF detection is now handled inside checkSegmentAndInit
 
