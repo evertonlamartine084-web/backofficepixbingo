@@ -2,12 +2,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Settings, Eye, EyeOff, RefreshCw, CheckCircle2, XCircle, Clock, Play } from 'lucide-react';
+import { Settings, Eye, EyeOff, RefreshCw, CheckCircle2, XCircle, Clock, Play, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
 const VERCEL_URL = 'https://backofficepixbingobr.vercel.app';
@@ -16,6 +17,7 @@ export default function PlatformConfig() {
   const qc = useQueryClient();
   const [showPassword, setShowPassword] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [syncingMissions, setSyncingMissions] = useState(false);
 
   const { data: config, isLoading } = useQuery({
     queryKey: ['platform_config'],
@@ -28,6 +30,15 @@ export default function PlatformConfig() {
         .single();
       if (error && error.code !== 'PGRST116') throw error;
       return data as any;
+    },
+  });
+
+  const { data: segments } = useQuery({
+    queryKey: ['segments_list'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('segments').select('id, name').order('name');
+      if (error) throw error;
+      return data || [];
     },
   });
 
@@ -45,6 +56,7 @@ export default function PlatformConfig() {
             username: values.username,
             password: values.password,
             active: values.active,
+            widget_segment_id: values.widget_segment_id || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', config.id);
@@ -58,6 +70,7 @@ export default function PlatformConfig() {
             password: values.password,
             login_url: values.login_url || null,
             active: values.active ?? true,
+            widget_segment_id: values.widget_segment_id || null,
           });
         if (error) throw error;
       }
@@ -81,9 +94,13 @@ export default function PlatformConfig() {
   const handleSync = async () => {
     setSyncing(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${VERCEL_URL}/api/sync-tournament-scores`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({}),
       });
       const data = await res.json();
@@ -99,6 +116,33 @@ export default function PlatformConfig() {
       toast.error(e.message);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleSyncMissions = async () => {
+    setSyncingMissions(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${VERCEL_URL}/api/sync-mission-progress`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.logs) console.log('Mission sync logs:', data.logs);
+      if (data.success) {
+        toast.success(`Sync missões concluído! ${data.updated} atualizados, ${data.completed} concluídos`);
+      } else {
+        const logMsg = data.logs?.length ? `\n${data.logs.join('\n')}` : '';
+        toast.error(`${data.error || 'Erro no sync'}${logMsg}`, { duration: 10000 });
+      }
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSyncingMissions(false);
     }
   };
 
@@ -119,15 +163,26 @@ export default function PlatformConfig() {
             Credenciais para sincronização automática de torneios
           </p>
         </div>
-        <Button
-          onClick={handleSync}
-          disabled={syncing || !config?.active}
-          variant="outline"
-          className="border-border"
-        >
-          {syncing ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-          {syncing ? 'Sincronizando...' : 'Sync Manual'}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleSync}
+            disabled={syncing || !config?.active}
+            variant="outline"
+            className="border-border"
+          >
+            {syncing ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+            {syncing ? 'Sincronizando...' : 'Sync Torneios'}
+          </Button>
+          <Button
+            onClick={handleSyncMissions}
+            disabled={syncingMissions || !config?.active}
+            variant="outline"
+            className="border-border"
+          >
+            {syncingMissions ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+            {syncingMissions ? 'Sincronizando...' : 'Sync Missões'}
+          </Button>
+        </div>
       </div>
 
       {/* Status card */}
@@ -216,6 +271,21 @@ export default function PlatformConfig() {
               onCheckedChange={v => updateField('active', v)}
             />
             <Label>Sync automático ativo</Label>
+          </div>
+          <div className="space-y-2 pt-2">
+            <Label className="flex items-center gap-2"><Users className="w-4 h-4" /> Segmento do Widget</Label>
+            <p className="text-xs text-muted-foreground">Restringe o widget de gamificação a jogadores de um segmento específico. Deixe vazio para mostrar a todos.</p>
+            <Select value={activeForm?.widget_segment_id || '_none'} onValueChange={v => updateField('widget_segment_id', v === '_none' ? null : v)}>
+              <SelectTrigger className="bg-secondary border-border w-full md:w-80">
+                <SelectValue placeholder="Todos os jogadores" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">Todos os jogadores</SelectItem>
+                {(segments || []).map((s: any) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex justify-end pt-2">
             <Button

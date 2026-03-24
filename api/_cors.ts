@@ -34,10 +34,20 @@ export function jsonResponse(body: Record<string, unknown>, req: Request, status
 }
 
 /**
- * Verify JWT from Authorization header using Supabase.
+ * Verify JWT from Authorization header using Supabase,
+ * or verify CRON_SECRET for automated cron calls.
  * Returns the authenticated user or null.
  */
 export async function verifyAuth(req: Request): Promise<{ user: { id: string; email?: string } } | null> {
+  // Allow cron calls with shared secret (pg_cron + pg_net)
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    const reqSecret = req.headers.get('x-cron-secret');
+    if (reqSecret === cronSecret) {
+      return { user: { id: 'cron', email: 'cron@system' } };
+    }
+  }
+
   const authHeader = req.headers.get('authorization') || req.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) return null;
 

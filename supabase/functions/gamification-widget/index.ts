@@ -275,6 +275,24 @@ Deno.serve(async (req: Request) => {
             .eq('cpf', playerCpf);
           playerSpins.spins_used_today = 0;
         }
+
+        // Auto-enroll player in missions that don't require opt-in
+        const activeMissions = missions.data || [];
+        const enrolledMissionIds = new Set(missionProgress.map((p: any) => p.mission_id));
+        const autoEnrollMissions = activeMissions.filter((m: any) => !m.require_optin && !enrolledMissionIds.has(m.id));
+        if (autoEnrollMissions.length > 0) {
+          const inserts = autoEnrollMissions.map((m: any) => ({
+            cpf: playerCpf,
+            mission_id: m.id,
+            opted_in: true,
+            target: Number(m.condition_value) || 1,
+            started_at: new Date().toISOString(),
+          }));
+          await supabase.from('player_mission_progress').upsert(inserts as any, { onConflict: 'cpf,mission_id' });
+          // Re-fetch mission progress to include newly enrolled
+          const { data: updatedProgress } = await supabase.from('player_mission_progress').select('*').eq('cpf', playerCpf);
+          missionProgress = updatedProgress || missionProgress;
+        }
       }
 
       // Get tournament leaderboards for active tournaments
@@ -911,10 +929,15 @@ Deno.serve(async (req: Request) => {
         });
       }
 
+      // Fetch mission to get condition_value as target
+      const { data: missionData } = await supabase.from('missions').select('condition_value').eq('id', missionId).single();
+      const target = Number(missionData?.condition_value) || 1;
+
       await supabase.from('player_mission_progress').upsert({
         cpf: playerCpf,
         mission_id: missionId,
         opted_in: true,
+        target,
         started_at: new Date().toISOString(),
       } as any, { onConflict: 'cpf,mission_id' });
 
