@@ -188,7 +188,14 @@ export default async function handler(req: Request): Promise<Response> {
 
   const authResult = await verifyAuth(req);
   if (!authResult) {
-    return new Response(JSON.stringify({ success: false, error: 'Não autorizado' }),
+    return new Response(JSON.stringify({
+      success: false, error: 'Não autorizado',
+      _debug: {
+        hasCronSecret: !!process.env.CRON_SECRET,
+        headerReceived: req.headers.get('x-cron-secret') ? 'yes' : 'no',
+        hasAuth: !!req.headers.get('authorization'),
+      }
+    }),
       { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 
