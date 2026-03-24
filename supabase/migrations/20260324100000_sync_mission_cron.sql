@@ -9,7 +9,7 @@ DO $$ BEGIN PERFORM cron.unschedule('sync-mission-progress'); EXCEPTION WHEN OTH
 -- Sync de missões a cada 5 minutos
 SELECT cron.schedule(
   'sync-mission-progress',
-  '*/5 * * * *',
+  '* * * * *',
   $$
   SELECT net.http_post(
     url := 'https://backofficepixbingobr.vercel.app/api/sync-mission-progress',
@@ -22,7 +22,7 @@ SELECT cron.schedule(
 -- Sync de torneios a cada 5 minutos
 SELECT cron.schedule(
   'sync-tournament-scores',
-  '*/5 * * * *',
+  '* * * * *',
   $$
   SELECT net.http_post(
     url := 'https://backofficepixbingobr.vercel.app/api/sync-tournament-scores',
