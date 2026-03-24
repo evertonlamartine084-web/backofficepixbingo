@@ -1489,7 +1489,7 @@
 
       return `
         <div class="pbg-m-detail">
-          <button onclick="window.__pbg('closeMission')" style="background:none;border:none;color:#a1a1aa;font-size:13px;cursor:pointer;font-family:inherit;padding:0;margin-bottom:8px">← Voltar</button>
+          <button onclick="window.__pbg('closeMission')" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#a1a1aa;font-size:13px;cursor:pointer;font-family:inherit;padding:8px 16px;margin:0 12px 8px;border-radius:8px;display:inline-block">← Voltar</button>
 
           <div class="pbg-m-detail-header">
             <div class="pbg-m-detail-icon">${m.icon_url ? `<img src="${m.icon_url}" style="width:56px;height:56px;border-radius:14px" alt="">` : typeIcons[m.type] || inlIcon('target',22)}</div>
