@@ -1480,7 +1480,9 @@
       const m = data.missions[selectedMission];
       if (!m) { selectedMission = null; return renderMissions(); }
       const progress = getMissionProgress(m.id);
-      const pct = progress ? Math.min(100, Math.round((progress.progress / progress.target) * 100)) : 0;
+      const mTarget = progress?.target || Number(m.condition_value) || 1;
+      const mProgress = progress?.progress || 0;
+      const pct = Math.min(100, Math.round((mProgress / mTarget) * 100));
       const isCompleted = progress?.completed;
       const isOptedIn = progress?.opted_in;
       const isClaimed = progress?.claimed;
@@ -1521,17 +1523,17 @@
                   </div>
                   <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px">
                     <span style="color:#71717a">${pct}%</span>
-                    <span style="color:#fff;font-weight:700">${progress ? `${Math.min(progress.progress, progress.target)} / ${progress.target}` : '0 / ?'}</span>
+                    <span style="color:#fff;font-weight:700">${Math.min(mProgress, mTarget)} / ${mTarget}</span>
                   </div>
                 </div>
               </div>
               <div class="pbg-m-detail-stats">
                 <div class="pbg-m-detail-stat">
-                  <div class="pbg-m-detail-stat-value" style="color:${color}">${progress ? Math.min(progress.progress, progress.target) : 0}</div>
+                  <div class="pbg-m-detail-stat-value" style="color:${color}">${Math.min(mProgress, mTarget)}</div>
                   <div class="pbg-m-detail-stat-label">Progresso</div>
                 </div>
                 <div class="pbg-m-detail-stat">
-                  <div class="pbg-m-detail-stat-value">${progress?.target || '?'}</div>
+                  <div class="pbg-m-detail-stat-value">${mTarget}</div>
                   <div class="pbg-m-detail-stat-label">Objetivo</div>
                 </div>
               </div>
