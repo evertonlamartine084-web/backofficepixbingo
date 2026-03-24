@@ -573,13 +573,19 @@ export default async function handler(req: Request): Promise<Response> {
           }
         }
 
-        // If player doesn't have a wallet yet, create one
+        // If player doesn't have a wallet yet, create one (insert only, never overwrite)
         if (!wallet) {
           const { data: newWallet } = await supabase.from('player_wallets')
-            .upsert({ cpf: playerCpf, coins: 0, xp: 0, level: 1 } as any, { onConflict: 'cpf' })
+            .upsert({ cpf: playerCpf, coins: 0, xp: 0, level: 1 } as any, { onConflict: 'cpf', ignoreDuplicates: true })
             .select()
             .single();
-          wallet = newWallet;
+          // If upsert returned nothing (existing row), re-fetch
+          if (!newWallet) {
+            const { data: existing } = await supabase.from('player_wallets').select('*').eq('cpf', playerCpf).maybeSingle();
+            wallet = existing;
+          } else {
+            wallet = newWallet;
+          }
         }
 
         // Reset daily spins if new day
@@ -590,9 +596,8 @@ export default async function handler(req: Request): Promise<Response> {
           playerSpins.spins_used_today = 0;
         }
 
-        // NOTE: syncPlayerXpInline removed from action=data to prevent race condition
-        // with sync_progress XP updates. XP sync from platform is now only triggered
-        // by sync_progress events (deposit/bet) which calculate XP inline.
+        // Sync XP from platform transactions (fire-and-forget, doesn't block response)
+        syncPlayerXpInline(playerCpf, supabase).catch(() => {});
       }
 
       // Get tournament leaderboards for active tournaments
