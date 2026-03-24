@@ -475,7 +475,7 @@
     @keyframes pbg-pulse-green { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.4)} 50%{box-shadow:0 0 0 6px rgba(16,185,129,0)} }
 
     /* Detail view */
-    .pbg-m-detail { animation: pbg-fade-in 0.2s ease; }
+    .pbg-m-detail { animation: pbg-fade-in 0.2s ease; padding: 12px 0; overflow: hidden; }
     .pbg-m-detail-header {
       text-align: center; padding: 20px; position: relative;
       background: linear-gradient(180deg, rgba(139,92,246,0.12) 0%, transparent 100%);
@@ -1491,7 +1491,7 @@
 
       return `
         <div class="pbg-m-detail">
-          <button onclick="window.__pbg('closeMission')" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#a1a1aa;font-size:13px;cursor:pointer;font-family:inherit;padding:8px 16px;margin:0 12px 8px;border-radius:8px;display:inline-block">← Voltar</button>
+          <button onclick="window.__pbg('closeMission')" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#a1a1aa;font-size:13px;cursor:pointer;font-family:inherit;padding:6px 14px;margin:0 12px 10px;border-radius:8px;display:inline-flex;align-items:center;gap:4px;box-sizing:border-box;max-width:calc(100% - 24px)">← Voltar</button>
 
           <div class="pbg-m-detail-header">
             <div class="pbg-m-detail-icon">${m.icon_url ? `<img src="${m.icon_url}" style="width:56px;height:56px;border-radius:14px" alt="">` : typeIcons[m.type] || inlIcon('target',22)}</div>
