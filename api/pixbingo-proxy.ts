@@ -35,8 +35,15 @@ interface ProxyRequest {
 }
 
 async function doLogin(body: ProxyRequest): Promise<{ cookies: string; success: boolean }> {
-  const baseUrl = body.site_url.replace(/\/+$/, '');
-  const loginUrl = body.login_url || `${baseUrl}/login`;
+  const siteUrl = body.site_url.replace(/\/+$/, '');
+  // If login_url is provided, derive the base domain from it (strip /login suffix)
+  let loginTarget = `${siteUrl}/login`;
+  let baseUrl = siteUrl;
+  if (body.login_url) {
+    const cleanLogin = body.login_url.replace(/\/+$/, '');
+    loginTarget = cleanLogin.endsWith('/login') ? cleanLogin : `${cleanLogin}/login`;
+    baseUrl = cleanLogin.replace(/\/login$/, '');
+  }
 
   let initialCookies = '';
   try {
@@ -49,7 +56,7 @@ async function doLogin(body: ProxyRequest): Promise<{ cookies: string; success: 
     const setCookies = initRes.headers.getSetCookie?.() || [];
     initialCookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
   } catch (e) {
-    console.log(`[doLogin] GET failed: ${(e as Error).message}`);
+    console.log(`[doLogin] GET ${baseUrl} failed: ${(e as Error).message}`);
   }
 
   try {
@@ -61,7 +68,7 @@ async function doLogin(body: ProxyRequest): Promise<{ cookies: string; success: 
     };
     if (initialCookies) headers['Cookie'] = initialCookies;
 
-    const res = await fetch(loginUrl, {
+    const res = await fetch(loginTarget, {
       method: 'POST',
       headers,
       body: new URLSearchParams({ usuario: body.username, senha: body.password }).toString(),
@@ -97,9 +104,13 @@ async function doLogin(body: ProxyRequest): Promise<{ cookies: string; success: 
           return { cookies, success: true };
         }
       } catch { /* ignore */ }
+      // If we got cookies back and the response isn't a login page, consider it success
+      if (setCookies.length > 0 && !text.includes('name="usuario"') && !text.includes('name="senha"')) {
+        return { cookies, success: true };
+      }
     }
   } catch (e) {
-    console.log(`[doLogin] POST failed: ${(e as Error).message}`);
+    console.log(`[doLogin] POST ${loginTarget} failed: ${(e as Error).message}`);
   }
 
   return { cookies: '', success: false };
@@ -190,7 +201,9 @@ export default async function handler(req: Request): Promise<Response> {
       return new Response(JSON.stringify({ success: false, error: 'URL não permitida' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    const baseUrl = normalizedUrl;
+    // Use login domain as base for API calls (same domain where session cookie is valid)
+    const loginDomain = body.login_url ? body.login_url.replace(/\/+$/, '').replace(/\/login$/, '') : null;
+    const baseUrl = loginDomain || normalizedUrl;
 
     const auth = await doLogin(body);
     if (!auth.success) {
