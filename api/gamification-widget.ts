@@ -106,7 +106,18 @@ async function syncPlayerXpInline(cpf: string, supabase: any): Promise<void> {
       else if (isDeposit && valor > 0) { totalDeposits += valor; processedCount++; }
     }
 
-    if (processedCount === 0) return;
+    if (processedCount === 0) {
+      // Fix level if it drifted (e.g. was set from total_xp_earned instead of xp)
+      const { data: fixLvls } = await supabase.from('levels').select('level,xp_required').order('level');
+      if (fixLvls?.length) {
+        let correctLevel = 0;
+        for (const lvl of fixLvls) { if ((wallet.xp || 0) >= lvl.xp_required) correctLevel = lvl.level; }
+        if (correctLevel !== (wallet.level || 0)) {
+          await supabase.from('player_wallets').update({ level: correctLevel } as any).eq('cpf', cpf);
+        }
+      }
+      return;
+    }
 
     const betXp = Math.floor(totalBets * apostaWeight);
     const depXp = Math.floor(totalDeposits * depositoWeight);
@@ -122,7 +133,7 @@ async function syncPlayerXpInline(cpf: string, supabase: any): Promise<void> {
 
     if (levels?.length) {
       for (const lvl of levels) {
-        if (lvl.level > (wallet.level || 0) && currentTotalXp >= lvl.xp_required) {
+        if (lvl.level > (wallet.level || 0) && currentXp >= lvl.xp_required) {
           newLevel = lvl.level;
           bonusCoins += lvl.reward_coins || 0;
           bonusDiamonds += lvl.reward_diamonds || 0;

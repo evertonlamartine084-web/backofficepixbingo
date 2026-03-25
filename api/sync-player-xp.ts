@@ -274,16 +274,21 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
     result.total_deposits = totalDeposits;
     result.transactions_processed = processedCount;
 
-    // Debug: wallet state (always included)
-    (result as any)._debug_wallet = { xp: wallet.xp, total_xp_earned: wallet.total_xp_earned, level: wallet.level, last_xp_sync: wallet.last_xp_sync };
-
     if (processedCount === 0) {
-      // Nothing new to process
+      // Nothing new to process — but fix level if it drifted
+      const { data: fixLevels } = await supabase.from('levels').select('level,xp_required').order('level');
+      if (fixLevels?.length) {
+        let correctLevel = 0;
+        for (const lvl of fixLevels) {
+          if ((wallet.xp || 0) >= lvl.xp_required) correctLevel = lvl.level;
+        }
+        if (correctLevel !== (wallet.level || 0)) {
+          await supabase.from('player_wallets').update({ level: correctLevel } as any).eq('cpf', cpf);
+          wallet.level = correctLevel;
+        }
+      }
       result.success = true;
       result.new_level = wallet.level || 1;
-      // Also fetch levels for debug
-      const { data: dbLevels } = await supabase.from('levels').select('level,name,xp_required').order('level');
-      (result as any)._debug_levels = (dbLevels || []).slice(0, 20);
       return result;
     }
 
@@ -310,16 +315,13 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
     const { data: levels } = await supabase.from('levels')
       .select('*').order('level');
 
-    (result as any)._debug_levels = (levels || []).slice(0, 20).map((l: any) => ({ level: l.level, name: l.name, xp_required: l.xp_required }));
-    (result as any)._debug_computed = { currentXp, currentTotalXp };
-
     let newLevel = wallet.level || 1;
     const rewardsCredited: any[] = [];
 
     if (levels && levels.length > 0) {
       for (const lvl of levels) {
         // Check if player crossed this level threshold
-        if (lvl.level > (wallet.level || 1) && currentTotalXp >= lvl.xp_required) {
+        if (lvl.level > (wallet.level || 1) && currentXp >= lvl.xp_required) {
           newLevel = lvl.level;
 
           // Credit level-up rewards
