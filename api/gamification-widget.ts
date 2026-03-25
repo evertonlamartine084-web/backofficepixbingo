@@ -41,66 +41,66 @@ async function syncPlayerXpInline(cpf: string, supabase: any): Promise<void> {
       'Cookie': login.cookies, 'Referer': siteUrl,
     };
 
-    // Find player UUID
+    // Find player UUID (needed for /usuarios/transacoes endpoint)
     const searchResult = await searchPlayerByCpf(siteUrl, hdrs, cpf);
     if (!searchResult.uuid) return;
 
-    // Fetch transactions via /transferencias/listar (DataTables format)
-    let transactions: any[] = [];
+    // Fetch real game transactions via /usuarios/transacoes (has bets, deposits, wins)
+    let movimentacoes: any[] = [];
+    let historico: any[] = [];
     try {
-      const txCols = ['name','cpf','id_externo','valor','tipo_transacao','updated_at','status'];
-      const params = new URLSearchParams({ draw: '1', start: '0', length: '200', 'search[value]': '', 'search[regex]': 'false', exportar: '0' });
-      txCols.forEach((col, i) => {
-        params.set(`columns[${i}][data]`, col);
-        params.set(`columns[${i}][name]`, '');
-        params.set(`columns[${i}][searchable]`, 'true');
-        params.set(`columns[${i}][orderable]`, 'true');
-        params.set(`columns[${i}][search][value]`, '');
-        params.set(`columns[${i}][search][regex]`, 'false');
-      });
-      params.set('order[0][column]', '5'); // order by updated_at
-      params.set('order[0][dir]', 'desc');
-      params.set('busca_cpf', cpf);
-      const txRes = await fetch(`${siteUrl}/transferencias/listar?${params.toString()}`, {
+      const txRes = await fetch(`${siteUrl}/usuarios/transacoes?id=${searchResult.uuid}`, {
         headers: hdrs, signal: AbortSignal.timeout(15000),
       });
       const txData = JSON.parse(await txRes.text());
-      transactions = txData?.data || txData?.aaData || [];
+      movimentacoes = txData?.movimentacoes || [];
+      historico = txData?.historico || [];
     } catch { return; }
 
-    const lastSync = wallet.last_xp_sync ? new Date(wallet.last_xp_sync) : null;
-    if (!Array.isArray(transactions) || transactions.length === 0) return;
+    const allTx = [
+      ...movimentacoes.map((m: any) => ({
+        tipo: (m.tipo || '').toUpperCase(),
+        valor: m.valor,
+        data_registro: m.data_registro,
+      })),
+      ...historico.map((h: any) => ({
+        tipo: (h.operacao || h.tipo || '').toUpperCase(),
+        valor: h.valor,
+        data_registro: h.data_registro,
+      })),
+    ];
+
+    if (allTx.length === 0) return;
+
+    const lastSync = wallet.last_xp_sync ? new Date(wallet.last_xp_sync).getTime() : null;
 
     const parseVal = (v: any): number => {
-      if (typeof v === 'number') return v;
+      if (typeof v === 'number') return Math.abs(v);
       if (!v) return 0;
       const s = String(v).trim();
-      if (s.includes(',')) return Number(s.replace(/\./g, '').replace(',', '.')) || 0;
-      return Number(s) || 0;
+      if (s.includes(',')) return Math.abs(Number(s.replace(/\./g, '').replace(',', '.'))) || 0;
+      return Math.abs(Number(s)) || 0;
     };
 
-    let totalBets = 0, totalDeposits = 0, newestTxDate: Date | null = null, processedCount = 0;
+    const parseDate = (s: string): number => {
+      if (!s) return 0;
+      const brMatch = s.match(/(\d{2})\/(\d{2})\/(\d{4})\s*(\d{2}):(\d{2}):(\d{2})/);
+      if (brMatch) return new Date(`${brMatch[3]}-${brMatch[2]}-${brMatch[1]}T${brMatch[4]}:${brMatch[5]}:${brMatch[6]}`).getTime();
+      return new Date(s).getTime();
+    };
 
-    for (const tx of transactions) {
-      const tipo = String(tx.tipo_transacao || tx.tipo || tx.type || tx.descricao || '').toLowerCase().trim();
-      const valor = parseVal(tx.valor || tx.value || tx.amount);
-      const txDateStr = tx.updated_at || tx.created_at || tx.data || tx.date || '';
-      let txDate: Date | null = null;
+    let totalBets = 0, totalDeposits = 0, newestTs = 0, processedCount = 0;
 
-      if (txDateStr) {
-        if (txDateStr.includes('/')) {
-          const parts = txDateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s*(\d{2}):(\d{2}):?(\d{2})?/);
-          if (parts) txDate = new Date(`${parts[3]}-${parts[2]}-${parts[1]}T${parts[4]}:${parts[5]}:${parts[6] || '00'}`);
-        } else {
-          txDate = new Date(txDateStr);
-        }
-      }
+    for (const tx of allTx) {
+      const tipo = tx.tipo;
+      const valor = parseVal(tx.valor);
+      const txTs = parseDate(tx.data_registro || '');
 
-      if (lastSync && txDate && txDate <= lastSync) continue;
-      if (txDate && (!newestTxDate || txDate > newestTxDate)) newestTxDate = txDate;
+      if (lastSync && txTs && txTs <= lastSync) continue;
+      if (txTs > newestTs) newestTs = txTs;
 
-      const isBet = ['aposta', 'bet', 'compra', 'purchase'].some(t => tipo.includes(t));
-      const isDeposit = ['deposito', 'deposit', 'pix', 'depositar'].some(t => tipo.includes(t));
+      const isBet = tipo.includes('COMPRA') || tipo.includes('APOSTA') || tipo.includes('BET') || tipo.includes('PURCHASE');
+      const isDeposit = tipo.includes('DEPOSITO') || tipo.includes('DEPOSIT') || tipo.includes('PIX_IN');
 
       if (isBet && valor > 0) { totalBets += valor; processedCount++; }
       else if (isDeposit && valor > 0) { totalDeposits += valor; processedCount++; }
@@ -139,7 +139,7 @@ async function syncPlayerXpInline(cpf: string, supabase: any): Promise<void> {
 
     const walletUpdate: any = {
       xp: currentXp, total_xp_earned: currentTotalXp, level: newLevel,
-      last_xp_sync: newestTxDate ? newestTxDate.toISOString() : new Date().toISOString(),
+      last_xp_sync: newestTs ? new Date(newestTs).toISOString() : new Date().toISOString(),
     };
     if (bonusCoins > 0) walletUpdate.coins = (wallet.coins || 0) + bonusCoins;
     if (bonusDiamonds > 0) {

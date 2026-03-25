@@ -184,94 +184,82 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
     }
 
     if (!playerUuid) {
-      // Player not found on platform - skip UUID search, try direct transaction fetch by CPF
+      result.error = 'Player UUID not found on platform';
+      return result;
     }
 
-    // 6. Fetch player transactions via /transferencias/listar
-    let transactions: any[] = [];
+    // 6. Fetch real game transactions via /usuarios/transacoes (has bets, deposits, wins)
+    let movimentacoes: any[] = [];
+    let historico: any[] = [];
     try {
-      const txCols = ['name','cpf','id_externo','valor','tipo_transacao','updated_at','status'];
-      const params = new URLSearchParams({ draw: '1', start: '0', length: '200', 'search[value]': '', 'search[regex]': 'false', exportar: '0' });
-      txCols.forEach((col, i) => {
-        params.set(`columns[${i}][data]`, col);
-        params.set(`columns[${i}][name]`, '');
-        params.set(`columns[${i}][searchable]`, 'true');
-        params.set(`columns[${i}][orderable]`, 'true');
-        params.set(`columns[${i}][search][value]`, '');
-        params.set(`columns[${i}][search][regex]`, 'false');
-      });
-      params.set('order[0][column]', '5'); // order by updated_at
-      params.set('order[0][dir]', 'desc');
-      params.set('busca_cpf', cpf);
-      const txRes = await fetch(`${siteUrl}/transferencias/listar?${params.toString()}`, {
+      const txRes = await fetch(`${siteUrl}/usuarios/transacoes?id=${playerUuid}`, {
         headers, signal: AbortSignal.timeout(15000),
       });
       const txData = JSON.parse(await txRes.text());
-      transactions = txData?.data || txData?.aaData || [];
+      movimentacoes = txData?.movimentacoes || [];
+      historico = txData?.historico || [];
     } catch (e: any) {
       result.error = `Failed to fetch transactions: ${e.message}`;
       return result;
     }
 
-    // 7. Parse transactions and filter by last_xp_sync
-    const lastSync = wallet.last_xp_sync ? new Date(wallet.last_xp_sync) : null;
+    // Normalize all transactions into a unified format
+    const allTx = [
+      ...movimentacoes.map((m: any) => ({
+        tipo: (m.tipo || '').toUpperCase(),
+        valor: m.valor,
+        data_registro: m.data_registro,
+      })),
+      ...historico.map((h: any) => ({
+        tipo: (h.operacao || h.tipo || '').toUpperCase(),
+        valor: h.valor,
+        data_registro: h.data_registro,
+      })),
+    ];
 
-    if (!Array.isArray(transactions) || transactions.length === 0) {
+    // 7. Parse transactions and filter by last_xp_sync
+    const lastSync = wallet.last_xp_sync ? new Date(wallet.last_xp_sync).getTime() : null;
+
+    if (allTx.length === 0) {
       result.success = true;
       result.new_level = wallet.level || 1;
       return result;
     }
 
-    // Parse currency value: handles "166.00" (decimal) and "4.279,46" (BR format)
     const parseVal = (v: any): number => {
-      if (typeof v === 'number') return v;
+      if (typeof v === 'number') return Math.abs(v);
       if (!v) return 0;
       const s = String(v).trim();
-      // If has comma, it's BR format (4.279,46 → 4279.46)
-      if (s.includes(',')) return Number(s.replace(/\./g, '').replace(',', '.')) || 0;
-      // Otherwise it's already decimal format (166.00)
-      return Number(s) || 0;
+      if (s.includes(',')) return Math.abs(Number(s.replace(/\./g, '').replace(',', '.'))) || 0;
+      return Math.abs(Number(s)) || 0;
     };
 
-    const BET_TYPES = ['aposta', 'bet', 'compra', 'purchase'];
-    const DEPOSIT_TYPES = ['deposito', 'deposit', 'pix', 'depositar'];
+    const parseDate = (s: string): number => {
+      if (!s) return 0;
+      const brMatch = s.match(/(\d{2})\/(\d{2})\/(\d{4})\s*(\d{2}):(\d{2}):(\d{2})/);
+      if (brMatch) return new Date(`${brMatch[3]}-${brMatch[2]}-${brMatch[1]}T${brMatch[4]}:${brMatch[5]}:${brMatch[6]}`).getTime();
+      return new Date(s).getTime();
+    };
 
     let totalBets = 0;
     let totalDeposits = 0;
-    let newestTxDate: Date | null = null;
+    let newestTs = 0;
     let processedCount = 0;
 
-    for (const tx of transactions) {
-      const tipo = String(tx.tipo_transacao || tx.tipo || tx.type || tx.descricao || '').toLowerCase().trim();
-      const valor = parseVal(tx.valor || tx.value || tx.amount);
-      const txDateStr = tx.updated_at || tx.created_at || tx.data || tx.date || '';
-      let txDate: Date | null = null;
-
-      if (txDateStr) {
-        // Handle BR date format: "21/03/2026 14:30:00" or ISO
-        if (txDateStr.includes('/')) {
-          const parts = txDateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s*(\d{2}):(\d{2}):?(\d{2})?/);
-          if (parts) {
-            txDate = new Date(`${parts[3]}-${parts[2]}-${parts[1]}T${parts[4]}:${parts[5]}:${parts[6] || '00'}`);
-          }
-        } else {
-          txDate = new Date(txDateStr);
-        }
-      }
+    for (const tx of allTx) {
+      const tipo = tx.tipo;
+      const valor = parseVal(tx.valor);
+      const txTs = parseDate(tx.data_registro || '');
 
       // Skip transactions we already processed
-      if (lastSync && txDate && txDate <= lastSync) {
-        continue;
-      }
+      if (lastSync && txTs && txTs <= lastSync) continue;
 
       // Track newest transaction date
-      if (txDate && (!newestTxDate || txDate > newestTxDate)) {
-        newestTxDate = txDate;
-      }
+      if (txTs > newestTs) newestTs = txTs;
 
       // Classify transaction
-      const isBet = BET_TYPES.some(t => tipo.includes(t));
-      const isDeposit = DEPOSIT_TYPES.some(t => tipo.includes(t));
+      const isBet = tipo.includes('COMPRA') || tipo.includes('APOSTA') || tipo.includes('BET') || tipo.includes('PURCHASE');
+      const isDeposit = tipo.includes('DEPOSITO') || tipo.includes('DEPOSIT') || tipo.includes('PIX_IN');
 
       if (isBet && valor > 0) {
         totalBets += valor;
@@ -374,7 +362,7 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
       xp: currentXp,
       total_xp_earned: currentTotalXp,
       level: newLevel,
-      last_xp_sync: newestTxDate ? newestTxDate.toISOString() : new Date().toISOString(),
+      last_xp_sync: newestTs ? new Date(newestTs).toISOString() : new Date().toISOString(),
     };
 
     // Add level-up reward currencies
