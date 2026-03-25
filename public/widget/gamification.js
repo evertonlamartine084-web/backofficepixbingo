@@ -31,20 +31,23 @@
   const REQUIRE_LOGIN = currentScript?.getAttribute('data-require-login') || cfg.requireLogin || srcParams.get('require-login') || null;
   const AUTH_SELECTOR = currentScript?.getAttribute('data-auth-selector') || cfg.authSelector || srcParams.get('auth-selector') || null;
 
-  // Capture referral code from URL and persist to localStorage
-  // Platform uses: /registrar/CODE (path-based) and saves as 'codigo_indicacao'
-  // Widget also supports: ?ref=CODE (query-based)
+  // Capture referral code from URL (in-memory only, not persisted to localStorage)
+  let __pbr_captured_ref = '';
   try {
     const pageUrl = new URL(window.location.href);
     const refParam = pageUrl.searchParams.get('ref');
-    if (refParam) {
-      localStorage.setItem('codigo_indicacao', refParam);
-      localStorage.setItem('__pbr_ref_code', refParam);
+    if (refParam) __pbr_captured_ref = refParam;
+    // Also capture from path: /registrar/CODE
+    if (!__pbr_captured_ref) {
+      const pathParts = pageUrl.pathname.split('/').filter(Boolean);
+      if (pathParts.length >= 2 && pathParts[0] === 'registrar' && /^[A-Za-z0-9]+$/.test(pathParts[1])) {
+        __pbr_captured_ref = pathParts[1];
+      }
     }
-    // Also capture from path: /registrar/CODE or /CODE
-    const pathParts = pageUrl.pathname.split('/').filter(Boolean);
-    if (pathParts.length >= 2 && pathParts[0] === 'registrar' && /^[A-Za-z0-9]+$/.test(pathParts[1])) {
-      localStorage.setItem('__pbr_ref_code', pathParts[1]);
+    // Read from platform's localStorage key (set by the platform itself, not by us)
+    if (!__pbr_captured_ref) {
+      const existing = localStorage.getItem('codigo_indicacao');
+      if (existing) __pbr_captured_ref = existing;
     }
   } catch (e) {}
 
@@ -57,57 +60,45 @@
   }
   let PLAYER_CPF = getPlayerCpf();
 
-  // Auto-detect player CPF from platform — always re-validates against live session
+  // Detect player CPF from page context or cached value
   async function autoDetectCpf() {
     // If CPF is set via data-player attribute on script tag, trust it (static config)
     const attr = currentScript ? currentScript.getAttribute('data-player') : null;
     if (attr) { PLAYER_CPF = attr; return; }
 
-    let liveCpf = null;
+    let detectedCpf = null;
     try {
-      // 1) Try data-cpf attribute on any element
+      // 1) Try data-cpf attribute on any element (set by platform)
       const cpfEl = document.querySelector('[data-cpf]');
       if (cpfEl) {
         const cpf = cpfEl.getAttribute('data-cpf').replace(/\D/g, '');
-        if (cpf.length === 11) liveCpf = cpf;
+        if (cpf.length === 11) detectedCpf = cpf;
       }
       // 2) Try window vars set by platform
-      if (!liveCpf && window.cpf_usuario) {
+      if (!detectedCpf && window.cpf_usuario) {
         const cpf = String(window.cpf_usuario).replace(/\D/g, '');
-        if (cpf.length === 11) liveCpf = cpf;
+        if (cpf.length === 11) detectedCpf = cpf;
       }
-      // 3) Try platform's /api/wallet/saldo to get CPF (always try, don't require DOM selectors)
-      if (!liveCpf) {
-        try {
-          const res = await fetch('/api/wallet/saldo', { credentials: 'same-origin', signal: AbortSignal.timeout(5000) });
-          const d = await res.json();
-          if (d.logged && d.cpf) {
-            const cpf = String(d.cpf).replace(/\D/g, '');
-            if (cpf.length === 11) liveCpf = cpf;
-          }
-          // If API returns logged but no cpf, try /api/perfil
-          if (d.logged && !liveCpf) {
-            try {
-              const pRes = await fetch('/api/perfil', { credentials: 'same-origin', signal: AbortSignal.timeout(5000) });
-              const pData = await pRes.json();
-              const cpf = String(pData.cpf || pData.documento || '').replace(/\D/g, '');
-              if (cpf.length === 11) liveCpf = cpf;
-            } catch (e2) {}
-          }
-        } catch {}
+      // 3) Try platform-specific DOM elements (CPF shown on profile page etc)
+      if (!detectedCpf) {
+        const cpfTexts = document.querySelectorAll('.cpf-usuario, .user-cpf, [data-user-cpf]');
+        for (const el of cpfTexts) {
+          const cpf = (el.getAttribute('data-user-cpf') || el.textContent || '').replace(/\D/g, '');
+          if (cpf.length === 11) { detectedCpf = cpf; break; }
+        }
       }
     } catch (e) {}
 
-    if (liveCpf) {
-      // Update cached CPF if it changed (user switched accounts)
-      if (PLAYER_CPF && PLAYER_CPF !== liveCpf) {
+    if (detectedCpf) {
+      // Update CPF if it changed (user switched accounts)
+      if (PLAYER_CPF && PLAYER_CPF !== detectedCpf) {
         data = null; // clear stale data from previous user
       }
-      PLAYER_CPF = liveCpf;
-      try { localStorage.setItem('__pbr_cpf', liveCpf); } catch {}
+      PLAYER_CPF = detectedCpf;
+      try { localStorage.setItem('__pbr_cpf', detectedCpf); } catch {}
     } else if (!PLAYER_CPF) {
-      // Live detection failed and no CPF yet — use localStorage as fallback
-      // Server-side segment check will block if CPF doesn't belong to segment
+      // No live detection — use localStorage cache as fallback
+      // Server-side segment check will validate the CPF
       try { const ls = localStorage.getItem('__pbr_cpf'); if (ls) PLAYER_CPF = ls; } catch {}
     }
   }
@@ -1361,7 +1352,7 @@
     try {
       // Send ref code along with data request so API can auto-register
       const refCode = (function() {
-        try { return localStorage.getItem('__pbr_ref_code') || localStorage.getItem('codigo_indicacao') || ''; } catch(e) { return ''; }
+        return __pbr_captured_ref || '';
       })();
       data = await apiCall('data', refCode ? { ref_code: refCode } : {});
       // If widget is hidden for this player (segment restriction), hide everything
@@ -1374,7 +1365,7 @@
       }
       // Clear ref code if API confirmed registration
       if (data?._ref_registered) {
-        try { localStorage.removeItem('__pbr_ref_code'); } catch(e) {}
+        __pbr_captured_ref = '';
       }
       updateFab();
       renderContent();
@@ -3818,12 +3809,12 @@
     if (!PLAYER_CPF) return false; // keep polling until CPF is detected
     try {
       const refCode = (function() {
-        try { return localStorage.getItem('__pbr_ref_code') || localStorage.getItem('codigo_indicacao') || ''; } catch(e) { return ''; }
+        return __pbr_captured_ref || '';
       })();
       data = await apiCall('data', refCode ? { ref_code: refCode } : {});
       if (data?._widget_hidden) return true; // server says hide widget = stop polling, don't show
       if (data?._ref_registered) {
-        try { localStorage.removeItem('__pbr_ref_code'); } catch(e) {}
+        __pbr_captured_ref = '';
       }
     } catch { return false; }
     initWidget();
