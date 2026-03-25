@@ -103,10 +103,10 @@
       }
       PLAYER_CPF = liveCpf;
       try { localStorage.setItem('__pbr_cpf', liveCpf); } catch {}
-    } else {
-      // Live detection failed — clear any stale cached CPF to prevent wrong-user access
-      PLAYER_CPF = null;
-      try { localStorage.removeItem('__pbr_cpf'); } catch {}
+    } else if (!PLAYER_CPF) {
+      // Live detection failed and no CPF yet — use localStorage as fallback
+      // Server-side segment check will block if CPF doesn't belong to segment
+      try { const ls = localStorage.getItem('__pbr_cpf'); if (ls) PLAYER_CPF = ls; } catch {}
     }
   }
   // CPF detection is now handled inside checkSegmentAndInit
