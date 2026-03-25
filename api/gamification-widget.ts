@@ -613,11 +613,8 @@ export default async function handler(req: Request): Promise<Response> {
           playerSpins.spins_used_today = 0;
         }
 
-        // Sync XP from platform transactions (await so wallet data is fresh)
-        try { await syncPlayerXpInline(playerCpf, supabase); } catch {}
-        // Re-read wallet after sync to return updated XP/level
-        const { data: freshWallet } = await supabase.from('player_wallets').select('*').eq('cpf', playerCpf).maybeSingle();
-        if (freshWallet) wallet = freshWallet;
+        // Sync XP from platform transactions (fire-and-forget to avoid blocking widget)
+        syncPlayerXpInline(playerCpf, supabase).catch(() => {});
       }
 
       // Get tournament leaderboards for active tournaments
