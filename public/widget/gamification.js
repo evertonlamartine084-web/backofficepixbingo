@@ -111,7 +111,7 @@
   // CPF detection is now handled inside checkSegmentAndInit
 
   function isUserLoggedIn() {
-    PLAYER_CPF = getPlayerCpf(); // re-check (may have logged in after page load)
+    if (!PLAYER_CPF) PLAYER_CPF = getPlayerCpf(); // only set if not already detected
     if (PLAYER_CPF) return true;
     if (REQUIRE_LOGIN === 'true') {
       if (AUTH_SELECTOR) return !!document.querySelector(AUTH_SELECTOR);
