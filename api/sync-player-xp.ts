@@ -274,15 +274,18 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
     result.total_deposits = totalDeposits;
     result.transactions_processed = processedCount;
 
+    // Debug: wallet state (always included)
+    (result as any)._debug_wallet = { xp: wallet.xp, total_xp_earned: wallet.total_xp_earned, level: wallet.level, last_xp_sync: wallet.last_xp_sync };
+
     if (processedCount === 0) {
       // Nothing new to process
       result.success = true;
       result.new_level = wallet.level || 1;
+      // Also fetch levels for debug
+      const { data: dbLevels } = await supabase.from('levels').select('level,name,xp_required').order('level');
+      (result as any)._debug_levels = (dbLevels || []).slice(0, 20);
       return result;
     }
-
-    // Debug: wallet and level state
-    (result as any)._debug_wallet = { xp: wallet.xp, total_xp_earned: wallet.total_xp_earned, level: wallet.level, last_xp_sync: wallet.last_xp_sync };
 
     // 8. Calculate XP
     const betXp = Math.floor(totalBets * apostaWeight);
