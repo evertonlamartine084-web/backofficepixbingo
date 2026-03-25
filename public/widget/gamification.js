@@ -60,45 +60,51 @@
   }
   let PLAYER_CPF = getPlayerCpf();
 
-  // Detect player CPF from page context or cached value
+  // Detect player CPF from page context, platform API, or cached value
   async function autoDetectCpf() {
-    // If CPF is set via data-player attribute on script tag, trust it (static config)
     const attr = currentScript ? currentScript.getAttribute('data-player') : null;
     if (attr) { PLAYER_CPF = attr; return; }
 
     let detectedCpf = null;
     try {
-      // 1) Try data-cpf attribute on any element (set by platform)
+      // 1) data-cpf attribute on any element
       const cpfEl = document.querySelector('[data-cpf]');
       if (cpfEl) {
         const cpf = cpfEl.getAttribute('data-cpf').replace(/\D/g, '');
         if (cpf.length === 11) detectedCpf = cpf;
       }
-      // 2) Try window vars set by platform
+      // 2) window var set by platform
       if (!detectedCpf && window.cpf_usuario) {
         const cpf = String(window.cpf_usuario).replace(/\D/g, '');
         if (cpf.length === 11) detectedCpf = cpf;
       }
-      // 3) Try platform-specific DOM elements (CPF shown on profile page etc)
+      // 3) Platform API (same-origin, uses session cookies)
       if (!detectedCpf) {
-        const cpfTexts = document.querySelectorAll('.cpf-usuario, .user-cpf, [data-user-cpf]');
-        for (const el of cpfTexts) {
-          const cpf = (el.getAttribute('data-user-cpf') || el.textContent || '').replace(/\D/g, '');
-          if (cpf.length === 11) { detectedCpf = cpf; break; }
-        }
+        try {
+          const res = await fetch('/api/wallet/saldo', { credentials: 'same-origin', signal: AbortSignal.timeout(5000) });
+          const d = await res.json();
+          if (d.cpf) {
+            const cpf = String(d.cpf).replace(/\D/g, '');
+            if (cpf.length === 11) detectedCpf = cpf;
+          }
+          if (!detectedCpf && d.logged) {
+            try {
+              const pRes = await fetch('/api/perfil', { credentials: 'same-origin', signal: AbortSignal.timeout(5000) });
+              const pData = await pRes.json();
+              const cpf = String(pData.cpf || pData.documento || '').replace(/\D/g, '');
+              if (cpf.length === 11) detectedCpf = cpf;
+            } catch {}
+          }
+        } catch {}
       }
     } catch (e) {}
 
     if (detectedCpf) {
-      // Update CPF if it changed (user switched accounts)
-      if (PLAYER_CPF && PLAYER_CPF !== detectedCpf) {
-        data = null; // clear stale data from previous user
-      }
+      if (PLAYER_CPF && PLAYER_CPF !== detectedCpf) data = null;
       PLAYER_CPF = detectedCpf;
       try { localStorage.setItem('__pbr_cpf', detectedCpf); } catch {}
     } else if (!PLAYER_CPF) {
-      // No live detection — use localStorage cache as fallback
-      // Server-side segment check will validate the CPF
+      // Fallback to cached CPF — server validates via segment check
       try { const ls = localStorage.getItem('__pbr_cpf'); if (ls) PLAYER_CPF = ls; } catch {}
     }
   }
