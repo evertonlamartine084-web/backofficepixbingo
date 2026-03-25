@@ -191,31 +191,17 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
     // 6. Fetch real game transactions via /usuarios/transacoes (has bets, deposits, wins)
     let movimentacoes: any[] = [];
     let historico: any[] = [];
-    let rawTxKeys: string[] = [];
     try {
       const txRes = await fetch(`${siteUrl}/usuarios/transacoes?id=${playerUuid}`, {
         headers, signal: AbortSignal.timeout(15000),
       });
       const txData = JSON.parse(await txRes.text());
-      rawTxKeys = Object.keys(txData || {});
       movimentacoes = txData?.movimentacoes || [];
       historico = txData?.historico || [];
     } catch (e: any) {
       result.error = `Failed to fetch transactions: ${e.message}`;
       return result;
     }
-
-    // Debug info
-    (result as any)._debug = {
-      uuid: playerUuid,
-      login_success: login.success,
-      tx_keys: rawTxKeys,
-      movimentacoes_count: movimentacoes.length,
-      historico_count: historico.length,
-      sample_mov: movimentacoes.slice(0, 3),
-      sample_hist: historico.slice(0, 3),
-      last_xp_sync: wallet.last_xp_sync,
-    };
 
     // Normalize all transactions into a unified format
     const allTx = [
