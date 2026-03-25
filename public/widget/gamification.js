@@ -76,23 +76,25 @@
         const cpf = String(window.cpf_usuario).replace(/\D/g, '');
         if (cpf.length === 11) liveCpf = cpf;
       }
-      // 3) Try platform's /api/wallet/saldo to check if logged in and get CPF
-      if (!liveCpf && (document.querySelector('.menu-saldo-body') || document.querySelector('.desc-saldo'))) {
-        const res = await fetch('/api/wallet/saldo', { credentials: 'same-origin' });
-        const d = await res.json();
-        if (d.logged && d.cpf) {
-          const cpf = String(d.cpf).replace(/\D/g, '');
-          if (cpf.length === 11) liveCpf = cpf;
-        }
-        // If API returns logged but no cpf, try /api/perfil
-        if (d.logged && !liveCpf) {
-          try {
-            const pRes = await fetch('/api/perfil', { credentials: 'same-origin' });
-            const pData = await pRes.json();
-            const cpf = String(pData.cpf || pData.documento || '').replace(/\D/g, '');
+      // 3) Try platform's /api/wallet/saldo to get CPF (always try, don't require DOM selectors)
+      if (!liveCpf) {
+        try {
+          const res = await fetch('/api/wallet/saldo', { credentials: 'same-origin', signal: AbortSignal.timeout(5000) });
+          const d = await res.json();
+          if (d.logged && d.cpf) {
+            const cpf = String(d.cpf).replace(/\D/g, '');
             if (cpf.length === 11) liveCpf = cpf;
-          } catch (e2) {}
-        }
+          }
+          // If API returns logged but no cpf, try /api/perfil
+          if (d.logged && !liveCpf) {
+            try {
+              const pRes = await fetch('/api/perfil', { credentials: 'same-origin', signal: AbortSignal.timeout(5000) });
+              const pData = await pRes.json();
+              const cpf = String(pData.cpf || pData.documento || '').replace(/\D/g, '');
+              if (cpf.length === 11) liveCpf = cpf;
+            } catch (e2) {}
+          }
+        } catch {}
       }
     } catch (e) {}
 
