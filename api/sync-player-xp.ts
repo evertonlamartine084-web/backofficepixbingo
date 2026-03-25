@@ -281,6 +281,9 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
       return result;
     }
 
+    // Debug: wallet and level state
+    (result as any)._debug_wallet = { xp: wallet.xp, total_xp_earned: wallet.total_xp_earned, level: wallet.level, last_xp_sync: wallet.last_xp_sync };
+
     // 8. Calculate XP
     const betXp = Math.floor(totalBets * apostaWeight);
     const depXp = Math.floor(totalDeposits * depositoWeight);
@@ -303,6 +306,9 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
     // 10. Check level ups
     const { data: levels } = await supabase.from('levels')
       .select('*').order('level');
+
+    (result as any)._debug_levels = (levels || []).slice(0, 20).map((l: any) => ({ level: l.level, name: l.name, xp_required: l.xp_required }));
+    (result as any)._debug_computed = { currentXp, currentTotalXp };
 
     let newLevel = wallet.level || 1;
     const rewardsCredited: any[] = [];
