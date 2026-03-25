@@ -442,13 +442,19 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       // Check widget segment restriction — if configured, only show widget to players in that segment
-      if (playerCpf) {
+      {
         const { data: pCfg } = await supabase.from('platform_config')
           .select('widget_segment_id')
           .eq('active', true)
           .limit(1)
           .maybeSingle();
         if (pCfg?.widget_segment_id) {
+          // No CPF = can't verify segment membership = hide widget
+          if (!playerCpf) {
+            return new Response(JSON.stringify({ _widget_hidden: true, _ref_registered: refRegistered }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
           const { data: inSeg } = await supabase.from('segment_items')
             .select('id')
             .eq('segment_id', pCfg.widget_segment_id)
