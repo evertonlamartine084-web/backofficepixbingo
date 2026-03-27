@@ -137,7 +137,7 @@ export default function PlayerLookup() {
         (supabase as any).from('player_tournament_entries').select('*, tournaments(name, metric, status)').eq('cpf', cpf),
         (supabase as any).from('player_spins').select('*').eq('cpf', cpf).maybeSingle(),
         (supabase as any).from('xp_history').select('*').eq('cpf', cpf).order('created_at', { ascending: false }).limit(50),
-        (supabase as any).from('level_ups').select('*').eq('cpf', cpf).order('created_at', { ascending: false }),
+        (supabase as any).from('level_rewards_log').select('*').eq('cpf', cpf).order('created_at', { ascending: false }),
         (supabase as any).from('player_rewards_pending').select('*').eq('cpf', cpf).order('created_at', { ascending: false }),
       ]);
 
