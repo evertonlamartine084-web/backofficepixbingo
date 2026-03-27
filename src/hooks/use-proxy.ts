@@ -38,7 +38,7 @@ export function useProxy() {
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
     try {
       const res = await fetch('/api/pixbingo-proxy', {
         method: 'POST',
@@ -53,13 +53,15 @@ export function useProxy() {
         }),
         signal: controller.signal,
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { throw new Error(res.status === 504 ? 'Timeout — a plataforma demorou para responder' : `Erro ${res.status}: resposta inválida do servidor`); }
       if (!res.ok) throw new Error(data.error || 'Erro na requisição');
       if (data && !data.success) throw new Error(data.error || 'Erro na requisição');
       return data;
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        throw new Error('Timeout na requisição (30s)');
+        throw new Error('Timeout na requisição (60s)');
       }
       throw err;
     } finally {
