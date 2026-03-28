@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { createClient } from '@supabase/supabase-js';
 import { getCorsHeaders, optionsResponse, verifyAuth } from './_cors.js';
 
 export const config = { runtime: 'edge', maxDuration: 300 };
@@ -117,7 +118,7 @@ export default async function handler(req: Request): Promise<Response> {
 
   try {
     const body = await req.json();
-    const { cpfs, valor, site_url, login_url, username, password } = body;
+    let { cpfs, valor, site_url, login_url, username, password } = body;
 
     if (!cpfs || !Array.isArray(cpfs) || cpfs.length === 0) {
       return new Response(JSON.stringify({ error: 'cpfs (array) obrigatório' }), {
@@ -128,6 +129,21 @@ export default async function handler(req: Request): Promise<Response> {
       return new Response(JSON.stringify({ error: 'valor obrigatório e > 0' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // If no credentials provided, fetch from platform_config
+    if (!username || !password) {
+      const supabaseUrl = process.env.SUPABASE_URL!;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const { data: pCfg } = await supabase.from('platform_config')
+        .select('*').eq('active', true).order('created_at', { ascending: false }).limit(1).single();
+      if (pCfg) {
+        username = username || pCfg.username;
+        password = password || pCfg.password;
+        site_url = site_url || pCfg.site_url;
+        login_url = login_url || pCfg.login_url;
+      }
     }
 
     const siteUrl = (site_url || 'https://pixbingobr.concurso.club').replace(/\/+$/, '');
