@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ALLOWED_ORIGINS = [
@@ -148,7 +147,7 @@ Deno.serve(async (req) => {
       `${baseUrl}/usuarios/buscar`,
     ];
 
-    let allPlayers: any[] = [];
+    let allPlayers: Record<string, unknown>[] = [];
     let usedEndpoint = '';
     const debugResponses: { url: string; status: number; body: string }[] = [];
 
@@ -173,22 +172,25 @@ Deno.serve(async (req) => {
 
           if (!res.ok) continue;
 
-          let data: any;
+          let data: unknown;
           try { data = JSON.parse(text); } catch { continue; }
 
           // If response says not logged, skip
-          if (data.logged === false) continue;
+          if (typeof data === 'object' && data !== null && 'logged' in data && (data as Record<string, unknown>).logged === false) continue;
 
           // Extract players array from various response shapes
-          let players: any[] = [];
+          let players: Record<string, unknown>[] = [];
           if (Array.isArray(data)) players = data;
-          else if (data.data && Array.isArray(data.data)) players = data.data;
-          else if (data.users && Array.isArray(data.users)) players = data.users;
-          else if (data.usuarios && Array.isArray(data.usuarios)) players = data.usuarios;
-          else if (data.results && Array.isArray(data.results)) players = data.results;
-          else if (data.items && Array.isArray(data.items)) players = data.items;
-          else if (data.rows && Array.isArray(data.rows)) players = data.rows;
-          else if (data.list && Array.isArray(data.list)) players = data.list;
+          else if (typeof data === 'object' && data !== null) {
+            const d = data as Record<string, unknown>;
+            if (d.data && Array.isArray(d.data)) players = d.data;
+            else if (d.users && Array.isArray(d.users)) players = d.users;
+            else if (d.usuarios && Array.isArray(d.usuarios)) players = d.usuarios;
+            else if (d.results && Array.isArray(d.results)) players = d.results;
+            else if (d.items && Array.isArray(d.items)) players = d.items;
+            else if (d.rows && Array.isArray(d.rows)) players = d.rows;
+            else if (d.list && Array.isArray(d.list)) players = d.list;
+          }
 
           if (players.length > 0) {
             allPlayers = players;
@@ -218,16 +220,16 @@ Deno.serve(async (req) => {
     }
 
     // Extract CPF and UUID from players
-    const batchItems = allPlayers.map((player: any) => {
-      const cpf = player.cpf || player.documento || player.document || player.tax_id || '';
-      const uuid = player.uuid || player.id || player.user_id || '';
-      const cleanCpf = cpf.toString().replace(/\D/g, '');
+    const batchItems = allPlayers.map((player: Record<string, unknown>) => {
+      const cpf = (player.cpf || player.documento || player.document || player.tax_id || '') as string;
+      const uuid = (player.uuid || player.id || player.user_id || '') as string;
+      const cleanCpf = String(cpf).replace(/\D/g, '');
       const maskedCpf = cleanCpf.length === 11 
         ? `${cleanCpf.slice(0, 3)}.***.***-${cleanCpf.slice(-2)}`
         : cleanCpf;
 
-      return { cpf: cleanCpf, cpf_masked: maskedCpf, uuid: uuid.toString() };
-    }).filter((item: any) => item.cpf || item.uuid);
+      return { cpf: cleanCpf, cpf_masked: maskedCpf, uuid: String(uuid) };
+    }).filter((item) => item.cpf || item.uuid);
 
     // Create batch in Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -257,7 +259,7 @@ Deno.serve(async (req) => {
     // Insert items in chunks
     let insertedCount = 0;
     for (let i = 0; i < batchItems.length; i += 500) {
-      const chunk = batchItems.slice(i, i + 500).map((item: any) => ({
+      const chunk = batchItems.slice(i, i + 500).map((item) => ({
         batch_id: batch.id,
         cpf: item.cpf,
         cpf_masked: item.cpf_masked,
@@ -280,10 +282,10 @@ Deno.serve(async (req) => {
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[FetchPlayers] Error:', error);
     return new Response(
-      JSON.stringify({ success: false, error: (error as Error).message }),
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Erro' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

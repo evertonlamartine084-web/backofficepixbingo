@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@supabase/supabase-js';
 import { getCorsHeaders, optionsResponse, verifyAuth } from './_cors.js';
 
@@ -52,7 +51,7 @@ function buildHeaders(cookies: string): Record<string, string> {
   return { 'Accept': 'application/json, text/javascript, */*', 'X-Requested-With': 'XMLHttpRequest', 'Cookie': cookies, 'Referer': DEFAULT_SITE };
 }
 
-async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: any): Promise<any> {
+async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: Record<string, string>): Promise<Record<string, unknown>> {
   const opts: RequestInit = { method, headers: { ...headers }, signal: AbortSignal.timeout(15000) };
   if (body && method === 'POST') {
     opts.body = new URLSearchParams(body).toString();
@@ -243,8 +242,8 @@ export default async function handler(req: Request): Promise<Response> {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      const clickedCpfs = new Set(clickEvents.map((e: any) => e.cpf));
-      eligibleCpfs = segmentItems.filter((si: any) => clickedCpfs.has(si.cpf));
+      const clickedCpfs = new Set(clickEvents.map((e: { cpf: string; cpf_masked: string }) => e.cpf));
+      eligibleCpfs = segmentItems.filter((si: { cpf: string; cpf_masked: string }) => clickedCpfs.has(si.cpf));
 
       if (!eligibleCpfs.length) {
         return new Response(JSON.stringify({ success: true, data: { processed: 0, eligible: 0, credited: 0, errors: 0, waiting_for_optins: true, message: 'Nenhum jogador do segmento fez opt-in no popup' } }),
@@ -281,7 +280,7 @@ export default async function handler(req: Request): Promise<Response> {
     const startDt = toFortaleza(effectiveStart);
     const endDt = toFortaleza(campaign.end_date);
 
-    const participantsToUpsert = eligibleCpfs.map((si: any) => ({
+    const participantsToUpsert = eligibleCpfs.map((si: { cpf: string; cpf_masked: string }) => ({
       campaign_id, cpf: si.cpf, cpf_masked: si.cpf_masked, status: 'PENDENTE',
     }));
 
@@ -350,7 +349,7 @@ export default async function handler(req: Request): Promise<Response> {
 
         const { data: locked } = await supabase
           .from('campaign_participants')
-          .update({ status: 'PROCESSANDO' } as any)
+          .update({ status: 'PROCESSANDO' } as Record<string, unknown>)
           .eq('id', participant.id).eq('prize_credited', false)
           .in('status', ['PENDENTE', 'NAO_ELEGIVEL'])
           .select('id').maybeSingle();
@@ -382,9 +381,9 @@ export default async function handler(req: Request): Promise<Response> {
           }).eq('id', participant.id);
           errors++;
         }
-      } catch (e) {
+      } catch (e: unknown) {
         await supabase.from('campaign_participants').update({
-          status: 'ERRO', credit_result: (e as Error).message,
+          status: 'ERRO', credit_result: e instanceof Error ? e.message : 'Erro',
         }).eq('id', participant.id);
         errors++;
       }
@@ -403,8 +402,8 @@ export default async function handler(req: Request): Promise<Response> {
       data: { processed, eligible, credited, errors, total: participants.length, remaining: remaining || 0 },
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  } catch (error) {
-    console.error('[process-campaign]', (error as Error).message);
+  } catch (error: unknown) {
+    console.error('[process-campaign]', error instanceof Error ? error.message : 'Erro');
     return new Response(JSON.stringify({ success: false, error: 'Erro interno do servidor' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

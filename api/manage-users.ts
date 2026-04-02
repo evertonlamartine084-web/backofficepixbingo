@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@supabase/supabase-js';
 import { getCorsHeaders, optionsResponse } from './_cors.js';
 
@@ -10,7 +9,7 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   const corsHeaders = { ...getCorsHeaders(req), 'Content-Type': 'application/json' };
-  const json = (body: Record<string, any>, status = 200) =>
+  const json = (body: Record<string, unknown>, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: corsHeaders });
 
   try {
@@ -49,7 +48,7 @@ export default async function handler(req: Request): Promise<Response> {
       return json({ error: 'Apenas admins podem gerenciar usuários' }, 403);
     }
 
-    let body: Record<string, any>;
+    let body: Record<string, unknown>;
     try {
       body = await req.json();
     } catch {
@@ -63,7 +62,7 @@ export default async function handler(req: Request): Promise<Response> {
 
       const { data: roles } = await adminClient.from('user_roles').select('*');
       const roleMap = new Map<string, { role: string; allowed_pages: string[] | null }>();
-      (roles || []).forEach((r: any) => roleMap.set(r.user_id, { role: r.role, allowed_pages: r.allowed_pages }));
+      (roles || []).forEach((r: { user_id: string; role: string; allowed_pages: string[] | null }) => roleMap.set(r.user_id, { role: r.role, allowed_pages: r.allowed_pages }));
 
       const result = users.map(u => {
         const info = roleMap.get(u.id);
@@ -80,15 +79,15 @@ export default async function handler(req: Request): Promise<Response> {
     if (action === 'create') {
       const { email, password, role, allowed_pages } = params;
       if (!email || !password || !role) return json({ error: 'Email, senha e role são obrigatórios' }, 400);
-      if (!['admin', 'operador', 'visualizador'].includes(role)) return json({ error: 'Role inválida' }, 400);
+      if (!['admin', 'operador', 'visualizador'].includes(role as string)) return json({ error: 'Role inválida' }, 400);
 
       const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
-        email, password, email_confirm: true,
+        email: email as string, password: password as string, email_confirm: true,
       });
       if (authError) throw authError;
 
-      const insertData: any = { user_id: authData.user.id, role };
-      if (allowed_pages && Array.isArray(allowed_pages)) insertData.allowed_pages = allowed_pages;
+      const insertData: { user_id: string; role: string; allowed_pages?: string[] } = { user_id: authData.user.id, role: role as string };
+      if (allowed_pages && Array.isArray(allowed_pages)) insertData.allowed_pages = allowed_pages as string[];
 
       const { error: roleError } = await adminClient.from('user_roles').insert(insertData);
       if (roleError) throw roleError;
@@ -99,13 +98,13 @@ export default async function handler(req: Request): Promise<Response> {
     if (action === 'update_role') {
       const { user_id, role } = params;
       if (!user_id || !role) return json({ error: 'user_id e role são obrigatórios' }, 400);
-      if (!['admin', 'operador', 'visualizador'].includes(role)) return json({ error: 'Role inválida' }, 400);
+      if (!['admin', 'operador', 'visualizador'].includes(role as string)) return json({ error: 'Role inválida' }, 400);
 
-      const { data: existing } = await adminClient.from('user_roles').select('id').eq('user_id', user_id).maybeSingle();
+      const { data: existing } = await adminClient.from('user_roles').select('id').eq('user_id', user_id as string).maybeSingle();
       if (existing) {
-        await adminClient.from('user_roles').update({ role }).eq('user_id', user_id);
+        await adminClient.from('user_roles').update({ role: role as string }).eq('user_id', user_id as string);
       } else {
-        await adminClient.from('user_roles').insert({ user_id, role });
+        await adminClient.from('user_roles').insert({ user_id: user_id as string, role: role as string });
       }
       return json({ success: true });
     }
@@ -114,13 +113,13 @@ export default async function handler(req: Request): Promise<Response> {
       const { user_id, allowed_pages } = params;
       if (!user_id) return json({ error: 'user_id é obrigatório' }, 400);
 
-      const updateData: any = { allowed_pages: allowed_pages || null };
-      const { data: existing } = await adminClient.from('user_roles').select('id').eq('user_id', user_id).maybeSingle();
+      const updateData: { allowed_pages: string[] | null } = { allowed_pages: (allowed_pages as string[] | null) || null };
+      const { data: existing } = await adminClient.from('user_roles').select('id').eq('user_id', user_id as string).maybeSingle();
       if (existing) {
-        const { error } = await adminClient.from('user_roles').update(updateData).eq('user_id', user_id);
+        const { error } = await adminClient.from('user_roles').update(updateData).eq('user_id', user_id as string);
         if (error) throw error;
       } else {
-        const { error } = await adminClient.from('user_roles').insert({ user_id, role: 'visualizador', ...updateData });
+        const { error } = await adminClient.from('user_roles').insert({ user_id: user_id as string, role: 'visualizador', ...updateData });
         if (error) throw error;
       }
       return json({ success: true });
@@ -131,8 +130,8 @@ export default async function handler(req: Request): Promise<Response> {
       if (!user_id) return json({ error: 'user_id é obrigatório' }, 400);
       if (user_id === callerId) return json({ error: 'Não é possível deletar a si mesmo' }, 400);
 
-      await adminClient.from('user_roles').delete().eq('user_id', user_id);
-      const { error } = await adminClient.auth.admin.deleteUser(user_id);
+      await adminClient.from('user_roles').delete().eq('user_id', user_id as string);
+      const { error } = await adminClient.auth.admin.deleteUser(user_id as string);
       if (error) throw error;
       return json({ success: true });
     }
@@ -141,14 +140,14 @@ export default async function handler(req: Request): Promise<Response> {
       const { user_id, new_password } = params;
       if (!user_id || !new_password) return json({ error: 'user_id e new_password são obrigatórios' }, 400);
 
-      const { error } = await adminClient.auth.admin.updateUserById(user_id, { password: new_password });
+      const { error } = await adminClient.auth.admin.updateUserById(user_id as string, { password: new_password as string });
       if (error) throw error;
       return json({ success: true });
     }
 
     return json({ error: 'Ação não reconhecida' }, 400);
-  } catch (err) {
-    console.error('[manage-users]', (err as Error).message);
+  } catch (err: unknown) {
+    console.error('[manage-users]', err instanceof Error ? err.message : 'Erro');
     return json({ error: 'Erro interno do servidor' }, 500);
   }
 }

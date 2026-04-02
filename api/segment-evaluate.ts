@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getCorsHeaders, optionsResponse, verifyAuth } from './_cors.js';
 export const config = { runtime: 'edge' };
 
@@ -14,7 +13,7 @@ interface SegmentRule {
 export default async function handler(req: Request) {
   if (req.method === 'OPTIONS') return optionsResponse(req);
   const cors = getCorsHeaders(req);
-  const json = (body: any, status = 200) =>
+  const json = (body: Record<string, unknown>, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
   // Auth check
@@ -34,12 +33,12 @@ export default async function handler(req: Request) {
   // POST /api/segment-evaluate?action=count — just return count without populating
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
-  let body: any;
+  let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: 'Invalid JSON' }, 400); }
 
-  const rules: SegmentRule[] = body.rules || [];
-  const matchType: string = body.match_type || 'all'; // all = AND, any = OR
-  const segmentId: string = body.segment_id || '';
+  const rules: SegmentRule[] = (body.rules as SegmentRule[]) || [];
+  const matchType: string = (body.match_type as string) || 'all'; // all = AND, any = OR
+  const segmentId: string = (body.segment_id as string) || '';
 
   if (rules.length === 0) return json({ error: 'Nenhuma regra definida' }, 400);
 
@@ -120,12 +119,15 @@ export default async function handler(req: Request) {
     }
 
     return json({ error: 'action inválida' }, 400);
-  } catch (err: any) {
-    return json({ error: err.message || 'Erro ao avaliar regras' }, 500);
+  } catch (err: unknown) {
+    return json({ error: err instanceof Error ? err.message : 'Erro ao avaliar regras' }, 500);
   }
 }
 
-async function evaluateRule(supabase: any, rule: SegmentRule): Promise<Set<string>> {
+interface CpfRow { cpf: string }
+interface CpfAmountRow { cpf: string; amount: number }
+
+async function evaluateRule(supabase: SupabaseClient, rule: SegmentRule): Promise<Set<string>> {
   const cpfs = new Set<string>();
   const { field, operator, value } = rule;
 
@@ -157,7 +159,7 @@ async function evaluateRule(supabase: any, rule: SegmentRule): Promise<Set<strin
     let query = supabase.from('player_wallets').select('cpf');
     query = applyOperator(query, mapping.column, operator, value);
     const { data } = await query.limit(50000);
-    if (data) data.forEach((r: any) => cpfs.add(r.cpf));
+    if (data) (data as CpfRow[]).forEach((r) => cpfs.add(r.cpf));
     return cpfs;
   }
 
@@ -166,7 +168,7 @@ async function evaluateRule(supabase: any, rule: SegmentRule): Promise<Set<strin
     let query = supabase.from('player_wallets').select('cpf');
     query = applyDateOperator(query, 'created_at', operator, value);
     const { data } = await query.limit(50000);
-    if (data) data.forEach((r: any) => cpfs.add(r.cpf));
+    if (data) (data as CpfRow[]).forEach((r) => cpfs.add(r.cpf));
     return cpfs;
   }
 
@@ -177,7 +179,7 @@ async function evaluateRule(supabase: any, rule: SegmentRule): Promise<Set<strin
       .eq('action', 'deposito');
     if (data) {
       const sums: Record<string, number> = {};
-      data.forEach((r: any) => { sums[r.cpf] = (sums[r.cpf] || 0) + (r.amount || 0); });
+      (data as CpfAmountRow[]).forEach((r) => { sums[r.cpf] = (sums[r.cpf] || 0) + (r.amount || 0); });
       const numVal = Number(value);
       Object.entries(sums).forEach(([cpf, total]) => {
         if (compareValues(total, operator, numVal)) cpfs.add(cpf);
@@ -193,7 +195,7 @@ async function evaluateRule(supabase: any, rule: SegmentRule): Promise<Set<strin
       .eq('action', 'aposta');
     if (data) {
       const sums: Record<string, number> = {};
-      data.forEach((r: any) => { sums[r.cpf] = (sums[r.cpf] || 0) + (r.amount || 0); });
+      (data as CpfAmountRow[]).forEach((r) => { sums[r.cpf] = (sums[r.cpf] || 0) + (r.amount || 0); });
       const numVal = Number(value);
       Object.entries(sums).forEach(([cpf, total]) => {
         if (compareValues(total, operator, numVal)) cpfs.add(cpf);
@@ -209,7 +211,7 @@ async function evaluateRule(supabase: any, rule: SegmentRule): Promise<Set<strin
       .eq('completed', true);
     if (data) {
       const counts: Record<string, number> = {};
-      data.forEach((r: any) => { counts[r.cpf] = (counts[r.cpf] || 0) + 1; });
+      (data as CpfRow[]).forEach((r) => { counts[r.cpf] = (counts[r.cpf] || 0) + 1; });
       const numVal = Number(value);
       Object.entries(counts).forEach(([cpf, count]) => {
         if (compareValues(count, operator, numVal)) cpfs.add(cpf);
@@ -225,7 +227,7 @@ async function evaluateRule(supabase: any, rule: SegmentRule): Promise<Set<strin
       .eq('completed', true);
     if (data) {
       const counts: Record<string, number> = {};
-      data.forEach((r: any) => { counts[r.cpf] = (counts[r.cpf] || 0) + 1; });
+      (data as CpfRow[]).forEach((r) => { counts[r.cpf] = (counts[r.cpf] || 0) + 1; });
       const numVal = Number(value);
       Object.entries(counts).forEach(([cpf, count]) => {
         if (compareValues(count, operator, numVal)) cpfs.add(cpf);
@@ -241,7 +243,7 @@ async function evaluateRule(supabase: any, rule: SegmentRule): Promise<Set<strin
       .eq('opted_in', true);
     if (data) {
       const counts: Record<string, number> = {};
-      data.forEach((r: any) => { counts[r.cpf] = (counts[r.cpf] || 0) + 1; });
+      (data as CpfRow[]).forEach((r) => { counts[r.cpf] = (counts[r.cpf] || 0) + 1; });
       const numVal = Number(value);
       Object.entries(counts).forEach(([cpf, count]) => {
         if (compareValues(count, operator, numVal)) cpfs.add(cpf);
@@ -255,7 +257,7 @@ async function evaluateRule(supabase: any, rule: SegmentRule): Promise<Set<strin
     const { data } = await supabase.from('store_purchases').select('cpf');
     if (data) {
       const counts: Record<string, number> = {};
-      data.forEach((r: any) => { counts[r.cpf] = (counts[r.cpf] || 0) + 1; });
+      (data as CpfRow[]).forEach((r) => { counts[r.cpf] = (counts[r.cpf] || 0) + 1; });
       const numVal = Number(value);
       Object.entries(counts).forEach(([cpf, count]) => {
         if (compareValues(count, operator, numVal)) cpfs.add(cpf);
@@ -269,7 +271,7 @@ async function evaluateRule(supabase: any, rule: SegmentRule): Promise<Set<strin
     let query = supabase.from('player_spins').select('cpf');
     query = applyOperator(query, 'total_spins', operator, value);
     const { data } = await query.limit(50000);
-    if (data) data.forEach((r: any) => cpfs.add(r.cpf));
+    if (data) (data as CpfRow[]).forEach((r) => cpfs.add(r.cpf));
     return cpfs;
   }
 
@@ -286,7 +288,7 @@ async function evaluateRule(supabase: any, rule: SegmentRule): Promise<Set<strin
         .gte('created_at', cutoff.toISOString());
       if (data) {
         const seen = new Set<string>();
-        data.forEach((r: any) => { if (!seen.has(r.cpf)) { seen.add(r.cpf); cpfs.add(r.cpf); } });
+        (data as CpfRow[]).forEach((r) => { if (!seen.has(r.cpf)) { seen.add(r.cpf); cpfs.add(r.cpf); } });
       }
     } else if (operator === 'not_within') {
       // Inactive for more than N days — get all wallets, subtract active
@@ -295,8 +297,8 @@ async function evaluateRule(supabase: any, rule: SegmentRule): Promise<Set<strin
         .select('cpf')
         .gte('created_at', cutoff.toISOString());
       const activeCpfs = new Set<string>();
-      if (activeData) activeData.forEach((r: any) => activeCpfs.add(r.cpf));
-      if (allWallets) allWallets.forEach((r: any) => { if (!activeCpfs.has(r.cpf)) cpfs.add(r.cpf); });
+      if (activeData) (activeData as CpfRow[]).forEach((r) => activeCpfs.add(r.cpf));
+      if (allWallets) (allWallets as CpfRow[]).forEach((r) => { if (!activeCpfs.has(r.cpf)) cpfs.add(r.cpf); });
     }
     return cpfs;
   }
@@ -304,7 +306,17 @@ async function evaluateRule(supabase: any, rule: SegmentRule): Promise<Set<strin
   return cpfs;
 }
 
-function applyOperator(query: any, column: string, operator: string, value: string | number): any {
+interface SupabaseFilterQuery {
+  eq(column: string, value: unknown): SupabaseFilterQuery;
+  neq(column: string, value: unknown): SupabaseFilterQuery;
+  gt(column: string, value: unknown): SupabaseFilterQuery;
+  gte(column: string, value: unknown): SupabaseFilterQuery;
+  lt(column: string, value: unknown): SupabaseFilterQuery;
+  lte(column: string, value: unknown): SupabaseFilterQuery;
+  limit(count: number): SupabaseFilterQuery;
+}
+
+function applyOperator(query: SupabaseFilterQuery, column: string, operator: string, value: string | number): SupabaseFilterQuery {
   const numVal = Number(value);
   switch (operator) {
     case 'eq': return query.eq(column, numVal);
@@ -317,7 +329,7 @@ function applyOperator(query: any, column: string, operator: string, value: stri
   }
 }
 
-function applyDateOperator(query: any, column: string, operator: string, value: string | number): any {
+function applyDateOperator(query: SupabaseFilterQuery, column: string, operator: string, value: string | number): SupabaseFilterQuery {
   if (operator === 'within') {
     const daysAgo = Number(value);
     const cutoff = new Date();

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,6 +25,73 @@ import {
 } from '@/components/ui/dialog';
 import { maskCPF, formatCPF, formatDateTime, parseCPFList } from '@/lib/formatters';
 import { logAudit } from '@/hooks/use-audit';
+
+interface SegmentRow {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  segment_type?: 'manual' | 'automatic';
+  rules?: SegmentRule[];
+  match_type?: string;
+  auto_refresh?: boolean;
+  color?: string;
+  icon?: string;
+  member_count?: number;
+  last_evaluated_at?: string;
+  segment_items?: { count: number }[];
+  item_count?: number;
+}
+
+interface SegmentItemRow {
+  id: string;
+  cpf: string;
+  cpf_masked: string;
+  created_at: string;
+  segment_id: string;
+  source?: string;
+  uuid?: string;
+  username?: string;
+}
+
+interface AllUserItem {
+  id: string;
+  cpf: string;
+  cpf_masked: string;
+  created_at: string;
+  username: string;
+  uuid: string;
+}
+
+interface ProxyUserRecord {
+  cpf?: string;
+  username?: string;
+  name?: string;
+  uuid?: string;
+  created_at?: string;
+}
+
+interface WalletEntry {
+  nome?: string;
+  name?: string;
+  tipo?: string;
+  carteira?: string;
+  descricao?: string;
+  saldo?: unknown;
+  valor?: unknown;
+  value?: unknown;
+  balance?: unknown;
+}
+
+interface TransactionEntry {
+  tipo?: string;
+  type?: string;
+  descricao?: string;
+  created_at?: string;
+  data?: string;
+  date?: string;
+}
 
 const ALL_USERS_ID = '__all_users__';
 
@@ -143,7 +209,7 @@ export default function Segments() {
         .select('*, segment_items(count)')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data || []).map((s: any) => ({
+      return (data || []).map((s: SegmentRow) => ({
         ...s,
         item_count: s.segment_items?.[0]?.count || 0,
       }));
@@ -160,7 +226,7 @@ export default function Segments() {
       try {
         const PAGE_SIZE = 1000;
         let totalRecords = 0;
-        const allUsers: any[] = [];
+        const allUsers: ProxyUserRecord[] = [];
         const firstRes = await callProxy('list_users', creds, { start: 0, length: PAGE_SIZE });
         const firstData = firstRes?.data;
         totalRecords = parseInt(firstData?.iTotalRecords || firstData?.iTotalDisplayRecords || firstData?.recordsTotal || firstData?.recordsFiltered || '0', 10);
@@ -179,7 +245,7 @@ export default function Segments() {
           }
           setAllUsersFetchProgress({ loaded: allUsers.length, total: totalRecords });
         }
-        return allUsers.map((u: any, i: number) => ({
+        return allUsers.map((u: ProxyUserRecord, i: number): AllUserItem => ({
           id: `all-user-${i}`, cpf: u.cpf || '', cpf_masked: maskCPF(u.cpf || ''),
           created_at: u.created_at || '', username: u.username || u.name || '', uuid: u.uuid || '',
         }));
@@ -222,7 +288,7 @@ export default function Segments() {
 
   const fetchAllSegmentItems = async () => {
     if (!selectedSegment || selectedSegment === ALL_USERS_ID) return [];
-    const allItems: any[] = [];
+    const allItems: SegmentItemRow[] = [];
     const batchSize = 1000;
     let offset = 0;
     let hasMore = true;
@@ -234,7 +300,7 @@ export default function Segments() {
         .range(offset, offset + batchSize - 1);
       if (error) throw error;
       if (data && data.length > 0) {
-        allItems.push(...data);
+        allItems.push(...(data as SegmentItemRow[]));
         offset += batchSize;
         hasMore = data.length === batchSize;
       } else { hasMore = false; }
@@ -260,7 +326,7 @@ export default function Segments() {
   // ── Mutations ──
   const createMut = useMutation({
     mutationFn: async () => {
-      const insertData: any = { name: newName, description: newDesc };
+      const insertData: Record<string, unknown> = { name: newName, description: newDesc };
       if (newType === 'automatic') {
         insertData.segment_type = 'automatic';
         insertData.rules = newRules;
@@ -289,7 +355,7 @@ export default function Segments() {
       toast.success('Segmento criado!');
       logAudit({ action: 'CRIAR', resource_type: 'segmento', resource_name: newName });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Erro'),
   });
 
   const deleteMut = useMutation({
@@ -298,13 +364,13 @@ export default function Segments() {
       if (error) throw error;
     },
     onSuccess: (_data, id) => {
-      const seg = segments?.find((s: any) => s.id === id);
+      const seg = segments?.find((s: SegmentRow) => s.id === id);
       qc.invalidateQueries({ queryKey: ['segments'] });
       if (selectedSegment) setSelectedSegment(null);
       toast.success('Segmento excluído!');
       logAudit({ action: 'EXCLUIR', resource_type: 'segmento', resource_id: id, resource_name: seg?.name });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Erro'),
   });
 
   const addCpfsMut = useMutation({
@@ -322,10 +388,10 @@ export default function Segments() {
       qc.invalidateQueries({ queryKey: ['segments'] });
       setCpfInput(''); setAddCpfOpen(false);
       toast.success(`${count} CPF(s) adicionado(s)!`);
-      const seg = segments?.find((s: any) => s.id === selectedSegment);
+      const seg = segments?.find((s: SegmentRow) => s.id === selectedSegment);
       logAudit({ action: 'EDITAR', resource_type: 'segmento', resource_id: selectedSegment || undefined, resource_name: seg?.name, details: { cpfs_added: count } });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Erro'),
   });
 
   const removeCpfMut = useMutation({
@@ -339,7 +405,7 @@ export default function Segments() {
       qc.invalidateQueries({ queryKey: ['segments'] });
       toast.success('CPF removido');
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Erro'),
   });
 
   // ── Helpers ──
@@ -384,8 +450,8 @@ export default function Segments() {
       const data = await res.json();
       setPreviewCount(data.count);
       setPreviewSample(data.sample || []);
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro');
     } finally { setPreviewLoading(false); }
   };
 
@@ -398,8 +464,8 @@ export default function Segments() {
       qc.invalidateQueries({ queryKey: ['segments'] });
       qc.invalidateQueries({ queryKey: ['segment_items', selectedSegment] });
       qc.invalidateQueries({ queryKey: ['segment_items_count', selectedSegment] });
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro');
     } finally { setEvaluating(false); }
   };
 
@@ -425,9 +491,9 @@ export default function Segments() {
       qc.invalidateQueries({ queryKey: ['segment_items_count', selectedSegment] });
       setEditRulesOpen(false);
       toast.success('Regras atualizadas e segmento reavaliado!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setEvaluating(false);
-      toast.error(err.message);
+      toast.error(err instanceof Error ? err.message : 'Erro');
     }
   };
 
@@ -447,7 +513,7 @@ export default function Segments() {
       }).select().single();
       if (batchErr || !batch) throw new Error(batchErr?.message || 'Erro ao criar lote');
       if (creditCancelRef.current) { toast.info('Creditação cancelada'); setCreditLoading(false); return; }
-      const batchItems = allItems.map((item: any) => ({
+      const batchItems = allItems.map((item: SegmentItemRow | AllUserItem) => ({
         batch_id: batch.id, cpf: item.cpf, cpf_masked: item.cpf_masked, status: 'PENDENTE',
       }));
       const { error: itemsErr } = await supabase.from('batch_items').insert(batchItems);
@@ -458,11 +524,11 @@ export default function Segments() {
       setCreditProgress({ current: allItems.length, total: allItems.length, credited: result?.credited || 0, errors: result?.errors || 0 });
       if (result?.credited > 0) toast.success(`${result.credited} bônus creditados com sucesso!`);
       if (result?.errors > 0) toast.warning(`${result.errors} erros durante o processamento`);
-      const seg = segments?.find((s: any) => s.id === selectedSegment);
+      const seg = segments?.find((s: SegmentRow) => s.id === selectedSegment);
       logAudit({ action: 'CREDITAR', resource_type: 'batch', resource_name: seg?.name, details: { segment_id: selectedSegment, amount: creditAmount, total: allItems.length, credited: result?.credited || 0, errors: result?.errors || 0 } });
       qc.invalidateQueries({ queryKey: ['batches'] });
-    } catch (err: any) {
-      if (!creditCancelRef.current) toast.error(err.message || 'Erro na creditação em massa');
+    } catch (err: unknown) {
+      if (!creditCancelRef.current) toast.error(err instanceof Error ? err.message : 'Erro na creditação em massa');
     } finally { setCreditLoading(false); }
   };
 
@@ -514,12 +580,12 @@ export default function Segments() {
     const results: Record<string, { hasBonus: boolean; lastBonusDate?: string; bonusCount: number; bonusBalance?: number }> = {};
     let processed = 0;
     const uuidCache: Record<string, string> = {};
-    const parseBRL = (v: any): number => {
+    const parseBRL = (v: unknown): number => {
       if (typeof v === 'number') return v;
       if (typeof v === 'string') { const clean = v.replace(/[R$\s.]/g, '').replace(',', '.'); return parseFloat(clean) || 0; }
       return 0;
     };
-    const verifySingleCPF = async (item: any) => {
+    const verifySingleCPF = async (item: SegmentItemRow | AllUserItem) => {
       if (verifyCancelRef.current) return;
       try {
         let uuid = item.uuid || uuidCache[item.cpf] || null;
@@ -529,29 +595,29 @@ export default function Segments() {
           uuid = foundPlayer?.uuid || null;
           if (uuid) {
             uuidCache[item.cpf] = uuid;
-            if (item.id) supabase.from('segment_items').update({ uuid } as any).eq('id', item.id).then(() => {});
+            if (item.id) supabase.from('segment_items').update({ uuid } as Record<string, unknown>).eq('id', item.id).then(() => {});
           }
         }
         if (!uuid) { results[item.cpf] = { hasBonus: false, bonusCount: 0, bonusBalance: 0 }; }
         else {
           const txRes = await callProxy('player_transactions', creds, { uuid, player_id: uuid, cpf: item.cpf });
           if (verifyMode === 'balance') {
-            const carteiras = txRes?.data?.carteiras;
+            const carteiras = txRes?.data?.carteiras as WalletEntry[] | Record<string, unknown> | undefined;
             let bonusBalance = 0;
             if (Array.isArray(carteiras)) {
-              for (const c of carteiras) {
+              for (const c of carteiras as WalletEntry[]) {
                 const name = (c.nome || c.name || c.tipo || c.carteira || c.descricao || '').toString().toLowerCase();
                 if (name.includes('bonus') || name.includes('bônus')) bonusBalance += parseBRL(c.saldo ?? c.valor ?? c.value ?? c.balance ?? 0);
               }
             } else if (carteiras && typeof carteiras === 'object') {
-              for (const [key, val] of Object.entries(carteiras)) {
+              for (const [key, val] of Object.entries(carteiras as Record<string, unknown>)) {
                 if (key.toLowerCase().includes('bonus') || key.toLowerCase().includes('bônus')) bonusBalance += parseBRL(val);
               }
             }
             results[item.cpf] = { hasBonus: bonusBalance > 0, bonusCount: 0, bonusBalance };
           } else {
             const movimentacoes = txRes?.data?.movimentacoes || txRes?.data?.historico || [];
-            const txList = Array.isArray(movimentacoes) ? movimentacoes : [];
+            const txList: TransactionEntry[] = Array.isArray(movimentacoes) ? movimentacoes : [];
             let bonusCount = 0; let lastBonusDate: string | undefined;
             for (const tx of txList) {
               const tipo = (tx.tipo || tx.type || tx.descricao || '').toString().toLowerCase();
@@ -609,8 +675,8 @@ export default function Segments() {
   };
 
   const selectedSeg = selectedSegment === ALL_USERS_ID
-    ? { id: ALL_USERS_ID, name: 'All Users', description: 'Todos os jogadores cadastrados na plataforma', item_count: allUsersItems?.length || 0, segment_type: 'manual' as const, rules: [], match_type: 'all' }
-    : segments?.find((s: any) => s.id === selectedSegment);
+    ? { id: ALL_USERS_ID, name: 'All Users', description: 'Todos os jogadores cadastrados na plataforma', item_count: allUsersItems?.length || 0, segment_type: 'manual' as const, rules: [] as SegmentRule[], match_type: 'all' } as SegmentRow
+    : segments?.find((s: SegmentRow) => s.id === selectedSegment);
 
   // ── Rule Builder Component ──
   const RuleBuilder = ({ rules, setRules, matchType, setMatchType }: {
@@ -877,7 +943,7 @@ export default function Segments() {
                   <p className="text-sm text-muted-foreground">Nenhum segmento criado</p>
                 </div>
               ) : (
-                segments?.map((seg: any) => (
+                segments?.map((seg: SegmentRow) => (
                   <button
                     key={seg.id}
                     onClick={() => setSelectedSegment(seg.id)}
@@ -937,33 +1003,33 @@ export default function Segments() {
             <div className="glass-card p-5 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-3">
-                  <span className="w-4 h-4 rounded-full" style={{ backgroundColor: (selectedSeg as any).color || '#6d28d9' }} />
+                  <span className="w-4 h-4 rounded-full" style={{ backgroundColor: selectedSeg.color || '#6d28d9' }} />
                   <div>
                     <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
                       {selectedSeg.name}
-                      {(selectedSeg as any).segment_type === 'automatic' && (
+                      {selectedSeg.segment_type === 'automatic' && (
                         <Badge variant="outline" className="text-xs border-amber-500/30 text-amber-400">
                           <Zap className="w-3 h-3 mr-1" /> Automático
                         </Badge>
                       )}
                     </h2>
                     {selectedSeg.description && <p className="text-sm text-muted-foreground">{selectedSeg.description}</p>}
-                    {(selectedSeg as any).last_evaluated_at && (
+                    {selectedSeg.last_evaluated_at && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">
-                        Última avaliação: {formatDateTime((selectedSeg as any).last_evaluated_at)}
+                        Última avaliação: {formatDateTime(selectedSeg.last_evaluated_at)}
                       </p>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Automatic segment controls */}
-                  {(selectedSeg as any).segment_type === 'automatic' && !isAllUsers && (
+                  {selectedSeg.segment_type === 'automatic' && !isAllUsers && (
                     <>
                       <Button variant="outline" size="sm" className="border-border text-xs"
                         onClick={() => {
-                          setEditRules((selectedSeg as any).rules || []);
-                          setEditMatchType((selectedSeg as any).match_type || 'all');
-                          setEditAutoRefresh((selectedSeg as any).auto_refresh || false);
+                          setEditRules(selectedSeg.rules || []);
+                          setEditMatchType(selectedSeg.match_type || 'all');
+                          setEditAutoRefresh(selectedSeg.auto_refresh || false);
                           setEditRulesOpen(true);
                         }}>
                         <Settings2 className="w-3.5 h-3.5 mr-1.5" /> Editar Regras
@@ -977,7 +1043,7 @@ export default function Segments() {
                   )}
 
                   {/* Manual segment: add CPFs */}
-                  {(!isAllUsers && (selectedSeg as any).segment_type !== 'automatic') && (
+                  {(!isAllUsers && selectedSeg.segment_type !== 'automatic') && (
                     <Dialog open={addCpfOpen} onOpenChange={setAddCpfOpen}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm" className="border-border">
@@ -1201,23 +1267,23 @@ export default function Segments() {
               </div>
 
               {/* Rules display for automatic segments */}
-              {(selectedSeg as any).segment_type === 'automatic' && (selectedSeg as any).rules?.length > 0 && !isAllUsers && (
+              {selectedSeg.segment_type === 'automatic' && selectedSeg.rules?.length > 0 && !isAllUsers && (
                 <div className="p-3 rounded-lg bg-secondary/30 border border-border space-y-2">
                   <div className="flex items-center gap-2 text-xs">
                     <Filter className="w-3.5 h-3.5 text-muted-foreground" />
                     <span className="font-medium text-foreground">Regras ativas</span>
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                      {(selectedSeg as any).match_type === 'all' ? 'TODAS (AND)' : 'QUALQUER (OR)'}
+                      {selectedSeg.match_type === 'all' ? 'TODAS (AND)' : 'QUALQUER (OR)'}
                     </Badge>
                   </div>
                   <div className="space-y-1">
-                    {((selectedSeg as any).rules || []).map((rule: SegmentRule, idx: number) => {
+                    {(selectedSeg.rules || []).map((rule: SegmentRule, idx: number) => {
                       const fieldDef = RULE_FIELDS.find(f => f.value === rule.field);
                       const operators = fieldDef?.type === 'days' ? OPERATORS_DAYS : OPERATORS_NUMBER;
                       const opLabel = operators.find(o => o.value === rule.operator)?.label || rule.operator;
                       return (
                         <div key={rule.id || idx} className="flex items-center gap-2 text-xs text-muted-foreground">
-                          {idx > 0 && <span className="text-[10px] font-bold uppercase text-primary">{(selectedSeg as any).match_type === 'all' ? 'E' : 'OU'}</span>}
+                          {idx > 0 && <span className="text-[10px] font-bold uppercase text-primary">{selectedSeg.match_type === 'all' ? 'E' : 'OU'}</span>}
                           <span className="text-foreground font-medium">{fieldDef?.label || rule.field}</span>
                           <span>{opLabel}</span>
                           <span className="font-mono text-foreground font-semibold">{rule.value}</span>
@@ -1287,19 +1353,19 @@ export default function Segments() {
                           <TableHead className="text-xs font-semibold uppercase tracking-wider">CPF Mascarado</TableHead>
                           {isAllUsers && <TableHead className="text-xs font-semibold uppercase tracking-wider">Username</TableHead>}
                           <TableHead className="text-xs font-semibold uppercase tracking-wider">{isAllUsers ? 'Cadastro' : 'Adicionado em'}</TableHead>
-                          {!isAllUsers && (selectedSeg as any).segment_type !== 'manual' && (
+                          {!isAllUsers && selectedSeg.segment_type !== 'manual' && (
                             <TableHead className="text-xs font-semibold uppercase tracking-wider">Fonte</TableHead>
                           )}
                           {Object.keys(verifyResults).length > 0 && (
                             <TableHead className="text-xs font-semibold uppercase tracking-wider">Status Bônus</TableHead>
                           )}
-                          {!isAllUsers && (selectedSeg as any).segment_type !== 'automatic' && (
+                          {!isAllUsers && selectedSeg.segment_type !== 'automatic' && (
                             <TableHead className="text-xs font-semibold uppercase tracking-wider w-12"></TableHead>
                           )}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {pagedItems.map((item: any) => {
+                        {pagedItems.map((item: SegmentItemRow | AllUserItem) => {
                           const vr = verifyResults[item.cpf];
                           return (
                             <TableRow key={item.id} className={`hover:bg-secondary/30 ${vr?.hasBonus ? 'bg-destructive/5' : ''}`}>
@@ -1307,7 +1373,7 @@ export default function Segments() {
                               <TableCell className="font-mono text-sm text-muted-foreground">{item.cpf_masked}</TableCell>
                               {isAllUsers && <TableCell className="text-sm">{item.username || '—'}</TableCell>}
                               <TableCell className="text-xs text-muted-foreground">{item.created_at ? formatDateTime(item.created_at) : '—'}</TableCell>
-                              {!isAllUsers && (selectedSeg as any).segment_type !== 'manual' && (
+                              {!isAllUsers && selectedSeg.segment_type !== 'manual' && (
                                 <TableCell>
                                   <Badge variant="outline" className={`text-[10px] ${item.source === 'rule' ? 'border-amber-500/30 text-amber-400' : 'border-border text-muted-foreground'}`}>
                                     {item.source === 'rule' ? 'Regra' : item.source === 'import' ? 'Import' : 'Manual'}
@@ -1334,7 +1400,7 @@ export default function Segments() {
                                   ) : <span className="text-xs text-muted-foreground">—</span>}
                                 </TableCell>
                               )}
-                              {!isAllUsers && (selectedSeg as any).segment_type !== 'automatic' && (
+                              {!isAllUsers && selectedSeg.segment_type !== 'automatic' && (
                                 <TableCell>
                                   <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
                                     onClick={() => removeCpfMut.mutate(item.id)}>
@@ -1400,10 +1466,10 @@ export default function Segments() {
                   <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground">
                     {isAllUsers ? 'Nenhum jogador encontrado' :
-                      (selectedSeg as any).segment_type === 'automatic' ? 'Nenhum jogador corresponde às regras. Clique em "Reavaliar" para atualizar.' :
+                      selectedSeg.segment_type === 'automatic' ? 'Nenhum jogador corresponde às regras. Clique em "Reavaliar" para atualizar.' :
                         'Nenhum CPF neste segmento'}
                   </p>
-                  {!isAllUsers && (selectedSeg as any).segment_type !== 'automatic' && <p className="text-xs text-muted-foreground mt-1">Clique em "Adicionar CPFs" para começar</p>}
+                  {!isAllUsers && selectedSeg.segment_type !== 'automatic' && <p className="text-xs text-muted-foreground mt-1">Clique em "Adicionar CPFs" para começar</p>}
                 </div>
               )}
             </div>

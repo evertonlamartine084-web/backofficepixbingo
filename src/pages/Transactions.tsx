@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback, useEffect } from 'react';
 import { format } from 'date-fns';
 import {
@@ -15,6 +14,31 @@ import { useProxy } from '@/hooks/use-proxy';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatBRL, parseBRL, formatDateTime, maskCPF, formatDateAPI } from '@/lib/formatters';
+
+interface TransactionItem {
+  id?: string | number;
+  tipo_transacao?: string;
+  tipo?: string;
+  valor?: string | number;
+  updated_at?: string;
+  created_at?: string;
+  name?: string;
+  username?: string;
+  cpf?: string;
+  status?: string;
+}
+
+interface ApiSummaryData {
+  aaData?: TransactionItem[];
+  data?: TransactionItem[];
+  iTotalRecords?: number;
+  recordsTotal?: number;
+  recordsFiltered?: number;
+  valorDeposito?: string | number;
+  valorSaque?: string | number;
+  qtdeDeposito?: string | number;
+  qtdeSaque?: string | number;
+}
 
 const PAGE_SIZE = 50;
 
@@ -40,8 +64,8 @@ export default function Transactions() {
   const [searchCpf, setSearchCpf] = useState('');
   const [dateStart, setDateStart] = useState<Date | undefined>(new Date());
   const [dateEnd, setDateEnd] = useState<Date | undefined>(new Date());
-  const [txData, setTxData] = useState<any>(null);
-  const [apiSummary, setApiSummary] = useState<any>(null);
+  const [txData, setTxData] = useState<TransactionItem[] | null>(null);
+  const [apiSummary, setApiSummary] = useState<ApiSummaryData | null>(null);
   const [page, setPage] = useState(0);
   const [totalRecords, setTotalRecords] = useState(0);
   const { callWithLoading, loading } = useProxy();
@@ -49,7 +73,7 @@ export default function Transactions() {
   const handleFetch = useCallback(async (pageNum = 0) => {
     if (!creds.username) { toast.error('Conecte-se primeiro'); return; }
     try {
-      const extra: Record<string, any> = {
+      const extra: Record<string, unknown> = {
         draw: pageNum + 1,
         start: pageNum * PAGE_SIZE,
         length: PAGE_SIZE,
@@ -58,16 +82,17 @@ export default function Transactions() {
       if (dateStart) extra.busca_data_inicio = formatDateAPI(dateStart);
       if (dateEnd) extra.busca_data_fim = formatDateAPI(dateEnd);
 
-      const res = await callWithLoading('list_transactions', creds, extra);
-      const data = res?.data;
-      const rows = data?.aaData || data?.data || [];
-      setTxData(Array.isArray(rows) ? rows : []);
+      const res = await callWithLoading('list_transactions', creds, extra) as Record<string, unknown> | undefined;
+      const data = (res?.data ?? null) as ApiSummaryData | null;
+      const rawRows = data?.aaData || data?.data || [];
+      const rows: TransactionItem[] = Array.isArray(rawRows) ? rawRows : [];
+      setTxData(rows);
       setApiSummary(data);
       setTotalRecords(Number(data?.iTotalRecords || data?.recordsTotal || data?.recordsFiltered || rows.length || 0));
       setPage(pageNum);
       toast.success(`${rows.length} transações carregadas`);
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro');
     }
   }, [creds, searchCpf, dateStart, dateEnd, callWithLoading]);
 
@@ -77,7 +102,7 @@ export default function Transactions() {
   }, [creds.username]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
-  const items: any[] = txData || [];
+  const items: TransactionItem[] = txData || [];
 
   // Use API-provided totals instead of summing page items
   const summary = {
@@ -243,7 +268,7 @@ export default function Transactions() {
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((item: any, i: number) => {
+                    {items.map((item: TransactionItem, i: number) => {
                       const tipo = String(item.tipo_transacao || item.tipo || '').toUpperCase();
                       const valor = parseBRL(item.valor);
                       const isPositive = tipo.includes('DEPOSITO') || tipo.includes('CREDITO') || tipo.includes('CRÉDITO') || tipo.includes('BONUS');

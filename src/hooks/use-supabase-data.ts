@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { BatchStatus, ItemStatus } from '@/types';
+import type { BatchStatus, ItemStatus, DashboardStats } from '@/types';
 
 // ── Batches ──
 export function useBatches(limit = 100) {
@@ -47,13 +47,13 @@ export function useBatchItems(batchId?: string, limit = 500) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('batch_items')
-        .select('*')
+        .select('id, batch_id, cpf_masked, uuid, status, tentativas, qtd_bonus, datas_bonus, ultima_data_bonus, log, created_at, updated_at')
         .eq('batch_id', batchId!)
         .order('created_at', { ascending: true })
         .limit(limit);
       if (error) throw error;
       return data as Array<{
-        id: string; batch_id: string; cpf: string; cpf_masked: string; uuid: string | null;
+        id: string; batch_id: string; cpf_masked: string; uuid: string | null;
         status: string; tentativas: number; qtd_bonus: number;
         datas_bonus: string[]; ultima_data_bonus: string | null; log: string[];
         created_at: string; updated_at: string;
@@ -68,13 +68,13 @@ export function useDuplicates(limit = 200) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('batch_items')
-        .select('*')
+        .select('id, batch_id, cpf_masked, uuid, status, tentativas, qtd_bonus, datas_bonus, ultima_data_bonus, log, created_at, updated_at')
         .eq('status', 'BONUS_2X+')
         .order('updated_at', { ascending: false })
         .limit(limit);
       if (error) throw error;
       return data as Array<{
-        id: string; batch_id: string; cpf: string; cpf_masked: string; uuid: string | null;
+        id: string; batch_id: string; cpf_masked: string; uuid: string | null;
         status: string; tentativas: number; qtd_bonus: number;
         datas_bonus: string[]; ultima_data_bonus: string | null; log: string[];
         created_at: string; updated_at: string;
@@ -84,22 +84,31 @@ export function useDuplicates(limit = 200) {
 }
 
 // ── Dashboard Stats ──
+interface BatchStats {
+  pendente: number;
+  processando: number;
+  sem_bonus: number;
+  bonus_1x: number;
+  bonus_2x_plus: number;
+  erro: number;
+}
+
 export function useDashboardStats() {
   return useQuery({
     queryKey: ['dashboard_stats'],
-    queryFn: async () => {
+    queryFn: async (): Promise<DashboardStats> => {
       const { data: batches, error: bErr } = await supabase.from('batches').select('stats');
       if (bErr) throw bErr;
 
-      const totals = {
+      const totals: DashboardStats = {
         total_batches: batches?.length || 0,
         total_items: 0, pendente: 0, processando: 0, sem_bonus: 0,
         bonus_1x: 0, bonus_2x_plus: 0, erro: 0,
+        avg_time_ms: 0, rate_limit_alerts: 0,
       };
 
       for (const b of batches || []) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const s = b.stats as any;
+        const s = b.stats as BatchStats | null;
         if (!s) continue;
         totals.total_items += ((s.pendente || 0) + (s.processando || 0) + (s.sem_bonus || 0) + (s.bonus_1x || 0) + (s.bonus_2x_plus || 0) + (s.erro || 0));
         totals.pendente += (s.pendente || 0);

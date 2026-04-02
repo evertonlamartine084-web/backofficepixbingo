@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,6 +47,29 @@ const POINTS_PER_OPTIONS = [
   { value: '1_real', label: '1 ponto a cada R$ 1,00', multiplier: 1 },
 ];
 
+interface Segment {
+  id: string;
+  name: string;
+}
+
+interface Tournament {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  start_date: string;
+  end_date: string;
+  metric: string;
+  game_filter: string;
+  min_bet: number;
+  status: string;
+  prizes: Prize[];
+  segment_id: string | null;
+  require_optin: boolean;
+  points_per: string;
+  created_at: string;
+}
+
 interface Prize { rank: number; value: number; description: string; type?: string }
 
 const emptyForm = {
@@ -70,7 +92,7 @@ export default function Tournaments() {
     queryFn: async () => {
       const { data, error } = await supabase.from('segments').select('id, name').order('name');
       if (error) throw error;
-      return data as any[];
+      return data as unknown as Segment[];
     },
   });
 
@@ -79,7 +101,7 @@ export default function Tournaments() {
     queryFn: async () => {
       const { data, error } = await supabase.from('tournaments').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      return data as any[];
+      return data as unknown as Tournament[];
     },
   });
 
@@ -105,10 +127,10 @@ export default function Tournaments() {
         points_per: form.points_per,
       };
       if (editId) {
-        const { error } = await supabase.from('tournaments').update(payload as any).eq('id', editId);
+        const { error } = await supabase.from('tournaments').update(payload as Record<string, unknown>).eq('id', editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('tournaments').insert(payload as any);
+        const { error } = await supabase.from('tournaments').insert(payload as Record<string, unknown>);
         if (error) throw error;
       }
     },
@@ -138,7 +160,7 @@ export default function Tournaments() {
 
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from('tournaments').update({ status } as any).eq('id', id);
+      const { error } = await supabase.from('tournaments').update({ status } as Record<string, unknown>).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tournaments'] }),
@@ -147,8 +169,8 @@ export default function Tournaments() {
 
   const closeDialog = () => { setOpen(false); setEditId(null); setForm(emptyForm); };
 
-  const openEdit = (t: any) => {
-    const prizes = (t.prizes || []).map((p: any) => ({ rank: p.rank, value: p.value, description: p.description, type: p.type || 'bonus' }));
+  const openEdit = (t: Tournament) => {
+    const prizes = (t.prizes || []).map((p: Prize) => ({ rank: p.rank, value: p.value, description: p.description, type: p.type || 'bonus' }));
     setEditId(t.id);
     setForm({
       name: t.name, description: t.description || '', image_url: t.image_url || '',
@@ -160,7 +182,7 @@ export default function Tournaments() {
     setOpen(true);
   };
 
-  const updatePrize = (index: number, field: keyof Prize, value: any) => {
+  const updatePrize = (index: number, field: keyof Prize, value: string | number) => {
     setForm(f => {
       const prizes = [...f.prizes];
       prizes[index] = { ...prizes[index], [field]: field === 'rank' || field === 'value' ? Number(value) : value };
@@ -179,7 +201,7 @@ export default function Tournaments() {
   const metricLabel = (m: string) => METRICS.find(x => x.value === m)?.label || m;
   const gameLabel = (g: string) => GAMES.find(x => x.value === g)?.label || g;
 
-  const totalPrizePool = (prizes: any[]) => (prizes || []).reduce((s: number, p: any) => s + Number(p.value || 0), 0);
+  const totalPrizePool = (prizes: Prize[]) => (prizes || []).reduce((s: number, p: Prize) => s + Number(p.value || 0), 0);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -204,7 +226,7 @@ export default function Tournaments() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {tournaments.map((t: any) => {
+          {tournaments.map((t: Tournament) => {
             const st = STATUS_MAP[t.status] || STATUS_MAP.RASCUNHO;
             const prizes: Prize[] = t.prizes || [];
             return (

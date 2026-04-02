@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,13 +39,13 @@ export function useDashboardCharts(days: number = 7) {
         .gte('created_at', `${startDate}T00:00:00`)
         .in('status', ['BONUS_1X', 'BONUS_2X+']);
       if (error) throw error;
-      return (data || []).map((item: any) => ({
+      return (data || []).map((item: { created_at: string; batches?: { bonus_valor: number } | null }) => ({
         created_at: item.created_at,
         valor: Number(item.batches?.bonus_valor || 0),
       }));
     },
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 2 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   // Cashback credited
@@ -61,8 +60,8 @@ export function useDashboardCharts(days: number = 7) {
       if (error) throw error;
       return data || [];
     },
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 2 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   // Campaign participants credited
@@ -77,8 +76,8 @@ export function useDashboardCharts(days: number = 7) {
       if (error) throw error;
       return data || [];
     },
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 2 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   // Manual credits from audit_log
@@ -94,20 +93,23 @@ export function useDashboardCharts(days: number = 7) {
       if (error) throw error;
       return data || [];
     },
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 2 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   // Build daily metrics
   const metrics: DailyMetric[] = daysArray.map(({ dateISO, label }) => {
-    const dayStart = `${dateISO}T00:00:00`;
-    const dayEnd = `${dateISO}T23:59:59`;
-    const inDay = (d: string) => d >= dayStart && d <= dayEnd;
+    const dayStartMs = new Date(`${dateISO}T00:00:00Z`).getTime();
+    const dayEndMs = new Date(`${dateISO}T23:59:59Z`).getTime();
+    const inDay = (d: string) => {
+      const ts = new Date(d).getTime();
+      return ts >= dayStartMs && ts <= dayEndMs;
+    };
 
     const batchCredits = (batchData || []).filter(b => inDay(b.created_at))
       .reduce((sum, b) => sum + (b.valor || 0), 0);
     const manualCredits = (auditData || []).filter(a => inDay(a.created_at))
-      .reduce((sum, a) => sum + Number(a.details?.valor || 0), 0);
+      .reduce((sum, a) => sum + Number((a.details as Record<string, unknown> | null)?.valor || 0), 0);
     const cashbackCredits = (cashbackData || []).filter(c => inDay(c.created_at))
       .reduce((sum, c) => sum + Number(c.cashback_value || 0), 0);
     const campaignCredits = (campaignData || []).filter(c => inDay(c.created_at))
@@ -124,7 +126,7 @@ export function useDashboardCharts(days: number = 7) {
 
   // Summary totals
   const manualCreditTotal = (auditData || [])
-    .reduce((sum, a) => sum + Number(a.details?.valor || 0), 0);
+    .reduce((sum, a) => sum + Number((a.details as Record<string, unknown> | null)?.valor || 0), 0);
   const batchCreditTotal = (batchData || []).reduce((sum, b) => sum + (b.valor || 0), 0);
   const totals = {
     bonus_creditados: batchCreditTotal + manualCreditTotal,
@@ -142,11 +144,14 @@ export function useDashboardCharts(days: number = 7) {
   return { metrics, totals, days: daysArray, refreshCharts };
 }
 
+type ProxyCredentials = { username: string; password: string };
+type ProxyCallFn = (action: string, creds: ProxyCredentials | null, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+
 // Financial evolution - calls API for each day (only for newUsers chart now)
 export function useFinancialEvolution(
   days: number,
-  callProxy: (action: string, creds: any, params?: any) => Promise<any>,
-  creds: { username: string; password: string },
+  callProxy: ProxyCallFn,
+  creds: ProxyCredentials,
 ) {
   const queryClient = useQueryClient();
   const daysArray = getDaysArray(days);

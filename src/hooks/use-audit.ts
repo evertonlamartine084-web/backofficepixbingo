@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -10,8 +9,16 @@ export interface AuditEntry {
   resource_type: string;
   resource_id: string | null;
   resource_name: string | null;
-  details: Record<string, any> | null;
+  details: Record<string, unknown> | null;
   created_at: string;
+}
+
+let lastAuditTime = 0;
+const AUDIT_THROTTLE_MS = 500;
+
+/** Reset throttle state — only for tests */
+export function _resetAuditThrottle() {
+  lastAuditTime = 0;
 }
 
 // Fire-and-forget audit log — never blocks the caller
@@ -20,8 +27,12 @@ export async function logAudit(params: {
   resource_type: string;
   resource_id?: string;
   resource_name?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }) {
+  const now = Date.now();
+  if (now - lastAuditTime < AUDIT_THROTTLE_MS) return;
+  lastAuditTime = now;
+
   try {
     const { data: { user } } = await supabase.auth.getUser();
     await supabase.from('audit_log').insert({
@@ -32,9 +43,8 @@ export async function logAudit(params: {
       resource_id: params.resource_id || null,
       resource_name: params.resource_name || null,
       details: params.details || null,
-    } as any);
+    } as Record<string, unknown>);
   } catch (err) {
-    // Never let audit failure break the app, but log for debugging
     console.warn('[Audit] Failed to log action:', params.action, err);
   }
 }

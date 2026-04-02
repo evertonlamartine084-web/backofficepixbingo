@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getCorsHeaders, optionsResponse } from './_cors.js';
 
 export const config = { runtime: 'edge', maxDuration: 60 };
@@ -79,11 +78,43 @@ interface SyncResult {
   transactions_processed: number;
   levels_gained: number;
   new_level: number;
-  rewards_credited: any[];
+  rewards_credited: RewardCredit[];
   error?: string;
 }
 
-export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResult> {
+interface RewardCredit {
+  level: number;
+  name: string;
+  tier: string;
+  rewards: string[];
+}
+
+interface Movimentacao {
+  tipo: string;
+  valor: string | number;
+  data_registro: string;
+  jogo?: string;
+  descricao?: string;
+  carteira?: string;
+}
+
+interface Historico {
+  operacao?: string;
+  tipo?: string;
+  valor: string | number;
+  data_registro: string;
+  jogo?: string;
+  carteira?: string;
+  saldo?: string | number;
+}
+
+interface NormalizedTx {
+  tipo: string;
+  valor: string | number;
+  data_registro: string;
+}
+
+export async function syncPlayerXp(cpf: string, supabase: SupabaseClient): Promise<SyncResult> {
   const result: SyncResult = {
     success: false, cpf, xp_earned: 0, bet_xp: 0, deposit_xp: 0,
     total_bets: 0, total_deposits: 0, transactions_processed: 0,
@@ -111,7 +142,7 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
 
     if (!wallet) {
       const { data: newWallet } = await supabase.from('player_wallets')
-        .upsert({ cpf, coins: 0, xp: 0, level: 1, total_xp_earned: 0 } as any, { onConflict: 'cpf' })
+        .upsert({ cpf, coins: 0, xp: 0, level: 1, total_xp_earned: 0 } as Record<string, unknown>, { onConflict: 'cpf' })
         .select().single();
       wallet = newWallet;
     }
@@ -189,8 +220,8 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
     }
 
     // 6. Fetch real game transactions via /usuarios/transacoes (has bets, deposits, wins)
-    let movimentacoes: any[] = [];
-    let historico: any[] = [];
+    let movimentacoes: Movimentacao[] = [];
+    let historico: Historico[] = [];
     try {
       const txRes = await fetch(`${siteUrl}/usuarios/transacoes?id=${playerUuid}`, {
         headers, signal: AbortSignal.timeout(15000),
@@ -198,19 +229,19 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
       const txData = JSON.parse(await txRes.text());
       movimentacoes = txData?.movimentacoes || [];
       historico = txData?.historico || [];
-    } catch (e: any) {
-      result.error = `Failed to fetch transactions: ${e.message}`;
+    } catch (e: unknown) {
+      result.error = `Failed to fetch transactions: ${e instanceof Error ? e.message : 'Erro'}`;
       return result;
     }
 
     // Normalize all transactions into a unified format
-    const allTx = [
-      ...movimentacoes.map((m: any) => ({
+    const allTx: NormalizedTx[] = [
+      ...movimentacoes.map((m: Movimentacao) => ({
         tipo: (m.tipo || '').toUpperCase(),
         valor: m.valor,
         data_registro: m.data_registro,
       })),
-      ...historico.map((h: any) => ({
+      ...historico.map((h: Historico) => ({
         tipo: (h.operacao || h.tipo || '').toUpperCase(),
         valor: h.valor,
         data_registro: h.data_registro,
@@ -226,7 +257,7 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
       return result;
     }
 
-    const parseVal = (v: any): number => {
+    const parseVal = (v: string | number | null | undefined): number => {
       if (typeof v === 'number') return Math.abs(v);
       if (!v) return 0;
       const s = String(v).trim();
@@ -283,7 +314,7 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
           if ((wallet.xp || 0) >= lvl.xp_required) correctLevel = lvl.level;
         }
         if (correctLevel !== (wallet.level || 0)) {
-          await supabase.from('player_wallets').update({ level: correctLevel } as any).eq('cpf', cpf);
+          await supabase.from('player_wallets').update({ level: correctLevel } as Record<string, unknown>).eq('cpf', cpf);
           wallet.level = correctLevel;
         }
       }
@@ -316,7 +347,7 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
       .select('*').order('level');
 
     let newLevel = wallet.level || 1;
-    const rewardsCredited: any[] = [];
+    const rewardsCredited: RewardCredit[] = [];
 
     if (levels && levels.length > 0) {
       for (const lvl of levels) {
@@ -325,8 +356,8 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
           newLevel = lvl.level;
 
           // Credit level-up rewards
-          const rewardUpdate: any = {};
-          const rewardDesc = [];
+          const rewardUpdate: Record<string, number> = {};
+          const rewardDesc: string[] = [];
 
           if (lvl.reward_coins && lvl.reward_coins > 0) {
             rewardUpdate.coins_bonus = lvl.reward_coins;
@@ -351,7 +382,7 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
               reward_coins: lvl.reward_coins || 0,
               reward_gems: lvl.reward_gems || 0,
               reward_diamonds: lvl.reward_diamonds || 0,
-            } as any);
+            } as Record<string, unknown>);
           } catch { /* ignore */ }
 
           rewardsCredited.push({
@@ -369,7 +400,7 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
     result.rewards_credited = rewardsCredited;
 
     // 11. Build wallet update
-    const walletUpdate: any = {
+    const walletUpdate: Record<string, unknown> = {
       xp: currentXp,
       total_xp_earned: currentTotalXp,
       level: newLevel,
@@ -381,7 +412,7 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
       let bonusCoins = 0, bonusGems = 0, bonusDiamonds = 0;
       for (const reward of rewardsCredited) {
         // Re-fetch level data for reward values
-        const lvl = levels?.find((l: any) => l.level === reward.level);
+        const lvl = levels?.find((l) => l.level === reward.level);
         if (lvl) {
           bonusCoins += lvl.reward_coins || 0;
           bonusGems += lvl.reward_gems || 0;
@@ -407,7 +438,7 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
           amount: totalBets,
           xp_earned: betXp,
           description: `XP de apostas: R$${totalBets.toFixed(2)} x ${apostaWeight} = ${betXp} XP`,
-        } as any);
+        } as Record<string, unknown>);
       } catch { /* ignore */ }
     }
 
@@ -419,7 +450,7 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
           amount: totalDeposits,
           xp_earned: depXp,
           description: `XP de depósitos: R$${totalDeposits.toFixed(2)} x ${depositoWeight} = ${depXp} XP`,
-        } as any);
+        } as Record<string, unknown>);
       } catch { /* ignore */ }
     }
 
@@ -432,15 +463,15 @@ export async function syncPlayerXp(cpf: string, supabase: any): Promise<SyncResu
           amount: reward.level,
           source: 'XP Sync',
           description: `Subiu para nível ${reward.level} (${reward.name || reward.tier})! ${reward.rewards.join(', ')}`,
-        } as any);
+        } as Record<string, unknown>);
       } catch { /* ignore */ }
     }
 
     result.success = true;
     return result;
 
-  } catch (e: any) {
-    result.error = e.message;
+  } catch (e: unknown) {
+    result.error = e instanceof Error ? e.message : 'Erro';
     return result;
   }
 }

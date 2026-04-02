@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@supabase/supabase-js';
 import { getCorsHeaders, optionsResponse, verifyAuth } from './_cors.js';
 
@@ -56,7 +55,34 @@ function buildHeaders(cookies: string, baseUrl: string): Record<string, string> 
   return { 'Accept': 'application/json, text/javascript, */*', 'X-Requested-With': 'XMLHttpRequest', 'Cookie': cookies, 'Referer': baseUrl };
 }
 
-async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: Record<string, string>): Promise<any> {
+interface TransactionRecord {
+  tipo: string;
+  valor: string | number;
+  jogo?: string;
+  descricao?: string;
+  data_registro?: string;
+  created_at?: string;
+  data?: string;
+  carteira?: string;
+}
+
+interface Historico {
+  data_registro: string;
+  operacao?: string;
+  tipo?: string;
+  valor: string | number;
+  jogo?: string;
+  carteira?: string;
+}
+
+interface Prize {
+  rank: number;
+  value: number;
+  type: string;
+  description?: string;
+}
+
+async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: Record<string, string>): Promise<unknown> {
   const opts: RequestInit = { method, headers: { ...headers }, signal: AbortSignal.timeout(12000) };
   if (body && method === 'POST') {
     opts.body = new URLSearchParams(body).toString();
@@ -70,9 +96,9 @@ async function fetchJSON(url: string, headers: Record<string, string>, method = 
 async function creditBonusOnPlatform(baseUrl: string, headers: Record<string, string>, playerUuid: string, amount: number, password: string): Promise<{ success: boolean; msg?: string }> {
   const result = await fetchJSON(`${baseUrl}/usuarios/creditos`, headers, 'POST', {
     uuid: playerUuid, carteira: 'BONUS', valor: String(amount), senha: password,
-  });
+  }) as Record<string, unknown>;
   const ok = result?.status === true || String(result?.msg || '').toLowerCase().includes('sucesso');
-  return { success: ok, msg: result?.msg || result?.Msg || JSON.stringify(result).slice(0, 200) };
+  return { success: ok, msg: (result?.msg || result?.Msg || JSON.stringify(result).slice(0, 200)) as string };
 }
 
 async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string>, cpf: string): Promise<string | null> {
@@ -85,11 +111,12 @@ async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string
   });
   params.set('order[0][column]', '0'); params.set('order[0][dir]', 'asc');
   params.set('search[value]', ''); params.set('search[regex]', 'false');
-  const result = await fetchJSON(`${baseUrl}/usuarios/listar?${params}`, headers);
-  return result?.aaData?.[0]?.uuid || null;
+  const result = await fetchJSON(`${baseUrl}/usuarios/listar?${params}`, headers) as Record<string, unknown>;
+  const aaData = result?.aaData as Record<string, unknown>[] | undefined;
+  return (aaData?.[0]?.uuid as string) || null;
 }
 
-function calculateScoreBR(transactions: any[], metric: string, pointsPer: string, gameFilter: string, minBet: number): number {
+function calculateScoreBR(transactions: TransactionRecord[], metric: string, pointsPer: string, gameFilter: string, minBet: number): number {
   const divisor = pointsPer === '1_centavo' ? 0.01 : pointsPer === '10_centavos' ? 0.1 : 1;
   const parseValue = (s: string | number): number => {
     if (typeof s === 'number') return Math.abs(s);
@@ -199,14 +226,14 @@ export default async function handler(req: Request): Promise<Response> {
           }
           if (!playerUuid) { totalErrors++; continue; }
 
-          const txResult = await fetchJSON(`${baseUrl}/usuarios/transacoes?id=${playerUuid}`, headers);
-          const movimentacoes: any[] = txResult?.movimentacoes || [];
-          const historico: any[] = txResult?.historico || [];
-          const normalizedHist = historico.map((h: any) => ({
+          const txResult = await fetchJSON(`${baseUrl}/usuarios/transacoes?id=${playerUuid}`, headers) as Record<string, unknown>;
+          const movimentacoes: TransactionRecord[] = (txResult?.movimentacoes as TransactionRecord[]) || [];
+          const historico: Historico[] = (txResult?.historico as Historico[]) || [];
+          const normalizedHist: TransactionRecord[] = historico.map((h: Historico) => ({
             data_registro: h.data_registro, tipo: h.operacao || h.tipo || '',
             valor: h.valor, jogo: h.jogo || '', carteira: h.carteira || '',
           }));
-          const allTx = [...movimentacoes, ...normalizedHist];
+          const allTx: TransactionRecord[] = [...movimentacoes, ...normalizedHist];
 
           const parseDate = (s: string): number => {
             if (!s) return 0;
@@ -219,7 +246,7 @@ export default async function handler(req: Request): Promise<Response> {
 
           const startTs = new Date(tournament.start_date).getTime();
           const endTs = new Date(tournament.end_date).getTime();
-          const filteredTx = allTx.filter((tx: any) => {
+          const filteredTx = allTx.filter((tx: TransactionRecord) => {
             const txTs = parseDate(tx.data_registro || tx.created_at || tx.data || '');
             return txTs >= startTs && txTs <= endTs;
           });
@@ -248,8 +275,8 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     // Check for tournaments that just ended — distribute prizes
-    let body: any = {};
-    try { body = await req.json(); } catch { /* ignore */ }
+    let body: Record<string, unknown> = {};
+    try { body = await req.json() as Record<string, unknown>; } catch { /* ignore */ }
     const forceTournamentId = body?.force_prizes_tournament_id;
 
     let endedFilter = supabase.from('tournaments').select('id, name, prizes, end_date').lt('end_date', now);
@@ -267,14 +294,14 @@ export default async function handler(req: Request): Promise<Response> {
         .from('player_tournament_entries').select('id, cpf, score, rank')
         .eq('tournament_id', t.id).order('score', { ascending: false });
 
-      const prizes: any[] = t.prizes || [];
+      const prizes: Prize[] = (t.prizes as Prize[]) || [];
       for (const prize of prizes) {
         const rank = Number(prize.rank);
         const value = Number(prize.value || 0);
         const type = prize.type || 'bonus';
         if (!value || !rank) continue;
 
-        const winner = ranked?.find((_: any, i: number) => i + 1 === rank);
+        const winner = ranked?.find((_, i) => i + 1 === rank);
         if (!winner) continue;
 
         try {
@@ -286,25 +313,25 @@ export default async function handler(req: Request): Promise<Response> {
               source: 'tournament', source_id: t.id,
               description: `Prêmio do torneio "${t.name}" — ${prize.description || `${rank}º lugar`}`,
               claimed_at: new Date().toISOString(),
-            } as any);
+            } as Record<string, unknown>);
           } else if (type === 'coins') {
             const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', winner.cpf).maybeSingle();
-            await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + value } as any).eq('cpf', winner.cpf);
+            await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + value } as Record<string, unknown>).eq('cpf', winner.cpf);
           } else if (type === 'xp') {
             const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', winner.cpf).maybeSingle();
-            await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + value } as any).eq('cpf', winner.cpf);
+            await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + value } as Record<string, unknown>).eq('cpf', winner.cpf);
           }
           await supabase.from('player_activity_log').insert({
             cpf: winner.cpf, type: 'tournament_prize', amount: value,
             source: 'Torneio', source_id: t.id,
             description: `Prêmio ${rank}º lugar no torneio "${t.name}": ${type} R$${value}`,
-          } as any);
+          } as Record<string, unknown>);
           prizesPaid++;
         } catch (e) {
           log(`ERRO ao pagar prêmio rank ${rank}: ${(e as Error).message}`);
         }
       }
-      await supabase.from('tournaments').update({ status: 'ENCERRADO', updated_at: new Date().toISOString() } as any).eq('id', t.id);
+      await supabase.from('tournaments').update({ status: 'ENCERRADO', updated_at: new Date().toISOString() } as Record<string, unknown>).eq('id', t.id);
     }
 
     await supabase.from('platform_config').update({ last_sync_at: new Date().toISOString() }).eq('id', config.id);

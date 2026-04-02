@@ -1,23 +1,22 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 
 // Use vi.hoisted so these are available inside vi.mock factory (which is hoisted)
 const { mockUnsubscribe, mockGetSession, mockSignOut, getAuthStateCallback, setAuthStateCallback } = vi.hoisted(() => {
-  let _authStateCallback: ((event: string, session: any) => void) | null = null;
+  let _authStateCallback: ((event: string, session: unknown) => void) | null = null;
   return {
     mockUnsubscribe: vi.fn(),
     mockGetSession: vi.fn(),
     mockSignOut: vi.fn().mockResolvedValue({ error: null }),
     getAuthStateCallback: () => _authStateCallback,
-    setAuthStateCallback: (cb: any) => { _authStateCallback = cb; },
+    setAuthStateCallback: (cb: ((event: string, session: unknown) => void) | null) => { _authStateCallback = cb; },
   };
 });
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     auth: {
-      onAuthStateChange: vi.fn((callback: any) => {
+      onAuthStateChange: vi.fn((callback: (event: string, session: unknown) => void) => {
         setAuthStateCallback(callback);
         return { data: { subscription: { unsubscribe: mockUnsubscribe } } };
       }),

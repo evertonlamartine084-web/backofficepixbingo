@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ALLOWED_ORIGINS = [
@@ -131,8 +130,8 @@ async function creditBonusOnPlatform(baseUrl: string, headers: Record<string, st
     const result = JSON.parse(text);
     const ok = result?.status === true || String(result?.msg || '').toLowerCase().includes('sucesso');
     return { success: ok, msg: result?.msg || result?.Msg || JSON.stringify(result).slice(0, 200) };
-  } catch (e: any) {
-    return { success: false, msg: e.message };
+  } catch (e: unknown) {
+    return { success: false, msg: e instanceof Error ? e.message : 'Erro' };
   }
 }
 
@@ -151,7 +150,7 @@ Deno.serve(async (req: Request) => {
     const playerCpf = url.searchParams.get('player') || null;
 
     // Helper: filter by segment (show items matching segment OR items with no segment)
-    const applySegmentFilter = (query: any) => {
+    const applySegmentFilter = (query: { or: (filter: string) => unknown }): unknown => {
       if (!segmentId) return query;
       return query.or(`segment_id.eq.${segmentId},segment_id.is.null`);
     };
@@ -185,7 +184,7 @@ Deno.serve(async (req: Request) => {
         .eq('active', true).order('probability', { ascending: false });
 
       // Fire all independent queries in a single Promise.all
-      const baseQueries: Promise<any>[] = [
+      const baseQueries: Promise<unknown>[] = [
         applySegmentFilter(achievementsQ),          // 0
         applySegmentFilter(missionsQ),              // 1
         applySegmentFilter(tournamentsQ),           // 2
@@ -220,8 +219,8 @@ Deno.serve(async (req: Request) => {
       const results = allResults; // keep compat reference for player data extraction below
 
       // Get mini game prizes (depends on mini game IDs)
-      const miniGameIds = miniGames.map((g: any) => g.id);
-      let miniGamePrizes: any[] = [];
+      const miniGameIds = miniGames.map((g: Record<string, unknown>) => g.id);
+      let miniGamePrizes: Record<string, unknown>[] = [];
       if (miniGameIds.length > 0) {
         const { data: mgp } = await supabase.from('mini_game_prizes').select('*').in('game_id', miniGameIds).eq('active', true).order('sort_order');
         miniGamePrizes = mgp || [];
@@ -233,12 +232,12 @@ Deno.serve(async (req: Request) => {
       // Player-specific data
       let wallet = null;
       let playerSpins = null;
-      let missionProgress: any[] = [];
-      let achievementProgress: any[] = [];
-      let activityLog: any[] = [];
-      let pendingRewards: any[] = [];
-      let tournamentEntries: any[] = [];
-      let miniGameAttempts: any[] = [];
+      let missionProgress: Record<string, unknown>[] = [];
+      let achievementProgress: Record<string, unknown>[] = [];
+      let activityLog: Record<string, unknown>[] = [];
+      let pendingRewards: Record<string, unknown>[] = [];
+      let tournamentEntries: Record<string, unknown>[] = [];
+      let miniGameAttempts: Record<string, unknown>[] = [];
 
       if (playerCpf) {
         const walletResult = allResults[8];
@@ -262,7 +261,7 @@ Deno.serve(async (req: Request) => {
         // If player doesn't have a wallet yet, create one
         if (!wallet) {
           const { data: newWallet } = await supabase.from('player_wallets')
-            .upsert({ cpf: playerCpf, coins: 0, xp: 0, level: 1 } as any, { onConflict: 'cpf' })
+            .upsert({ cpf: playerCpf, coins: 0, xp: 0, level: 1 } as Record<string, unknown>, { onConflict: 'cpf' })
             .select()
             .single();
           wallet = newWallet;
@@ -271,24 +270,24 @@ Deno.serve(async (req: Request) => {
         // Reset daily spins if new day
         if (playerSpins && playerSpins.last_spin_date !== new Date().toISOString().slice(0, 10)) {
           await supabase.from('player_spins')
-            .update({ spins_used_today: 0, last_spin_date: new Date().toISOString().slice(0, 10) } as any)
+            .update({ spins_used_today: 0, last_spin_date: new Date().toISOString().slice(0, 10) } as Record<string, unknown>)
             .eq('cpf', playerCpf);
           playerSpins.spins_used_today = 0;
         }
 
         // Auto-enroll player in missions that don't require opt-in
         const activeMissions = missions.data || [];
-        const enrolledMissionIds = new Set(missionProgress.map((p: any) => p.mission_id));
-        const autoEnrollMissions = activeMissions.filter((m: any) => !m.require_optin && !enrolledMissionIds.has(m.id));
+        const enrolledMissionIds = new Set(missionProgress.map((p: Record<string, unknown>) => p.mission_id));
+        const autoEnrollMissions = activeMissions.filter((m: Record<string, unknown>) => !m.require_optin && !enrolledMissionIds.has(m.id));
         if (autoEnrollMissions.length > 0) {
-          const inserts = autoEnrollMissions.map((m: any) => ({
+          const inserts = autoEnrollMissions.map((m: Record<string, unknown>) => ({
             cpf: playerCpf,
             mission_id: m.id,
             opted_in: true,
             target: Number(m.condition_value) || 1,
             started_at: new Date().toISOString(),
           }));
-          await supabase.from('player_mission_progress').upsert(inserts as any, { onConflict: 'cpf,mission_id' });
+          await supabase.from('player_mission_progress').upsert(inserts as Record<string, unknown>[], { onConflict: 'cpf,mission_id' });
           // Re-fetch mission progress to include newly enrolled
           const { data: updatedProgress } = await supabase.from('player_mission_progress').select('*').eq('cpf', playerCpf);
           missionProgress = updatedProgress || missionProgress;
@@ -296,8 +295,8 @@ Deno.serve(async (req: Request) => {
       }
 
       // Get tournament leaderboards for active tournaments
-      const tournamentIds = (tournaments.data || []).map((t: any) => t.id);
-      const leaderboards: Record<string, any[]> = {};
+      const tournamentIds = (tournaments.data || []).map((t: Record<string, unknown>) => t.id);
+      const leaderboards: Record<string, Record<string, unknown>[]> = {};
       if (tournamentIds.length > 0) {
         const { data: entries } = await supabase
           .from('player_tournament_entries')
@@ -356,7 +355,7 @@ Deno.serve(async (req: Request) => {
 
       if (!spinRecord) {
         const { data: newRecord } = await supabase.from('player_spins')
-          .upsert({ cpf: playerCpf, spins_used_today: 0, last_spin_date: today, total_spins: 0 } as any, { onConflict: 'cpf' })
+          .upsert({ cpf: playerCpf, spins_used_today: 0, last_spin_date: today, total_spins: 0 } as Record<string, unknown>, { onConflict: 'cpf' })
           .select().single();
         spinRecord = newRecord;
       }
@@ -390,7 +389,7 @@ Deno.serve(async (req: Request) => {
         }
 
         // Deduct coins
-        await supabase.from('player_wallets').update({ coins: (wallet.coins || 0) - coinsCost } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ coins: (wallet.coins || 0) - coinsCost } as Record<string, unknown>).eq('cpf', playerCpf);
       }
 
       // Get prizes
@@ -430,15 +429,15 @@ Deno.serve(async (req: Request) => {
           spins_used_today: spinsUsed + 1,
           last_spin_date: today,
           total_spins: (spinRecord?.total_spins || 0) + 1,
-        } as any, { onConflict: 'cpf' });
+        } as Record<string, unknown>, { onConflict: 'cpf' });
 
       // Award prize to wallet (direct update, no RPC dependency)
       if (selected.type === 'coins' && selected.value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + selected.value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + selected.value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if (selected.type === 'xp' && selected.value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + selected.value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + selected.value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if (selected.type === 'bonus' && selected.value > 0) {
         // Bonus: create a pending reward for the player to claim or auto-credit
         try {
@@ -448,7 +447,7 @@ Deno.serve(async (req: Request) => {
             reward_value: selected.value,
             source: 'Roleta Diária',
             description: `Bônus de R$${selected.value} da roleta`,
-          } as any);
+          } as Record<string, unknown>);
         } catch { /* ignore */ }
       } else if (selected.type === 'free_bet' && selected.value > 0) {
         try {
@@ -458,13 +457,13 @@ Deno.serve(async (req: Request) => {
             reward_value: selected.value,
             source: 'Roleta Diária',
             description: `Free bet de R$${selected.value} da roleta`,
-          } as any);
+          } as Record<string, unknown>);
         } catch { /* ignore */ }
       } else if (selected.type === 'spins' && selected.value > 0) {
         // Award extra spins by reducing spins_used_today
         const newUsed = Math.max(0, spinsUsed + 1 - selected.value);
         await supabase.from('player_spins')
-          .update({ spins_used_today: newUsed } as any)
+          .update({ spins_used_today: newUsed } as Record<string, unknown>)
           .eq('cpf', playerCpf);
       }
 
@@ -476,7 +475,7 @@ Deno.serve(async (req: Request) => {
           amount: selected.type === 'nothing' ? 0 : selected.value,
           source: 'Roleta Diária',
           description: `Girou a roleta e ganhou: ${selected.label}`,
-        } as any);
+        } as Record<string, unknown>);
       } catch { /* ignore */ }
 
       // If coins were spent, log that too
@@ -488,7 +487,7 @@ Deno.serve(async (req: Request) => {
             amount: -coinsCost,
             source: 'Roleta Diária',
             description: `Gasto ${coinsCost} moedas para girar a roleta`,
-          } as any);
+          } as Record<string, unknown>);
         } catch { /* ignore */ }
       }
 
@@ -547,7 +546,7 @@ Deno.serve(async (req: Request) => {
         }
         // Deduct
         await supabase.from('player_wallets')
-          .update({ coins: (wallet.coins || 0) - coinsPaid } as any)
+          .update({ coins: (wallet.coins || 0) - coinsPaid } as Record<string, unknown>)
           .eq('cpf', playerCpf);
       }
 
@@ -558,7 +557,7 @@ Deno.serve(async (req: Request) => {
         opted_in: true,
         bought_in: coinsPaid > 0,
         coins_paid: coinsPaid,
-      } as any);
+      } as Record<string, unknown>);
 
       // Log
       try {
@@ -569,7 +568,7 @@ Deno.serve(async (req: Request) => {
           source: 'Torneio',
           source_id: tournamentId,
           description: `Inscreveu-se no torneio: ${tournament.name}`,
-        } as any);
+        } as Record<string, unknown>);
       } catch { /* ignore */ }
 
       return new Response(JSON.stringify({ success: true, coins_paid: coinsPaid }), {
@@ -627,7 +626,7 @@ Deno.serve(async (req: Request) => {
       }
 
       // Deduct coins, diamonds, and gems (xp)
-      const walletUpdate: any = {};
+      const walletUpdate: Record<string, number> = {};
       if (item.price_coins > 0) walletUpdate.coins = coins - item.price_coins;
       if (item.price_diamonds > 0) walletUpdate.diamonds = diamonds - item.price_diamonds;
       if (item.price_xp > 0) walletUpdate.xp = xp - item.price_xp;
@@ -674,8 +673,8 @@ Deno.serve(async (req: Request) => {
             } else {
               deliveryNote = 'Config da plataforma não encontrada';
             }
-          } catch (e: any) {
-            deliveryNote = `Erro: ${e.message}`;
+          } catch (e: unknown) {
+            deliveryNote = `Erro: ${e instanceof Error ? e.message : 'Erro'}`;
           }
         } else {
           deliveryNote = 'Valor inválido para crédito';
@@ -686,7 +685,7 @@ Deno.serve(async (req: Request) => {
         if (bonusCoins > 0) {
           const newBalance = (coins - (item.price_coins || 0)) + bonusCoins;
           await supabase.from('player_wallets')
-            .update({ coins: newBalance } as any)
+            .update({ coins: newBalance } as Record<string, unknown>)
             .eq('cpf', playerCpf);
           deliveryStatus = 'delivered';
           deliveryNote = `+${bonusCoins} moedas adicionadas`;
@@ -697,7 +696,7 @@ Deno.serve(async (req: Request) => {
         if (bonusXp > 0) {
           const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
           await supabase.from('player_wallets')
-            .update({ xp: (w?.xp || 0) + bonusXp } as any)
+            .update({ xp: (w?.xp || 0) + bonusXp } as Record<string, unknown>)
             .eq('cpf', playerCpf);
           deliveryStatus = 'delivered';
           deliveryNote = `+${bonusXp} XP adicionado`;
@@ -711,7 +710,7 @@ Deno.serve(async (req: Request) => {
             .update({
               diamonds: (w?.diamonds || 0) + bonusDiamonds,
               total_diamonds_earned: (w?.total_diamonds_earned || 0) + bonusDiamonds,
-            } as any)
+            } as Record<string, unknown>)
             .eq('cpf', playerCpf);
           deliveryStatus = 'delivered';
           deliveryNote = `+${bonusDiamonds} diamantes adicionados`;
@@ -730,11 +729,11 @@ Deno.serve(async (req: Request) => {
           .select('*').eq('cpf', playerCpf).eq('game_id', targetGameId).maybeSingle();
         if (attRec) {
           await supabase.from('player_mini_game_attempts')
-            .update({ purchased_attempts: (attRec.purchased_attempts || 0) + qty } as any)
+            .update({ purchased_attempts: (attRec.purchased_attempts || 0) + qty } as Record<string, unknown>)
             .eq('cpf', playerCpf).eq('game_id', targetGameId);
         } else {
           await supabase.from('player_mini_game_attempts')
-            .insert({ cpf: playerCpf, game_id: targetGameId, attempts_today: 0, last_attempt_date: new Date().toISOString().slice(0, 10), total_attempts: 0, purchased_attempts: qty } as any);
+            .insert({ cpf: playerCpf, game_id: targetGameId, attempts_today: 0, last_attempt_date: new Date().toISOString().slice(0, 10), total_attempts: 0, purchased_attempts: qty } as Record<string, unknown>);
         }
         const gameLabels: Record<string, string> = { gem_chest: 'Baú de Gemas', gem_roulette: 'Roleta de Gemas', diamond_chest: 'Baú de Diamante' };
         deliveryStatus = 'delivered';
@@ -769,8 +768,8 @@ Deno.serve(async (req: Request) => {
             } else {
               deliveryNote = 'Config da plataforma não encontrada';
             }
-          } catch (e: any) {
-            deliveryNote = `Erro: ${e.message}`;
+          } catch (e: unknown) {
+            deliveryNote = `Erro: ${e instanceof Error ? e.message : 'Erro'}`;
           }
         } else {
           deliveryNote = 'Valor inválido para crédito';
@@ -784,7 +783,7 @@ Deno.serve(async (req: Request) => {
           source: 'Loja',
           source_id: itemId,
           description: `${item.name} — Giros grátis`,
-        } as any);
+        } as Record<string, unknown>);
         deliveryStatus = 'pending_manual';
         deliveryNote = `${rewardValue} giro(s) grátis — aguardando entrega`;
       } else if (rewardType === 'physical' || rewardType === 'coupon') {
@@ -796,7 +795,7 @@ Deno.serve(async (req: Request) => {
           source: 'Loja',
           source_id: itemId,
           description: `${item.name}${rewardType === 'coupon' ? ' — Cupom' : ' — Entrega física'}`,
-        } as any);
+        } as Record<string, unknown>);
         deliveryStatus = 'pending_manual';
         deliveryNote = rewardType === 'coupon' ? 'Cupom gerado, aguardando entrega' : 'Item físico, aguardando entrega';
       }
@@ -812,11 +811,11 @@ Deno.serve(async (req: Request) => {
         reward_value: rewardValue,
         delivered_at: deliveryStatus === 'delivered' ? new Date().toISOString() : null,
         delivery_note: deliveryNote,
-      } as any);
+      } as Record<string, unknown>);
 
       // Reduce stock
       if (item.stock !== null) {
-        await supabase.from('store_items').update({ stock: item.stock - 1 } as any).eq('id', itemId);
+        await supabase.from('store_items').update({ stock: item.stock - 1 } as Record<string, unknown>).eq('id', itemId);
       }
 
       // Log
@@ -828,7 +827,7 @@ Deno.serve(async (req: Request) => {
           source: 'Loja',
           source_id: itemId,
           description: `Comprou: ${item.name}`,
-        } as any);
+        } as Record<string, unknown>);
         // Log reward delivery
         if (deliveryStatus === 'delivered') {
           await supabase.from('player_activity_log').insert({
@@ -838,7 +837,7 @@ Deno.serve(async (req: Request) => {
             source: 'Loja',
             source_id: itemId,
             description: deliveryNote,
-          } as any);
+          } as Record<string, unknown>);
         }
       } catch { /* ignore */ }
 
@@ -883,19 +882,19 @@ Deno.serve(async (req: Request) => {
 
       // Mark claimed
       await supabase.from('player_rewards_pending')
-        .update({ claimed_at: new Date().toISOString() } as any)
+        .update({ claimed_at: new Date().toISOString() } as Record<string, unknown>)
         .eq('id', rewardId);
 
       // Award to wallet
       if (reward.reward_type === 'coins') {
         const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
         await supabase.from('player_wallets')
-          .update({ coins: (w?.coins || 0) + reward.reward_value } as any)
+          .update({ coins: (w?.coins || 0) + reward.reward_value } as Record<string, unknown>)
           .eq('cpf', playerCpf);
       } else if (reward.reward_type === 'xp') {
         const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
         await supabase.from('player_wallets')
-          .update({ xp: (w?.xp || 0) + reward.reward_value } as any)
+          .update({ xp: (w?.xp || 0) + reward.reward_value } as Record<string, unknown>)
           .eq('cpf', playerCpf);
       }
 
@@ -907,7 +906,7 @@ Deno.serve(async (req: Request) => {
           amount: reward.reward_value,
           source: reward.source,
           description: `Resgatou: ${reward.description || reward.source}`,
-        } as any);
+        } as Record<string, unknown>);
       } catch { /* ignore */ }
 
       return new Response(JSON.stringify({ success: true }), {
@@ -939,7 +938,7 @@ Deno.serve(async (req: Request) => {
         opted_in: true,
         target,
         started_at: new Date().toISOString(),
-      } as any, { onConflict: 'cpf,mission_id' });
+      } as Record<string, unknown>, { onConflict: 'cpf,mission_id' });
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -985,10 +984,10 @@ Deno.serve(async (req: Request) => {
       // Award reward
       if (mission.reward_type === 'coins' && mission.reward_value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + mission.reward_value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + mission.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if (mission.reward_type === 'xp' && mission.reward_value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + mission.reward_value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + mission.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if ((mission.reward_type === 'bonus' || mission.reward_type === 'free_bet') && mission.reward_value > 0) {
         try {
           await supabase.from('player_rewards_pending').insert({
@@ -997,13 +996,13 @@ Deno.serve(async (req: Request) => {
             reward_value: mission.reward_value,
             source: mission.name,
             description: `Missão: ${mission.name}`,
-          } as any);
+          } as Record<string, unknown>);
         } catch { /* ignore */ }
       }
 
       // Mark as claimed
       await supabase.from('player_mission_progress')
-        .update({ claimed: true, claimed_at: new Date().toISOString() } as any)
+        .update({ claimed: true, claimed_at: new Date().toISOString() } as Record<string, unknown>)
         .eq('cpf', playerCpf).eq('mission_id', missionId);
 
       // Log activity
@@ -1014,7 +1013,7 @@ Deno.serve(async (req: Request) => {
           amount: mission.reward_value,
           source: mission.name,
           description: `Missão resgatada: ${mission.name}`,
-        } as any);
+        } as Record<string, unknown>);
       } catch { /* ignore */ }
 
       return new Response(JSON.stringify({ success: true, reward_type: mission.reward_type, reward_value: mission.reward_value }), {
@@ -1051,7 +1050,7 @@ Deno.serve(async (req: Request) => {
 
       if (!attemptRec) {
         const { data: newRec } = await supabase.from('player_mini_game_attempts')
-          .upsert({ cpf: playerCpf, game_id: gameId, attempts_today: 0, last_attempt_date: today, total_attempts: 0 } as any, { onConflict: 'cpf,game_id' })
+          .upsert({ cpf: playerCpf, game_id: gameId, attempts_today: 0, last_attempt_date: today, total_attempts: 0 } as Record<string, unknown>, { onConflict: 'cpf,game_id' })
           .select().single();
         attemptRec = newRec;
       }
@@ -1085,7 +1084,7 @@ Deno.serve(async (req: Request) => {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        await supabase.from('player_wallets').update({ coins: (wallet.coins || 0) - coinsCost } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ coins: (wallet.coins || 0) - coinsCost } as Record<string, unknown>).eq('cpf', playerCpf);
       }
 
       // Get prizes
@@ -1099,7 +1098,7 @@ Deno.serve(async (req: Request) => {
       }
 
       // Weighted random selection
-      const totalWeight = prizes.reduce((s: number, p: any) => s + (p.probability || 1), 0);
+      const totalWeight = prizes.reduce((s: number, p: Record<string, unknown>) => s + (Number(p.probability) || 1), 0);
       let random = Math.random() * totalWeight;
       let selected = prizes[0];
       for (const prize of prizes) {
@@ -1108,7 +1107,7 @@ Deno.serve(async (req: Request) => {
       }
 
       // Update attempt record
-      const upsertData: any = {
+      const upsertData: Record<string, unknown> = {
         cpf: playerCpf,
         game_id: gameId,
         attempts_today: attemptsUsed + 1,
@@ -1125,13 +1124,13 @@ Deno.serve(async (req: Request) => {
       // Award prize
       if (selected.type === 'coins' && selected.value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + selected.value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + selected.value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if (selected.type === 'xp' && selected.value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('xp, total_xp_earned').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + selected.value, total_xp_earned: (w?.total_xp_earned || 0) + selected.value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + selected.value, total_xp_earned: (w?.total_xp_earned || 0) + selected.value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if (selected.type === 'diamonds' && selected.value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('diamonds, total_diamonds_earned').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ diamonds: (w?.diamonds || 0) + selected.value, total_diamonds_earned: (w?.total_diamonds_earned || 0) + selected.value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ diamonds: (w?.diamonds || 0) + selected.value, total_diamonds_earned: (w?.total_diamonds_earned || 0) + selected.value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if ((selected.type === 'bonus' || selected.type === 'free_bet') && selected.value > 0) {
         try {
           await supabase.from('player_rewards_pending').insert({
@@ -1140,7 +1139,7 @@ Deno.serve(async (req: Request) => {
             reward_value: selected.value,
             source: game.name,
             description: `${selected.label} - ${game.name}`,
-          } as any);
+          } as Record<string, unknown>);
         } catch { /* ignore */ }
       }
 
@@ -1152,17 +1151,17 @@ Deno.serve(async (req: Request) => {
           amount: selected.type === 'nothing' ? 0 : selected.value,
           source: game.name,
           description: `${game.name}: ${selected.label}`,
-        } as any);
+        } as Record<string, unknown>);
       } catch { /* ignore */ }
 
       // For scratch card: return 9 cells (3 winning + 6 random), shuffled
-      const gameData: any = {};
+      const gameData: Record<string, unknown> = {};
       if (game.type === 'scratch_card') {
-        const cells: any[] = [];
+        const cells: Record<string, unknown>[] = [];
         // 3 winning cells
         for (let i = 0; i < 3; i++) cells.push({ prize: selected, winning: true });
         // 6 random cells from other prizes
-        const others = prizes.filter((p: any) => p.id !== selected.id);
+        const others = prizes.filter((p: Record<string, unknown>) => p.id !== selected.id);
         for (let i = 0; i < 6; i++) {
           cells.push({ prize: others[i % Math.max(1, others.length)] || selected, winning: false });
         }
@@ -1175,10 +1174,10 @@ Deno.serve(async (req: Request) => {
       } else if (game.type === 'gift_box') {
         // Return boxes: 1 winning + rest losing, shuffled
         const numBoxes = 3;
-        const boxes: any[] = [];
+        const boxes: Record<string, unknown>[] = [];
         boxes.push({ prize: selected, winning: true });
-        const others = prizes.filter((p: any) => p.id !== selected.id && p.type !== 'nothing');
-        const nothing = prizes.find((p: any) => p.type === 'nothing') || { label: 'Tente novamente', type: 'nothing', value: 0 };
+        const others = prizes.filter((p: Record<string, unknown>) => p.id !== selected.id && p.type !== 'nothing');
+        const nothing = prizes.find((p: Record<string, unknown>) => p.type === 'nothing') || { label: 'Tente novamente', type: 'nothing', value: 0 };
         for (let i = 0; i < numBoxes - 1; i++) {
           boxes.push({ prize: nothing, winning: false });
         }

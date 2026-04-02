@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useProxy } from '@/hooks/use-proxy';
@@ -11,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
+type VendedorRow = Record<string, unknown> | unknown[];
+
 export default function Vendedores() {
   const { callProxy } = useProxy();
   const [page, setPage] = useState(0);
@@ -22,7 +23,7 @@ export default function Vendedores() {
 
   // Detail dialog
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [detailVendedor, setDetailVendedor] = useState<any>(null);
+  const [detailVendedor, setDetailVendedor] = useState<VendedorRow | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['vendedores', page, pageSize, appliedSearch],
@@ -73,14 +74,14 @@ export default function Vendedores() {
     });
   }, []);
 
-  const openDetail = (row: any) => {
-    const id = row.id || row[0];
+  const openDetail = (row: VendedorRow) => {
+    const id = Array.isArray(row) ? row[0] : row.id;
     setDetailVendedor(row);
     setDetailId(String(id));
   };
 
   // Parse row data - DataTables can return arrays or objects
-  const getField = (row: any, index: number, key: string) => {
+  const getField = (row: VendedorRow, index: number, key: string): unknown => {
     if (Array.isArray(row)) return row[index] ?? '';
     return row[key] ?? '';
   };
@@ -170,7 +171,7 @@ export default function Vendedores() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row: any, idx: number) => {
+              {rows.map((row: VendedorRow, idx: number) => {
                 const id = getField(row, 0, 'id');
                 const distribuidor = getField(row, 1, 'distribuidor');
                 const vendedor = getField(row, 2, 'vendedor');
@@ -331,7 +332,7 @@ export default function Vendedores() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {indRows.map((r: any, i: number) => (
+                        {indRows.map((r: VendedorRow, i: number) => (
                           <TableRow key={i} className="hover:bg-secondary/30">
                             <TableCell className="text-sm font-mono">{getField(r, 0, 'id')}</TableCell>
                             <TableCell className="text-sm">{getField(r, 1, 'username')}</TableCell>

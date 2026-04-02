@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@supabase/supabase-js';
 import { getCorsHeaders, optionsResponse, verifyAuth } from './_cors.js';
 
@@ -55,7 +54,34 @@ function buildHeaders(cookies: string, baseUrl: string): Record<string, string> 
   return { 'Accept': 'application/json, text/javascript, */*', 'X-Requested-With': 'XMLHttpRequest', 'Cookie': cookies, 'Referer': baseUrl };
 }
 
-async function fetchJSON(url: string, headers: Record<string, string>): Promise<any> {
+interface Movimentacao {
+  data_registro: string;
+  tipo: string;
+  valor: string | number;
+  jogo?: string;
+  descricao?: string;
+  carteira?: string;
+}
+
+interface Historico {
+  data_registro: string;
+  operacao?: string;
+  tipo?: string;
+  valor: string | number;
+  jogo?: string;
+  carteira?: string;
+  saldo?: string | number;
+}
+
+interface NormalizedTx {
+  data_registro: string;
+  tipo: string;
+  valor: string | number;
+  jogo: string;
+  carteira: string;
+}
+
+async function fetchJSON(url: string, headers: Record<string, string>): Promise<unknown> {
   const res = await fetch(url, { method: 'GET', headers: { ...headers }, signal: AbortSignal.timeout(12000) });
   const text = await res.text();
   try { return JSON.parse(text); } catch { return { _raw: text.slice(0, 500), _status: res.status }; }
@@ -71,8 +97,9 @@ async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string
   });
   params.set('order[0][column]', '0'); params.set('order[0][dir]', 'asc');
   params.set('search[value]', ''); params.set('search[regex]', 'false');
-  const result = await fetchJSON(`${baseUrl}/usuarios/listar?${params}`, headers);
-  return result?.aaData?.[0]?.uuid || null;
+  const result = await fetchJSON(`${baseUrl}/usuarios/listar?${params}`, headers) as Record<string, unknown>;
+  const aaData = result?.aaData as Record<string, unknown>[] | undefined;
+  return (aaData?.[0]?.uuid as string) || null;
 }
 
 // --- Progress calculation ---
@@ -95,21 +122,21 @@ function parseBrCurrency(s: string | number): number {
 }
 
 function calculateMissionProgress(
-  movimentacoes: any[], historico: any[],
+  movimentacoes: Movimentacao[], historico: Historico[],
   conditionType: string, startTs: number, endTs: number,
 ): number {
-  const normalizedHist = historico.map((h: any) => ({
+  const normalizedHist: NormalizedTx[] = historico.map((h: Historico) => ({
     data_registro: h.data_registro,
     tipo: (h.operacao || h.tipo || '').toUpperCase(),
     valor: h.valor, jogo: h.jogo || '', carteira: h.carteira || '',
   }));
-  const normalizedMov = movimentacoes.map((m: any) => ({
+  const normalizedMov: NormalizedTx[] = movimentacoes.map((m: Movimentacao) => ({
     data_registro: m.data_registro,
     tipo: (m.tipo || '').toUpperCase(),
     valor: m.valor, jogo: m.jogo || m.descricao || '', carteira: m.carteira || '',
   }));
 
-  const filterByDate = (txs: any[]) => txs.filter(tx => {
+  const filterByDate = (txs: NormalizedTx[]) => txs.filter(tx => {
     const ts = parseDate(tx.data_registro || '');
     return ts >= startTs && ts <= endTs;
   });
@@ -268,9 +295,9 @@ export default async function handler(req: Request): Promise<Response> {
         const playerUuid = await searchPlayerByCpf(baseUrl, headers, cpf);
         if (!playerUuid) { log(`CPF ${cpf}: UUID não encontrado`); totalErrors++; continue; }
 
-        const txResult = await fetchJSON(`${baseUrl}/usuarios/transacoes?id=${playerUuid}`, headers);
-        const movimentacoes: any[] = txResult?.movimentacoes || [];
-        const historico: any[] = txResult?.historico || [];
+        const txResult = await fetchJSON(`${baseUrl}/usuarios/transacoes?id=${playerUuid}`, headers) as Record<string, unknown>;
+        const movimentacoes: Movimentacao[] = (txResult?.movimentacoes as Movimentacao[]) || [];
+        const historico: Historico[] = (txResult?.historico as Historico[]) || [];
 
         for (const entry of entries) {
           const mission = missionMap.get(entry.mission_id);
@@ -301,7 +328,7 @@ export default async function handler(req: Request): Promise<Response> {
             .update({
               progress, target, completed,
               ...(completed ? { completed_at: new Date().toISOString() } : {}),
-            } as any)
+            } as Record<string, unknown>)
             .eq('id', entry.id);
 
           totalUpdated++;

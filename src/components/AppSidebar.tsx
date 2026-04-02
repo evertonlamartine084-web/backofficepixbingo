@@ -62,7 +62,13 @@ const profileQuickLinks = [
   { to: '/profile', icon: User, label: 'Meu Perfil' },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  isMobile?: boolean;
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function AppSidebar({ isMobile = false, isOpen = false, onClose }: AppSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
@@ -99,8 +105,14 @@ export function AppSidebar() {
     }`;
   };
 
+  const handleNavClick = () => {
+    if (isMobile && onClose) onClose();
+  };
+
+  if (isMobile && !isOpen) return null;
+
   return (
-    <aside className="w-64 h-screen bg-sidebar border-r border-sidebar-border flex flex-col fixed left-0 top-0 z-30">
+    <aside className={`w-64 h-screen bg-sidebar border-r border-sidebar-border flex flex-col fixed left-0 top-0 z-30 ${isMobile ? 'shadow-2xl' : ''}`}>
       <div className="p-5 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg gradient-primary flex items-center justify-center">
@@ -118,7 +130,7 @@ export function AppSidebar() {
           Operações
         </p>
         {navItems.map((item) => (
-          <NavLink key={item.to} to={item.to} className={linkClass(item.to)}>
+          <NavLink key={item.to} to={item.to} className={linkClass(item.to)} onClick={handleNavClick}>
             <item.icon className="w-4 h-4" />
             {item.label}
             <ChevronRight className="w-3 h-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -146,7 +158,7 @@ export function AppSidebar() {
           {assetsOpen && (
             <div className="ml-3 pl-3 border-l border-border space-y-0.5 mt-1">
               {assetsItems.map((item) => (
-                <NavLink key={item.to} to={item.to} className={subLinkClass(item.to)}>
+                <NavLink key={item.to} to={item.to} className={subLinkClass(item.to)} onClick={handleNavClick}>
                   <item.icon className="w-3.5 h-3.5" />
                   {item.label}
                 </NavLink>
@@ -176,7 +188,7 @@ export function AppSidebar() {
           {gamificationOpen && (
             <div className="ml-3 pl-3 border-l border-border space-y-0.5 mt-1">
               {gamificationItems.map((item) => (
-                <NavLink key={item.to} to={item.to} className={subLinkClass(item.to)}>
+                <NavLink key={item.to} to={item.to} className={subLinkClass(item.to)} onClick={handleNavClick}>
                   <item.icon className="w-3.5 h-3.5" />
                   {item.label}
                 </NavLink>
@@ -190,7 +202,7 @@ export function AppSidebar() {
             Administração
           </p>
           {adminItems.map((item) => (
-            <NavLink key={item.to} to={item.to} className={linkClass(item.to)}>
+            <NavLink key={item.to} to={item.to} className={linkClass(item.to)} onClick={handleNavClick}>
               <item.icon className="w-4 h-4" />
               {item.label}
               <ChevronRight className="w-3 h-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />

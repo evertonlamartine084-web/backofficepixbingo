@@ -1,7 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
+
+type InboxMessage = Database['public']['Tables']['inbox_messages']['Row'];
 import { toast } from 'sonner';
 import { Plus, Mail, Trash2, Eye, CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -31,7 +33,7 @@ export default function Inbox() {
     queryFn: async () => {
       const { data, error } = await supabase.from('inbox_messages').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      return data as any[];
+      return data as InboxMessage[];
     },
   });
 
@@ -57,7 +59,7 @@ export default function Inbox() {
         segment_id: form.segment_id || null,
         start_date: form.start_date.toISOString(),
         end_date: form.end_date.toISOString(),
-      } as any);
+      } as Database['public']['Tables']['inbox_messages']['Insert']);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -71,7 +73,7 @@ export default function Inbox() {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from('inbox_messages').update({ active } as any).eq('id', id);
+      const { error } = await supabase.from('inbox_messages').update({ active } as Database['public']['Tables']['inbox_messages']['Update']).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['inbox_messages'] }); toast.success('Status atualizado'); },
@@ -85,7 +87,7 @@ export default function Inbox() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['inbox_messages'] }); toast.success('Mensagem excluída'); },
   });
 
-  const isActive = (m: any) => m.active && new Date(m.start_date) <= new Date() && new Date(m.end_date) >= new Date();
+  const isActive = (m: InboxMessage) => m.active && new Date(m.start_date) <= new Date() && new Date(m.end_date) >= new Date();
 
   return (
     <div className="space-y-6">
@@ -112,7 +114,7 @@ export default function Inbox() {
         </Card>
       ) : (
         <div className="grid gap-3">
-          {messages.map((m: any) => (
+          {messages.map((m: InboxMessage) => (
             <Card key={m.id} className="border-border hover:border-primary/30 transition-colors">
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">

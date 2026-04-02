@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables, TablesInsert } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { Plus, Bell, Trash2, CalendarIcon, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,7 @@ export default function Push() {
     queryFn: async () => {
       const { data, error } = await supabase.from('push_notifications').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      return data as any[];
+      return data as Tables<'push_notifications'>[];
     },
   });
 
@@ -54,7 +54,7 @@ export default function Push() {
         action_url: form.action_url || null,
         segment_id: form.segment_id || null,
         scheduled_at: form.scheduled_at.toISOString(),
-      } as any);
+      } as TablesInsert<'push_notifications'>);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -105,7 +105,7 @@ export default function Push() {
         </Card>
       ) : (
         <div className="grid gap-3">
-          {notifications.map((n: any) => (
+          {notifications.map((n: Tables<'push_notifications'>) => (
             <Card key={n.id} className="border-border hover:border-primary/30 transition-colors">
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">

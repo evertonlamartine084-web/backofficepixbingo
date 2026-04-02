@@ -16,12 +16,13 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
-import { logAudit } from './use-audit';
+import { logAudit, _resetAuditThrottle } from './use-audit';
 import { supabase } from '@/integrations/supabase/client';
 
 describe('logAudit', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetAuditThrottle();
     mockInsert.mockResolvedValue({ data: null, error: null });
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'user-123', email: 'test@test.com' } },

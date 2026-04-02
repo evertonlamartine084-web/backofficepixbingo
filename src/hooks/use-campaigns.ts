@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -79,8 +78,9 @@ export function useCampaigns() {
       const { data, error } = await supabase
         .from('campaigns').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      const segmentIds = [...new Set((data as any[]).filter(c => c.segment_id).map(c => c.segment_id))];
-      const popupIds = [...new Set((data as any[]).filter(c => c.popup_id).map(c => c.popup_id))];
+      const rows = data as Array<Record<string, unknown>>;
+      const segmentIds = [...new Set(rows.filter(c => c.segment_id).map(c => c.segment_id as string))];
+      const popupIds = [...new Set(rows.filter(c => c.popup_id).map(c => c.popup_id as string))];
       let segmentMap: Record<string, string> = {};
       let popupMap: Record<string, string> = {};
       if (segmentIds.length > 0) {
@@ -91,10 +91,10 @@ export function useCampaigns() {
         const { data: popups } = await supabase.from('popups').select('id, name').in('id', popupIds);
         if (popups) popupMap = Object.fromEntries(popups.map(p => [p.id, p.name]));
       }
-      return (data as any[]).map(c => ({
+      return rows.map(c => ({
         ...c,
-        segment_name: c.segment_id ? segmentMap[c.segment_id] || '—' : null,
-        popup_name: c.popup_id ? popupMap[c.popup_id] || '—' : null,
+        segment_name: c.segment_id ? segmentMap[c.segment_id as string] || '—' : null,
+        popup_name: c.popup_id ? popupMap[c.popup_id as string] || '—' : null,
       })) as Campaign[];
     },
   });
@@ -175,7 +175,7 @@ export function useCampaigns() {
         metric: form.metric,
         game_filter: form.game_filter || null,
         start_date: form.start_date.toISOString(), end_date: form.end_date.toISOString(),
-      } as any);
+      } as Record<string, unknown>);
       if (error) throw error;
     },
     onSuccess: (_data, form) => {
@@ -204,7 +204,7 @@ export function useCampaigns() {
     mutationFn: async ({ id, status }: { id: string; status: CampaignStatus }) => {
       const camp = campaigns.find(c => c.id === id);
       const oldStatus = camp?.status;
-      const updateData: any = { status };
+      const updateData: Record<string, unknown> = { status };
       if (status === 'ATIVA') updateData.activated_at = new Date().toISOString();
       const { error } = await supabase.from('campaigns').update(updateData).eq('id', id);
       if (error) throw error;
@@ -327,12 +327,13 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
             toast.success(`Lote concluído: ${totalCredited} creditados, ${totalErrors} erros`);
           }
         }
-      } catch (e: any) {
-        console.error('Erro no processamento automático:', e.message);
+      } catch (e: unknown) {
+        const errMsg = e instanceof Error ? e.message : 'Erro desconhecido';
+        console.error('Erro no processamento automático:', errMsg);
         consecutiveErrors++;
         if (consecutiveErrors >= 5) {
           doStop(campaign.id);
-          toast.error(`Processamento parado após 5 erros seguidos: ${e.message}`);
+          toast.error(`Processamento parado após 5 erros seguidos: ${errMsg}`);
           return;
         }
         // Retry with backoff
@@ -386,11 +387,12 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
       }
       toast.success(`Concluído: ${totalProcessed} processados | ${totalCredited} creditados | ${totalErrors} erros`);
       onDone?.();
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : 'Erro ao processar';
       if (totalProcessed > 0) {
-        toast.warning(`Parcial: ${totalProcessed} processados, ${totalCredited} creditados antes do erro: ${e.message}`);
+        toast.warning(`Parcial: ${totalProcessed} processados, ${totalCredited} creditados antes do erro: ${errMsg}`);
       } else {
-        toast.error(e.message || 'Erro ao processar');
+        toast.error(errMsg);
       }
     } finally {
       setProcessing(false);

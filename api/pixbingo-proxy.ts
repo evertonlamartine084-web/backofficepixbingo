@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@supabase/supabase-js';
 import { getCorsHeaders, optionsResponse, verifyAuth } from './_cors.js';
 
@@ -32,6 +31,72 @@ interface ProxyRequest {
   busca_tipo_transacao?: string;
   busca_email?: string;
   busca_agrupamento?: string;
+  carteira?: string;
+  path?: string;
+}
+
+interface FinanceRow {
+  total_compra?: number;
+  total_premio?: number;
+  total_compra_bonus?: number;
+  bonus_compra?: number;
+  total_premio_bonus?: number;
+  bonus_premio?: number;
+}
+
+interface FinanceTotals extends FinanceRow {
+  total_deposito?: number;
+  total_bonus?: number;
+  total_saque?: number;
+  total_compra_premio?: number;
+  bonus_x_deposito?: number;
+  rtp?: number;
+  liquido?: number;
+  margem?: number;
+  saldo?: number;
+  credito?: number;
+  bonus?: number;
+  saldo_bonus?: number;
+  qtdDepositantes?: number;
+  depositantes?: number;
+  qtdSacantes?: number;
+  sacantes?: number;
+}
+
+interface FinanceResponse {
+  _raw?: string;
+  _status?: number;
+  code?: number;
+  Msg?: string;
+  totais?: FinanceTotals[] | FinanceTotals;
+  totalKeno?: FinanceRow[];
+  totalCassino?: FinanceRow[];
+  keno?: FinanceRow[];
+  cassino?: FinanceRow[];
+  totalNewUsers?: Array<{ new_users?: number; novos?: number }> | { new_users?: number; novos?: number };
+}
+
+interface TransactionSummary {
+  _raw?: string;
+  _status?: number;
+  valorDeposito?: number;
+  valorSaque?: number;
+  qtdeDeposito?: number;
+  qtdDeposito?: number;
+  qtdeSaque?: number;
+  qtdSaque?: number;
+  qtdDepositantes?: number;
+  depositantes?: number;
+  qtdeDepositantes?: number;
+  qtdSacantes?: number;
+  sacantes?: number;
+  qtdeSacantes?: number;
+  valorPrimeiroDeposito?: number;
+  ftdValor?: number;
+  qtdePrimeiroDeposito?: number;
+  ftdQtd?: number;
+  iTotalDisplayRecords?: number;
+  iTotalRecords?: number;
 }
 
 async function doLogin(body: ProxyRequest): Promise<{ cookies: string; success: boolean }> {
@@ -122,7 +187,7 @@ function buildHeaders(cookies: string, baseUrl: string): Record<string, string> 
   return h;
 }
 
-async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: any): Promise<any> {
+async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: string | Record<string, string>): Promise<Record<string, unknown>> {
   const opts: RequestInit = { method, headers: { ...headers }, signal: AbortSignal.timeout(15000) };
   if (body && method === 'POST') {
     if (typeof body === 'string') {
@@ -208,7 +273,7 @@ export default async function handler(req: Request): Promise<Response> {
     }
     const headers = buildHeaders(auth.cookies, baseUrl);
 
-    let result: any = null;
+    let result: Record<string, unknown> | null = null;
 
     switch (body.action) {
       case 'login':
@@ -281,7 +346,7 @@ export default async function handler(req: Request): Promise<Response> {
         const amount = body.bonus_amount || 0;
         const creditBody: Record<string, string> = {
           uuid: id,
-          carteira: (body as any).carteira || 'BONUS',
+          carteira: body.carteira || 'BONUS',
           valor: String(amount),
           senha: body.password,
         };
@@ -370,7 +435,7 @@ export default async function handler(req: Request): Promise<Response> {
           || financeHtml.match(/meta[^>]*name=["']csrf-token["'][^>]*content=["']([^"']+)["']/i);
         const csrfToken = csrfMatch?.[1] || '';
 
-        const isFinanceError = (r: any) => {
+        const isFinanceError = (r: Record<string, unknown>) => {
           const code = Number(r?.code ?? r?._status ?? 0);
           const msg = String(r?.Msg || r?._raw || '').toLowerCase();
           return code >= 400 || msg.includes('inválid') || msg.includes('inval') || msg.includes('não encontrada') || msg.includes('nao encontrada');
@@ -387,66 +452,34 @@ export default async function handler(req: Request): Promise<Response> {
           { label: 'POST minimal + data', method: 'POST', url: `${baseUrl}${detectedPath}`, body: Object.fromEntries(buildMinimalParams(false).entries()) },
         ];
 
-        let lastError: any = null;
-        for (const attempt of attempts) {
-          const current = await fetchJSON(attempt.url, headers, attempt.method, attempt.body);
-          if (!isFinanceError(current)) {
-            result = current;
-            break;
+        const sumRows = (rows: FinanceRow[]) => {
+          let compra = 0, premio = 0, bonusCompra = 0, bonusPremio = 0;
+          for (const row of rows) {
+            compra += Number(row?.total_compra || 0);
+            premio += Number(row?.total_premio || 0);
+            bonusCompra += Number(row?.total_compra_bonus || row?.bonus_compra || 0);
+            bonusPremio += Number(row?.total_premio_bonus || row?.bonus_premio || 0);
           }
-          lastError = current;
-        }
+          const ggr = compra - premio;
+          const bonusGgr = bonusCompra - bonusPremio;
+          return { apostas: compra, premios: premio, turnover: compra, ggr, bonusTurnover: bonusCompra, bonusGgr, margin: compra > 0 ? ((ggr / compra) * 100) : 0 };
+        };
 
-        if (!result) {
-          const txParams = new URLSearchParams();
-          txParams.set('draw', '1'); txParams.set('start', '0'); txParams.set('length', '1'); txParams.set('exportar', '0');
-          const txCols = ['id', 'tipo', 'valor', 'saldo_anterior', 'saldo_posterior', 'cpf', 'username', 'created_at', 'descricao', 'status'];
-          txCols.forEach((col, i) => {
-            txParams.set(`columns[${i}][data]`, col); txParams.set(`columns[${i}][name]`, '');
-            txParams.set(`columns[${i}][searchable]`, 'true'); txParams.set(`columns[${i}][orderable]`, 'true');
-            txParams.set(`columns[${i}][search][value]`, ''); txParams.set(`columns[${i}][search][regex]`, 'false');
-          });
-          txParams.set('order[0][column]', '0'); txParams.set('order[0][dir]', 'desc');
-          txParams.set('search[value]', ''); txParams.set('search[regex]', 'false');
-          if (body.busca_data_inicio) txParams.set('busca_data_inicio', body.busca_data_inicio);
-          if (body.busca_data_fim) txParams.set('busca_data_fim', body.busca_data_fim);
+        const buildFromTotal = (t: FinanceRow) => {
+          const apostas = Number(t?.total_compra || 0);
+          const premios = Number(t?.total_premio || 0);
+          const bonusTurnover = Number(t?.total_compra_bonus || t?.bonus_compra || 0);
+          const bonusGgr = bonusTurnover - Number(t?.total_premio_bonus || t?.bonus_premio || 0);
+          const ggr = apostas - premios;
+          return { apostas, premios, turnover: apostas, ggr, bonusTurnover, bonusGgr, margin: apostas > 0 ? ((ggr / apostas) * 100) : 0 };
+        };
 
-          const frParams = new URLSearchParams();
-          if (body.busca_data_inicio) frParams.set('busca_periodo_ini', body.busca_data_inicio);
-          if (body.busca_data_fim) frParams.set('busca_periodo_fim', body.busca_data_fim);
-
-          const fgDtParams = new URLSearchParams();
-          fgDtParams.set('draw', '1'); fgDtParams.set('start', '0'); fgDtParams.set('length', '100');
-          const fgCols = ['data','depositos','saques','bonus','saldo','ggr','comissao','lucro'];
-          fgCols.forEach((col, i) => {
-            fgDtParams.set(`columns[${i}][data]`, col); fgDtParams.set(`columns[${i}][name]`, '');
-            fgDtParams.set(`columns[${i}][searchable]`, 'true'); fgDtParams.set(`columns[${i}][orderable]`, 'true');
-            fgDtParams.set(`columns[${i}][search][value]`, ''); fgDtParams.set(`columns[${i}][search][regex]`, 'false');
-          });
-          fgDtParams.set('order[0][column]', '0'); fgDtParams.set('order[0][dir]', 'desc');
-          fgDtParams.set('search[value]', ''); fgDtParams.set('search[regex]', 'false');
-          if (body.busca_data_inicio) fgDtParams.set('busca_data_inicio', body.busca_data_inicio);
-          if (body.busca_data_fim) fgDtParams.set('busca_data_fim', body.busca_data_fim);
-
-          const [txSummary, frData] = await Promise.all([
-            fetchJSON(`${baseUrl}/transferencias/listar?${txParams.toString()}`, headers, 'GET'),
-            fetchJSON(`${baseUrl}/financeiro-resumo/listar?${frParams.toString()}`, headers, 'GET'),
-          ]);
-
-          let fgData: any = null;
-          const fgStrategies = [
-            { label: 'GET dt+data', fn: () => fetchJSON(`${baseUrl}/financeiro-geral/listar?${fgDtParams.toString()}`, headers, 'GET') },
-            { label: 'POST dt+data', fn: () => fetchJSON(`${baseUrl}/financeiro-geral/listar`, headers, 'POST', Object.fromEntries(fgDtParams)) },
-            { label: 'GET no-date', fn: () => fetchJSON(`${baseUrl}/financeiro-geral/listar`, headers, 'GET') },
-            { label: 'POST no-date', fn: () => fetchJSON(`${baseUrl}/financeiro-geral/listar`, headers, 'POST', {}) },
-          ];
-          for (const strat of fgStrategies) {
-            try {
-              const res = await strat.fn();
-              if (res && !res._status && !res.code && !res.Msg) { fgData = res; break; }
-            } catch { /* ignore */ }
-          }
-
+        const parseFinanceResponse = (
+          frData: FinanceResponse | null,
+          txSummary: TransactionSummary | null,
+          fgData: FinanceResponse | null,
+          fonte: string
+        ) => {
           const valorDeposito = Number(txSummary?.valorDeposito || 0);
           const valorSaque = Number(txSummary?.valorSaque || 0);
           const qtdDeposito = Number(txSummary?.qtdeDeposito || txSummary?.qtdDeposito || 0);
@@ -468,31 +501,8 @@ export default async function handler(req: Request): Promise<Response> {
 
           const kenoRows = frData?.keno || [];
           const cassinoRows = frData?.cassino || [];
-
-          const sumRows = (rows: any[]) => {
-            let compra = 0, premio = 0, bonusCompra = 0, bonusPremio = 0;
-            for (const row of rows) {
-              compra += Number(row?.total_compra || 0);
-              premio += Number(row?.total_premio || 0);
-              bonusCompra += Number(row?.total_compra_bonus || row?.bonus_compra || 0);
-              bonusPremio += Number(row?.total_premio_bonus || row?.bonus_premio || 0);
-            }
-            const ggr = compra - premio;
-            const bonusGgr = bonusCompra - bonusPremio;
-            return { apostas: compra, premios: premio, turnover: compra, ggr, bonusTurnover: bonusCompra, bonusGgr, margin: compra > 0 ? ((ggr / compra) * 100) : 0 };
-          };
-
-          const totalKeno = frData?.totalKeno?.[0] || {};
-          const totalCassino = frData?.totalCassino?.[0] || {};
-
-          const buildFromTotal = (t: any) => {
-            const apostas = Number(t?.total_compra || 0);
-            const premios = Number(t?.total_premio || 0);
-            const bonusTurnover = Number(t?.total_compra_bonus || t?.bonus_compra || 0);
-            const bonusGgr = bonusTurnover - Number(t?.total_premio_bonus || t?.bonus_premio || 0);
-            const ggr = apostas - premios;
-            return { apostas, premios, turnover: apostas, ggr, bonusTurnover, bonusGgr, margin: apostas > 0 ? ((ggr / apostas) * 100) : 0 };
-          };
+          const totalKeno: FinanceRow = frData?.totalKeno?.[0] || {};
+          const totalCassino: FinanceRow = frData?.totalCassino?.[0] || {};
 
           const kenoTotals = kenoRows.length > 0 ? sumRows(kenoRows) : buildFromTotal(totalKeno);
           const cassinoTotals = cassinoRows.length > 0 ? sumRows(cassinoRows) : buildFromTotal(totalCassino);
@@ -540,15 +550,101 @@ export default async function handler(req: Request): Promise<Response> {
             liquido: fgSaldo, rtp: totaisData?.rtp || 0, margem: totaisData?.margem || 0,
           } : (totaisData ? { liquido: totaisData.liquido, rtp: totaisData.rtp, margem: totaisData.margem } : null);
 
-          result = {
+          return {
             depositos: valorDeposito, saques: valorSaque,
             qtdDeposito, qtdSaque, qtdDepositantes, qtdSacantes, totalTransactions,
             keno: kenoTotals, cassino: cassinoTotals,
             total: { apostas: totalApostas, premios: totalPremios, turnover: totalApostas, ggr: totalGGR, bonusTurnover: totalBonusTurnover, bonusGgr: totalBonusGgr, margin: totalApostas > 0 ? ((totalGGR / totalApostas) * 100) : 0 },
             ftd: { valor: ftdValor, qtd: ftdQtd },
             newUsers, walletBonus, walletBalance, adjustments: null,
-            fonte: fgData ? 'financeiro_geral' : 'totais_resumo',
+            fonte,
           };
+        };
+
+        let primaryData: FinanceResponse | null = null;
+        let lastError: Record<string, unknown> | null = null;
+        for (const attempt of attempts) {
+          const current = await fetchJSON(attempt.url, headers, attempt.method, attempt.body);
+          if (!isFinanceError(current)) {
+            primaryData = current as unknown as FinanceResponse;
+            break;
+          }
+          lastError = current;
+        }
+
+        if (primaryData) {
+          const txParams = new URLSearchParams();
+          txParams.set('draw', '1'); txParams.set('start', '0'); txParams.set('length', '1'); txParams.set('exportar', '0');
+          const txCols = ['id', 'tipo', 'valor', 'saldo_anterior', 'saldo_posterior', 'cpf', 'username', 'created_at', 'descricao', 'status'];
+          txCols.forEach((col, i) => {
+            txParams.set(`columns[${i}][data]`, col); txParams.set(`columns[${i}][name]`, '');
+            txParams.set(`columns[${i}][searchable]`, 'true'); txParams.set(`columns[${i}][orderable]`, 'true');
+            txParams.set(`columns[${i}][search][value]`, ''); txParams.set(`columns[${i}][search][regex]`, 'false');
+          });
+          txParams.set('order[0][column]', '0'); txParams.set('order[0][dir]', 'desc');
+          txParams.set('search[value]', ''); txParams.set('search[regex]', 'false');
+          if (body.busca_data_inicio) txParams.set('busca_data_inicio', body.busca_data_inicio);
+          if (body.busca_data_fim) txParams.set('busca_data_fim', body.busca_data_fim);
+
+          const txSummaryRaw = await fetchJSON(`${baseUrl}/transferencias/listar?${txParams.toString()}`, headers, 'GET');
+          const txSummary = txSummaryRaw as unknown as TransactionSummary;
+
+          result = parseFinanceResponse(primaryData, txSummary, null, 'financeiro_listar');
+        }
+
+        if (!result) {
+          const txParams = new URLSearchParams();
+          txParams.set('draw', '1'); txParams.set('start', '0'); txParams.set('length', '1'); txParams.set('exportar', '0');
+          const txCols = ['id', 'tipo', 'valor', 'saldo_anterior', 'saldo_posterior', 'cpf', 'username', 'created_at', 'descricao', 'status'];
+          txCols.forEach((col, i) => {
+            txParams.set(`columns[${i}][data]`, col); txParams.set(`columns[${i}][name]`, '');
+            txParams.set(`columns[${i}][searchable]`, 'true'); txParams.set(`columns[${i}][orderable]`, 'true');
+            txParams.set(`columns[${i}][search][value]`, ''); txParams.set(`columns[${i}][search][regex]`, 'false');
+          });
+          txParams.set('order[0][column]', '0'); txParams.set('order[0][dir]', 'desc');
+          txParams.set('search[value]', ''); txParams.set('search[regex]', 'false');
+          if (body.busca_data_inicio) txParams.set('busca_data_inicio', body.busca_data_inicio);
+          if (body.busca_data_fim) txParams.set('busca_data_fim', body.busca_data_fim);
+
+          const frParams = new URLSearchParams();
+          if (body.busca_data_inicio) frParams.set('busca_periodo_ini', body.busca_data_inicio);
+          if (body.busca_data_fim) frParams.set('busca_periodo_fim', body.busca_data_fim);
+
+          const fgDtParams = new URLSearchParams();
+          fgDtParams.set('draw', '1'); fgDtParams.set('start', '0'); fgDtParams.set('length', '100');
+          const fgCols = ['data','depositos','saques','bonus','saldo','ggr','comissao','lucro'];
+          fgCols.forEach((col, i) => {
+            fgDtParams.set(`columns[${i}][data]`, col); fgDtParams.set(`columns[${i}][name]`, '');
+            fgDtParams.set(`columns[${i}][searchable]`, 'true'); fgDtParams.set(`columns[${i}][orderable]`, 'true');
+            fgDtParams.set(`columns[${i}][search][value]`, ''); fgDtParams.set(`columns[${i}][search][regex]`, 'false');
+          });
+          fgDtParams.set('order[0][column]', '0'); fgDtParams.set('order[0][dir]', 'desc');
+          fgDtParams.set('search[value]', ''); fgDtParams.set('search[regex]', 'false');
+          if (body.busca_data_inicio) fgDtParams.set('busca_data_inicio', body.busca_data_inicio);
+          if (body.busca_data_fim) fgDtParams.set('busca_data_fim', body.busca_data_fim);
+
+          const [txSummaryRaw, frDataRaw] = await Promise.all([
+            fetchJSON(`${baseUrl}/transferencias/listar?${txParams.toString()}`, headers, 'GET'),
+            fetchJSON(`${baseUrl}/financeiro-resumo/listar?${frParams.toString()}`, headers, 'GET'),
+          ]);
+          const txSummary = txSummaryRaw as unknown as TransactionSummary;
+          const frData = frDataRaw as unknown as FinanceResponse;
+
+          let fgData: FinanceResponse | null = null;
+          const fgStrategies = [
+            { label: 'GET dt+data', fn: () => fetchJSON(`${baseUrl}/financeiro-geral/listar?${fgDtParams.toString()}`, headers, 'GET') },
+            { label: 'POST dt+data', fn: () => fetchJSON(`${baseUrl}/financeiro-geral/listar`, headers, 'POST', Object.fromEntries(fgDtParams)) },
+            { label: 'GET no-date', fn: () => fetchJSON(`${baseUrl}/financeiro-geral/listar`, headers, 'GET') },
+            { label: 'POST no-date', fn: () => fetchJSON(`${baseUrl}/financeiro-geral/listar`, headers, 'POST', {}) },
+          ];
+          for (const strat of fgStrategies) {
+            try {
+              const res = await strat.fn();
+              if (res && !res._status && !res.code && !res.Msg) { fgData = res as unknown as FinanceResponse; break; }
+            } catch { /* ignore */ }
+          }
+
+          result = parseFinanceResponse(frData, txSummary, fgData, fgData ? 'financeiro_geral' : 'totais_resumo');
         }
         break;
       }
@@ -659,7 +755,7 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       case 'scrape_page': {
-        const path = (body as any).path || '/dashboard';
+        const path = body.path || '/dashboard';
         const pageRes = await fetch(`${baseUrl}${path}`, {
           method: 'GET',
           headers: { ...headers, Accept: 'text/html,application/xhtml+xml,*/*' },

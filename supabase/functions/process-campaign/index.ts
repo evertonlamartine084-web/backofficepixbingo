@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ALLOWED_ORIGINS = [
@@ -71,7 +70,7 @@ function buildHeaders(cookies: string): Record<string, string> {
   return { 'Accept': 'application/json, text/javascript, */*', 'X-Requested-With': 'XMLHttpRequest', 'Cookie': cookies, 'Referer': DEFAULT_SITE };
 }
 
-async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: any): Promise<any> {
+async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: Record<string, string>): Promise<Record<string, unknown>> {
   const opts: RequestInit = { method, headers: { ...headers }, signal: AbortSignal.timeout(15000) };
   if (body && method === 'POST') {
     opts.body = new URLSearchParams(body).toString();
@@ -455,7 +454,7 @@ Deno.serve(async (req) => {
         // 3. Atomic lock: mark as PROCESSANDO to prevent double credit
         const { data: locked } = await supabase
           .from('campaign_participants')
-          .update({ status: 'PROCESSANDO' } as any)
+          .update({ status: 'PROCESSANDO' } as Record<string, unknown>)
           .eq('id', participant.id)
           .eq('prize_credited', false)
           .in('status', ['PENDENTE', 'NAO_ELEGIVEL'])
@@ -484,9 +483,9 @@ Deno.serve(async (req) => {
           }).eq('id', participant.id);
           errors++;
         }
-      } catch (e) {
+      } catch (e: unknown) {
         await supabase.from('campaign_participants').update({
-          status: 'ERRO', credit_result: (e as Error).message,
+          status: 'ERRO', credit_result: e instanceof Error ? e.message : 'Erro',
         }).eq('id', participant.id);
         errors++;
       }
@@ -500,8 +499,8 @@ Deno.serve(async (req) => {
       data: { processed, eligible, credited, errors, total: participants.length },
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: (error as Error).message }),
+  } catch (error: unknown) {
+    return new Response(JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Erro' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });

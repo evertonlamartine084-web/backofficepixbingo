@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,7 +21,7 @@ export default function Profile() {
   const initials = name.substring(0, 2).toUpperCase();
   const createdAt = user?.created_at ? format(new Date(user.created_at), 'dd/MM/yyyy HH:mm') : '—';
   const lastSignIn = user?.last_sign_in_at ? format(new Date(user.last_sign_in_at), 'dd/MM/yyyy HH:mm') : '—';
-  const role = (user as any)?.user_metadata?.role || (user as any)?.app_metadata?.role || 'operador';
+  const role = user?.user_metadata?.role as string || user?.app_metadata?.role as string || 'operador';
 
   const handleChangePassword = async () => {
     if (!newPassword || newPassword.length < 6) {
@@ -41,8 +40,8 @@ export default function Profile() {
       logAudit({ action: 'SENHA', resource_type: 'auth', details: { email } });
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao alterar senha');
     } finally {
       setSaving(false);
     }

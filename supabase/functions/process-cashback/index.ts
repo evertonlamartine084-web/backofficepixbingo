@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ALLOWED_ORIGINS = [
@@ -71,7 +70,7 @@ function buildHeaders(cookies: string): Record<string, string> {
   return { 'Accept': 'application/json, text/javascript, */*', 'X-Requested-With': 'XMLHttpRequest', 'Cookie': cookies, 'Referer': DEFAULT_SITE };
 }
 
-async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: any): Promise<any> {
+async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: Record<string, string>): Promise<Record<string, unknown>> {
   const opts: RequestInit = { method, headers: { ...headers }, signal: AbortSignal.timeout(15000) };
   if (body && method === 'POST') {
     opts.body = new URLSearchParams(body).toString();
@@ -276,9 +275,9 @@ Deno.serve(async (req) => {
             }).eq('id', item.id);
             errors++;
           }
-        } catch (e) {
+        } catch (e: unknown) {
           await supabase.from('cashback_items').update({
-            status: 'ERRO', credit_result: (e as Error).message,
+            status: 'ERRO', credit_result: e instanceof Error ? e.message : 'Erro',
           }).eq('id', item.id);
           errors++;
         }
@@ -436,10 +435,10 @@ Deno.serve(async (req) => {
             errors++;
           }
         }
-      } catch (e) {
+      } catch (e: unknown) {
         await supabase.from('cashback_items').insert({
           execution_id: executionId, rule_id, cpf: player.cpf, cpf_masked: player.cpf_masked,
-          status: 'ERRO', credit_result: (e as Error).message,
+          status: 'ERRO', credit_result: e instanceof Error ? e.message : 'Erro',
         });
         errors++;
       }
@@ -471,8 +470,8 @@ Deno.serve(async (req) => {
       },
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: (error as Error).message }),
+  } catch (error: unknown) {
+    return new Response(JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Erro' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });

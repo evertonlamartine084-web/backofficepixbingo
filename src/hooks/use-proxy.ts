@@ -30,8 +30,7 @@ export function useProxy() {
   const callProxy = useCallback(async (
     action: string,
     credentials?: { username: string; password: string } | null,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    extra: Record<string, any> = {}
+    extra: Record<string, unknown> = {}
   ) => {
     const token = await getAuthToken();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -72,8 +71,7 @@ export function useProxy() {
   const callWithLoading = useCallback(async (
     action: string,
     credentials?: { username: string; password: string } | null,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    extra: Record<string, any> = {}
+    extra: Record<string, unknown> = {}
   ) => {
     setLoading(true);
     try {

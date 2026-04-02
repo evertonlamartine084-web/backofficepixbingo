@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ALLOWED_ORIGINS = [
@@ -99,7 +98,7 @@ function buildHeaders(cookies: string, baseUrl: string): Record<string, string> 
   };
 }
 
-async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: Record<string, string>): Promise<any> {
+async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: Record<string, string>): Promise<Record<string, unknown>> {
   const opts: RequestInit = { method, headers: { ...headers }, signal: AbortSignal.timeout(12000) };
   if (body && method === 'POST') {
     opts.body = new URLSearchParams(body).toString();
@@ -131,7 +130,7 @@ async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string
   return player?.uuid || null;
 }
 
-async function fetchPlayerTransactions(baseUrl: string, headers: Record<string, string>, playerUuid: string): Promise<any> {
+async function fetchPlayerTransactions(baseUrl: string, headers: Record<string, string>, playerUuid: string): Promise<Record<string, unknown>> {
   return await fetchJSON(`${baseUrl}/usuarios/transacoes?id=${playerUuid}`, headers);
 }
 
@@ -160,31 +159,39 @@ function parseBrCurrency(s: string | number): number {
  * Calculate mission progress from platform transactions.
  * Returns the cumulative value for the given condition_type.
  */
+interface NormalizedTransaction {
+  data_registro: string;
+  tipo: string;
+  valor: string | number;
+  jogo: string;
+  carteira: string;
+}
+
 function calculateMissionProgress(
-  movimentacoes: any[],
-  historico: any[],
+  movimentacoes: Record<string, unknown>[],
+  historico: Record<string, unknown>[],
   conditionType: string,
   startTs: number,
   endTs: number,
 ): number {
   // Normalize historico
-  const normalizedHist = historico.map((h: any) => ({
-    data_registro: h.data_registro,
-    tipo: (h.operacao || h.tipo || '').toUpperCase(),
-    valor: h.valor,
-    jogo: h.jogo || '',
-    carteira: h.carteira || '',
+  const normalizedHist: NormalizedTransaction[] = historico.map((h: Record<string, unknown>) => ({
+    data_registro: String(h.data_registro || ''),
+    tipo: String(h.operacao || h.tipo || '').toUpperCase(),
+    valor: h.valor as string | number,
+    jogo: String(h.jogo || ''),
+    carteira: String(h.carteira || ''),
   }));
-  const normalizedMov = movimentacoes.map((m: any) => ({
-    data_registro: m.data_registro,
-    tipo: (m.tipo || '').toUpperCase(),
-    valor: m.valor,
-    jogo: m.jogo || m.descricao || '',
-    carteira: m.carteira || '',
+  const normalizedMov: NormalizedTransaction[] = movimentacoes.map((m: Record<string, unknown>) => ({
+    data_registro: String(m.data_registro || ''),
+    tipo: String(m.tipo || '').toUpperCase(),
+    valor: m.valor as string | number,
+    jogo: String(m.jogo || m.descricao || ''),
+    carteira: String(m.carteira || ''),
   }));
 
   // Filter by date range
-  const filterByDate = (txs: any[]) => txs.filter(tx => {
+  const filterByDate = (txs: NormalizedTransaction[]) => txs.filter(tx => {
     const ts = parseDate(tx.data_registro || '');
     return ts >= startTs && ts <= endTs;
   });
@@ -398,8 +405,8 @@ Deno.serve(async (req: Request) => {
 
         // Fetch transactions once per player
         const txResult = await fetchPlayerTransactions(baseUrl, headers, playerUuid);
-        const movimentacoes: any[] = txResult?.movimentacoes || [];
-        const historico: any[] = txResult?.historico || [];
+        const movimentacoes = (txResult?.movimentacoes as Record<string, unknown>[] | undefined) || [];
+        const historico = (txResult?.historico as Record<string, unknown>[] | undefined) || [];
 
         // Process each mission for this player
         for (const entry of entries) {
@@ -458,7 +465,7 @@ Deno.serve(async (req: Request) => {
               target,
               completed,
               ...(completed ? { completed_at: new Date().toISOString() } : {}),
-            } as any)
+            } as Record<string, unknown>)
             .eq('id', entry.id);
 
           totalUpdated++;
@@ -469,8 +476,8 @@ Deno.serve(async (req: Request) => {
             log(`  CPF ${cpf} — Missão "${mission.name}": ${progress}/${target}`);
           }
         }
-      } catch (e) {
-        log(`  CPF ${cpf}: ERRO — ${(e as Error).message}`);
+      } catch (e: unknown) {
+        log(`  CPF ${cpf}: ERRO — ${e instanceof Error ? e.message : 'Erro'}`);
         totalErrors++;
       }
     }
@@ -488,9 +495,10 @@ Deno.serve(async (req: Request) => {
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (e) {
-    log(`ERRO GERAL: ${(e as Error).message}`);
-    return new Response(JSON.stringify({ success: false, error: (e as Error).message, logs }), {
+  } catch (e: unknown) {
+    const errMsg = e instanceof Error ? e.message : 'Erro';
+    log(`ERRO GERAL: ${errMsg}`);
+    return new Response(JSON.stringify({ success: false, error: errMsg, logs }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

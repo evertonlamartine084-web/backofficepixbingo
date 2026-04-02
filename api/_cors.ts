@@ -40,9 +40,9 @@ export function jsonResponse(body: Record<string, unknown>, req: Request, status
  */
 export async function verifyAuth(req: Request): Promise<{ user: { id: string; email?: string } } | null> {
   // Allow cron calls with shared secret (pg_cron + pg_net)
-  const cronSecret = process.env.CRON_SECRET || 'pixbingo-cron-2024-secret';
+  const cronSecret = process.env.CRON_SECRET;
   const reqSecret = req.headers.get('x-cron-secret');
-  if (reqSecret && reqSecret === cronSecret) {
+  if (cronSecret && reqSecret && reqSecret === cronSecret) {
     return { user: { id: 'cron', email: 'cron@system' } };
   }
 

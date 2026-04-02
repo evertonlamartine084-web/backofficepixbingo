@@ -1,9 +1,27 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, ArrowLeft, Info } from 'lucide-react';
 import { ChestGame } from '@/components/mini-games/ChestGame';
+
+interface MiniGamePrize {
+  label: string;
+  value: number;
+  type: string;
+  icon?: string;
+  color?: string;
+}
+
+interface MiniGame {
+  id: string;
+  name: string;
+  description?: string;
+  type: string;
+  active: boolean;
+  free_attempts_per_day?: number;
+  created_at: string;
+  mini_game_prizes: MiniGamePrize[];
+}
 
 const CATEGORIES = [
   { value: 'all', label: 'TODOS' },
@@ -36,7 +54,7 @@ function ChestIcon() {
 
 export default function MiniGamesPlayer() {
   const [activeTab, setActiveTab] = useState('all');
-  const [selectedGame, setSelectedGame] = useState<any>(null);
+  const [selectedGame, setSelectedGame] = useState<MiniGame | null>(null);
   const [gameOpen, setGameOpen] = useState(false);
   const [playerKeys, setPlayerKeys] = useState(3);
 
@@ -49,7 +67,7 @@ export default function MiniGamesPlayer() {
         .eq('active', true)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data as any[];
+      return data as unknown as MiniGame[];
     },
   });
 
@@ -57,13 +75,13 @@ export default function MiniGamesPlayer() {
     ? games
     : games.filter(g => g.type === activeTab);
 
-  const openChestGame = (game: any) => {
+  const openChestGame = (game: MiniGame) => {
     setSelectedGame(game);
     setGameOpen(true);
   };
 
   const gamePrizes = selectedGame?.mini_game_prizes?.length > 0
-    ? selectedGame.mini_game_prizes.map((p: any) => ({
+    ? selectedGame.mini_game_prizes.map((p: MiniGamePrize) => ({
         label: p.label,
         value: p.value,
         type: p.type,
@@ -170,13 +188,13 @@ export default function MiniGamesPlayer() {
               </div>
               <div className="minigame-card-actions">
                 <div className="minigame-badge-free" onClick={() => {
-                  setSelectedGame({ name: 'FICHAS DOURADAS', mini_game_prizes: [] });
+                  setSelectedGame({ id: 'default', name: 'FICHAS DOURADAS', type: 'gift_box', active: true, created_at: '', mini_game_prizes: [] });
                   setGameOpen(true);
                 }}>
                   GRÁTIS
                 </div>
                 <button className="minigame-btn-open" onClick={() => {
-                  setSelectedGame({ name: 'FICHAS DOURADAS', mini_game_prizes: [] });
+                  setSelectedGame({ id: 'default', name: 'FICHAS DOURADAS', type: 'gift_box', active: true, created_at: '', mini_game_prizes: [] });
                   setGameOpen(true);
                 }}>
                   <ChestIcon />

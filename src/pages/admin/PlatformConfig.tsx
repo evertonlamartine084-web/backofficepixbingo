@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +12,19 @@ import { toast } from 'sonner';
 
 const VERCEL_URL = 'https://backofficepixbingobr.vercel.app';
 
+interface PlatformConfigData {
+  id: string;
+  site_url: string;
+  login_url: string | null;
+  username: string;
+  password: string;
+  active: boolean;
+  widget_segment_id: string | null;
+  last_sync_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function PlatformConfig() {
   const qc = useQueryClient();
   const [showPassword, setShowPassword] = useState(false);
@@ -22,14 +34,14 @@ export default function PlatformConfig() {
   const { data: config, isLoading } = useQuery({
     queryKey: ['platform_config'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('platform_config')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
       if (error && error.code !== 'PGRST116') throw error;
-      return data as any;
+      return data as PlatformConfigData | null;
     },
   });
 
@@ -42,13 +54,13 @@ export default function PlatformConfig() {
     },
   });
 
-  const [form, setForm] = useState<any>(null);
+  const [form, setForm] = useState<Partial<PlatformConfigData> | null>(null);
   const activeForm = form ?? config;
 
   const upsertMutation = useMutation({
-    mutationFn: async (values: any) => {
+    mutationFn: async (values: Partial<PlatformConfigData>) => {
       if (config?.id) {
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('platform_config')
           .update({
             site_url: values.site_url,
@@ -58,11 +70,11 @@ export default function PlatformConfig() {
             active: values.active,
             widget_segment_id: values.widget_segment_id || null,
             updated_at: new Date().toISOString(),
-          })
+          } as Record<string, unknown>)
           .eq('id', config.id);
         if (error) throw error;
       } else {
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('platform_config')
           .insert({
             site_url: values.site_url,
@@ -71,7 +83,7 @@ export default function PlatformConfig() {
             login_url: values.login_url || null,
             active: values.active ?? true,
             widget_segment_id: values.widget_segment_id || null,
-          });
+          } as Record<string, unknown>);
         if (error) throw error;
       }
     },
@@ -80,7 +92,7 @@ export default function PlatformConfig() {
       qc.invalidateQueries({ queryKey: ['platform_config'] });
       setForm(null);
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const handleSave = () => {
@@ -112,8 +124,8 @@ export default function PlatformConfig() {
         const logMsg = data.logs?.length ? `\n${data.logs.join('\n')}` : '';
         toast.error(`${data.error || 'Erro no sync'}${logMsg}`, { duration: 10000 });
       }
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Erro no sync');
     } finally {
       setSyncing(false);
     }
@@ -139,15 +151,15 @@ export default function PlatformConfig() {
         const logMsg = data.logs?.length ? `\n${data.logs.join('\n')}` : '';
         toast.error(`${data.error || 'Erro no sync'}${logMsg}`, { duration: 10000 });
       }
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Erro no sync');
     } finally {
       setSyncingMissions(false);
     }
   };
 
-  const updateField = (field: string, value: any) => {
-    setForm((prev: any) => ({ ...(prev ?? config ?? {}), [field]: value }));
+  const updateField = (field: string, value: string | boolean | null) => {
+    setForm((prev) => ({ ...(prev ?? config ?? {}), [field]: value }));
   };
 
   if (isLoading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
@@ -281,7 +293,7 @@ export default function PlatformConfig() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="_none">Todos os jogadores</SelectItem>
-                {(segments || []).map((s: any) => (
+                {(segments || []).map((s) => (
                   <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                 ))}
               </SelectContent>

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -112,15 +111,16 @@ export function useCashbackRules() {
       const { data, error } = await supabase
         .from('cashback_rules').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      const segmentIds = [...new Set((data as any[]).filter(r => r.segment_id).map(r => r.segment_id))];
+      const rows = data as Array<Record<string, unknown>>;
+      const segmentIds = [...new Set(rows.filter(r => r.segment_id).map(r => r.segment_id as string))];
       let segmentMap: Record<string, string> = {};
       if (segmentIds.length > 0) {
         const { data: segments } = await supabase.from('segments').select('id, name').in('id', segmentIds);
         if (segments) segmentMap = Object.fromEntries(segments.map(s => [s.id, s.name]));
       }
-      return (data as any[]).map(r => ({
+      return rows.map(r => ({
         ...r,
-        segment_name: r.segment_id ? segmentMap[r.segment_id] || '—' : null,
+        segment_name: r.segment_id ? segmentMap[r.segment_id as string] || '—' : null,
       })) as CashbackRule[];
     },
   });
@@ -151,7 +151,7 @@ export function useCashbackRules() {
         wallet_type: form.wallet_type,
         segment_id: form.segment_id || null,
         process_mode: form.process_mode,
-      } as any);
+      } as Record<string, unknown>);
       if (error) throw error;
     },
     onSuccess: (_data, form) => {
@@ -180,7 +180,7 @@ export function useCashbackRules() {
     mutationFn: async ({ id, status }: { id: string; status: CashbackRuleStatus }) => {
       const rule = rules.find(r => r.id === id);
       const oldStatus = rule?.status;
-      const { error } = await supabase.from('cashback_rules').update({ status } as any).eq('id', id);
+      const { error } = await supabase.from('cashback_rules').update({ status } as Record<string, unknown>).eq('id', id);
       if (error) throw error;
       return { id, status, oldStatus, name: rule?.name };
     },
@@ -294,8 +294,8 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
       }
       queryClient.invalidateQueries({ queryKey: ['cashback-executions'] });
       queryClient.invalidateQueries({ queryKey: ['cashback-items'] });
-    } catch (e: any) {
-      toast.error(e.message || 'Erro ao processar cashback');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao processar cashback');
     } finally {
       setProcessing(false);
     }
@@ -329,8 +329,8 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
       logAudit({ action: 'APROVAR', resource_type: 'cashback', resource_id: rule.id, resource_name: rule.name, details: { credited: result.credited, total_credited: result.total_credited, execution_id: executionId } });
       queryClient.invalidateQueries({ queryKey: ['cashback-executions'] });
       queryClient.invalidateQueries({ queryKey: ['cashback-items'] });
-    } catch (e: any) {
-      toast.error(e.message || 'Erro ao creditar');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao creditar');
     } finally {
       setProcessing(false);
     }
@@ -392,8 +392,8 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
         const interval = rule.period === 'daily' ? 60 * 60 * 1000 : 6 * 60 * 60 * 1000;
         const timer = setTimeout(runIteration, interval);
         autoProcessRef.current.set(rule.id, timer);
-      } catch (e: any) {
-        console.error('Erro no cashback automático:', e.message);
+      } catch (e: unknown) {
+        console.error('Erro no cashback automático:', e instanceof Error ? e.message : e);
         // Retry in 5 minutes on error
         const timer = setTimeout(runIteration, 5 * 60 * 1000);
         autoProcessRef.current.set(rule.id, timer);

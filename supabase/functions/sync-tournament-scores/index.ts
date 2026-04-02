@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ALLOWED_ORIGINS = [
@@ -116,7 +115,7 @@ function buildHeaders(cookies: string, baseUrl: string): Record<string, string> 
   };
 }
 
-async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: Record<string, string>): Promise<any> {
+async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: Record<string, string>): Promise<Record<string, unknown>> {
   const opts: RequestInit = { method, headers: { ...headers }, signal: AbortSignal.timeout(12000) };
   if (body && method === 'POST') {
     opts.body = new URLSearchParams(body).toString();
@@ -162,12 +161,12 @@ async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string
 }
 
 // Fetch player transactions (returns array of transactions)
-async function fetchPlayerTransactions(baseUrl: string, headers: Record<string, string>, playerUuid: string): Promise<any> {
+async function fetchPlayerTransactions(baseUrl: string, headers: Record<string, string>, playerUuid: string): Promise<Record<string, unknown>> {
   return await fetchJSON(`${baseUrl}/usuarios/transacoes?id=${playerUuid}`, headers);
 }
 
 // Fetch financeiro-resumo for a player (bets, wins per product)
-async function fetchFinanceiroResumo(baseUrl: string, headers: Record<string, string>, dateStart: string, dateEnd: string, cpf: string): Promise<any> {
+async function fetchFinanceiroResumo(baseUrl: string, headers: Record<string, string>, dateStart: string, dateEnd: string, cpf: string): Promise<Record<string, unknown>> {
   const params = new URLSearchParams();
   params.set('draw', '1');
   params.set('start', '0');
@@ -195,7 +194,7 @@ async function fetchFinanceiroResumo(baseUrl: string, headers: Record<string, st
 
 // Calculate score from transactions based on metric and points_per
 function calculateScore(
-  transactions: any[],
+  transactions: Record<string, unknown>[],
   metric: string,
   pointsPer: string,
   gameFilter: string,
@@ -248,7 +247,7 @@ function calculateScore(
 
 // Calculate score from platform transactions (BR format)
 function calculateScoreBR(
-  transactions: any[],
+  transactions: Record<string, unknown>[],
   metric: string,
   pointsPer: string,
   gameFilter: string,
@@ -459,11 +458,11 @@ Deno.serve(async (req) => {
           // Platform returns { carteiras, movimentacoes, historico }
           // movimentacoes: [{ data_registro (dd/mm/yyyy HH:mm:ss), tipo, valor ("1.234,56"), saldo }] — deposits, bonuses
           // historico: [{ data_registro (yyyy-mm-dd HH:mm:ss), carteira, operacao, valor ("-14.40"), saldo, jogo }] — bets, wins
-          const movimentacoes: any[] = txResult?.movimentacoes || [];
-          const historico: any[] = txResult?.historico || [];
+          const movimentacoes = (txResult?.movimentacoes as Record<string, unknown>[] | undefined) || [];
+          const historico = (txResult?.historico as Record<string, unknown>[] | undefined) || [];
 
           // Normalize historico to have consistent field names with movimentacoes
-          const normalizedHist = historico.map((h: any) => ({
+          const normalizedHist = historico.map((h: Record<string, unknown>) => ({
             data_registro: h.data_registro,
             tipo: h.operacao || h.tipo || '',
             valor: h.valor,
@@ -497,7 +496,7 @@ Deno.serve(async (req) => {
           // Filter by tournament date range
           const startTs = new Date(tournament.start_date).getTime();
           const endTs = new Date(tournament.end_date).getTime();
-          const filteredTx = allTx.filter((tx: any) => {
+          const filteredTx = allTx.filter((tx: Record<string, unknown>) => {
             const txTs = parseDate(tx.data_registro || tx.created_at || tx.data || '');
             return txTs >= startTs && txTs <= endTs;
           });
@@ -519,8 +518,8 @@ Deno.serve(async (req) => {
 
           log(`  CPF ${entry.cpf}: score=${score}`);
           totalUpdated++;
-        } catch (e) {
-          log(`  CPF ${entry.cpf}: ERRO - ${(e as Error).message}`);
+        } catch (e: unknown) {
+          log(`  CPF ${entry.cpf}: ERRO - ${e instanceof Error ? e.message : 'Erro'}`);
           totalErrors++;
         }
       }
@@ -545,7 +544,7 @@ Deno.serve(async (req) => {
 
     // 4. Check for tournaments that just ended — distribute prizes and mark ENCERRADO
     // Also support force_prizes param to re-distribute for already ENCERRADO tournaments
-    let body: any = {};
+    let body: Record<string, unknown> = {};
     try { body = await req.json(); } catch { /* ignore */ }
     const forceTournamentId = body?.force_prizes_tournament_id;
 
@@ -573,7 +572,7 @@ Deno.serve(async (req) => {
         .eq('tournament_id', t.id)
         .order('score', { ascending: false });
 
-      const prizes: any[] = t.prizes || [];
+      const prizes: Record<string, unknown>[] = t.prizes || [];
 
       for (const prize of prizes) {
         const rank = Number(prize.rank);
@@ -582,7 +581,7 @@ Deno.serve(async (req) => {
         if (!value || !rank) continue;
 
         // Find player at this rank
-        const winner = ranked?.find((_: any, i: number) => i + 1 === rank);
+        const winner = ranked?.find((_: Record<string, unknown>, i: number) => i + 1 === rank);
         if (!winner) {
           log(`  Rank ${rank}: sem jogador`);
           continue;
@@ -614,13 +613,13 @@ Deno.serve(async (req) => {
               source_id: t.id,
               description: `Prêmio do torneio "${t.name}" — ${prize.description || `${rank}º lugar`}`,
               claimed_at: new Date().toISOString(), // already paid
-            } as any);
+            } as Record<string, unknown>);
           } else if (type === 'coins') {
             const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', winner.cpf).maybeSingle();
-            await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + value } as any).eq('cpf', winner.cpf);
+            await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + value } as Record<string, unknown>).eq('cpf', winner.cpf);
           } else if (type === 'xp') {
             const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', winner.cpf).maybeSingle();
-            await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + value } as any).eq('cpf', winner.cpf);
+            await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + value } as Record<string, unknown>).eq('cpf', winner.cpf);
           }
 
           // Log activity
@@ -631,16 +630,16 @@ Deno.serve(async (req) => {
             source: 'Torneio',
             source_id: t.id,
             description: `Prêmio ${rank}º lugar no torneio "${t.name}": ${type} R$${value}`,
-          } as any);
+          } as Record<string, unknown>);
 
           prizesPaid++;
-        } catch (e) {
-          log(`  ERRO ao pagar prêmio rank ${rank}: ${(e as Error).message}`);
+        } catch (e: unknown) {
+          log(`  ERRO ao pagar prêmio rank ${rank}: ${e instanceof Error ? e.message : 'Erro'}`);
         }
       }
 
       // Mark tournament as ENCERRADO
-      await supabase.from('tournaments').update({ status: 'ENCERRADO', updated_at: new Date().toISOString() } as any).eq('id', t.id);
+      await supabase.from('tournaments').update({ status: 'ENCERRADO', updated_at: new Date().toISOString() } as Record<string, unknown>).eq('id', t.id);
       log(`  Torneio "${t.name}" marcado como ENCERRADO`);
     }
 
@@ -660,9 +659,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
-    log(`Erro fatal: ${(error as Error).message}`);
-    return new Response(JSON.stringify({ success: false, error: (error as Error).message, logs }), {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : 'Erro';
+    log(`Erro fatal: ${errMsg}`);
+    return new Response(JSON.stringify({ success: false, error: errMsg, logs }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

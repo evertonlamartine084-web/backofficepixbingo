@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -56,7 +55,7 @@ export default function AdminUsers() {
   const [permAllAccess, setPermAllAccess] = useState(true);
   const [savingPerm, setSavingPerm] = useState(false);
 
-  const callManageUsers = useCallback(async (body: Record<string, any>) => {
+  const callManageUsers = useCallback(async (body: Record<string, unknown>) => {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     if (!token) throw new Error('Sessão expirada — faça login novamente');
@@ -79,8 +78,8 @@ export default function AdminUsers() {
     try {
       const data = await callManageUsers({ action: 'list' });
       setUsers(data.users || []);
-    } catch (err: any) {
-      toast.error('Erro ao carregar usuários: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Erro ao carregar usuários: ' + (err instanceof Error ? err.message : 'Erro'));
     } finally {
       setLoading(false);
     }
@@ -100,8 +99,8 @@ export default function AdminUsers() {
       setNewPassword('');
       setNewRole('operador');
       loadUsers();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro');
     } finally {
       setCreating(false);
     }
@@ -114,8 +113,8 @@ export default function AdminUsers() {
       toast.success('Usuário excluído');
       logAudit({ action: 'EXCLUIR', resource_type: 'usuario', resource_id: user.id, resource_name: user.email });
       loadUsers();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro');
     }
   };
 
@@ -126,8 +125,8 @@ export default function AdminUsers() {
       const u = users.find(u => u.id === userId);
       logAudit({ action: 'EDITAR', resource_type: 'usuario', resource_id: userId, resource_name: u?.email, details: { field: 'role', value: role } });
       loadUsers();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro');
     }
   };
 
@@ -140,8 +139,8 @@ export default function AdminUsers() {
       logAudit({ action: 'SENHA', resource_type: 'usuario', resource_id: resetUserId, resource_name: resetEmail });
       setResetOpen(false);
       setResetPassword('');
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro');
     } finally {
       setResetting(false);
     }
@@ -185,8 +184,8 @@ export default function AdminUsers() {
       logAudit({ action: 'EDITAR', resource_type: 'usuario', resource_id: permUser.id, resource_name: permUser.email, details: { field: 'permissions', allowed_pages: permAllAccess ? 'all' : Array.from(permPages) } });
       setPermOpen(false);
       loadUsers();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro');
     } finally {
       setSavingPerm(false);
     }

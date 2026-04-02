@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +9,30 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { logAudit } from '@/hooks/use-audit';
+
+interface Level {
+  id: string;
+  level: number;
+  name: string;
+  tier: string;
+  xp_required: number;
+  reward_coins: number;
+  reward_gems: number;
+  reward_diamonds: number;
+  color: string | null;
+  icon_url: string;
+}
+
+interface XpConfig {
+  id: string;
+  action: string;
+  xp_per_real: number;
+  description: string;
+}
+
+const supabaseUntyped = supabase as unknown as {
+  from: (table: string) => ReturnType<typeof supabase.from>;
+};
 
 const TIER_ORDER = ['Iniciante', 'Bronze', 'Prata', 'Ouro', 'Titanio', 'Platina', 'Rubi', 'Diamante', 'Black', 'Elite', 'Lendario', 'Supremo'];
 
@@ -24,31 +47,31 @@ function resolveIcon(url: string) {
 export default function Levels() {
   const qc = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
-  const [editLevel, setEditLevel] = useState<any>(null);
+  const [editLevel, setEditLevel] = useState<Level | null>(null);
   const [expandedTiers, setExpandedTiers] = useState<Set<string>>(new Set(TIER_ORDER));
   const [xpConfigOpen, setXpConfigOpen] = useState(false);
 
   const { data: levels = [], isLoading } = useQuery({
     queryKey: ['levels'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from('levels').select('*').order('level', { ascending: true });
+      const { data, error } = await supabaseUntyped.from('levels').select('*').order('level', { ascending: true });
       if (error) throw error;
-      return data as any[];
+      return data as Level[];
     },
   });
 
   const { data: xpConfig = [] } = useQuery({
     queryKey: ['xp_config'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from('xp_config').select('*').order('action');
+      const { data, error } = await supabaseUntyped.from('xp_config').select('*').order('action');
       if (error) throw error;
-      return data as any[];
+      return data as XpConfig[];
     },
   });
 
   const [form, setForm] = useState({ xp_required: '', reward_coins: '', reward_gems: '', reward_diamonds: '', color: '' });
 
-  const openEdit = (lvl: any) => {
+  const openEdit = (lvl: Level) => {
     setEditLevel(lvl);
     setForm({
       xp_required: String(lvl.xp_required),
@@ -70,7 +93,7 @@ export default function Levels() {
         reward_diamonds: parseInt(form.reward_diamonds) || 0,
         color: form.color,
       };
-      const { error } = await (supabase as any).from('levels').update(payload).eq('id', editLevel.id);
+      const { error } = await supabaseUntyped.from('levels').update(payload).eq('id', editLevel.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -89,7 +112,7 @@ export default function Levels() {
       for (const cfg of xpConfig) {
         const newVal = xpForm[cfg.action];
         if (newVal !== undefined && parseFloat(newVal) !== cfg.xp_per_real) {
-          await (supabase as any).from('xp_config').update({ xp_per_real: parseFloat(newVal) }).eq('id', cfg.id);
+          await supabaseUntyped.from('xp_config').update({ xp_per_real: parseFloat(newVal) }).eq('id', cfg.id);
         }
       }
     },
@@ -112,7 +135,7 @@ export default function Levels() {
   // Group levels by tier
   const grouped = TIER_ORDER.map(tier => ({
     tier,
-    levels: levels.filter((l: any) => l.tier === tier),
+    levels: levels.filter((l: Level) => l.tier === tier),
   })).filter(g => g.levels.length > 0);
 
   const totalLevels = levels.length;
@@ -126,14 +149,14 @@ export default function Levels() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{totalLevels} níveis configurados · 12 tiers</p>
         </div>
-        <Button variant="outline" className="border-border" onClick={() => { setXpForm(Object.fromEntries(xpConfig.map((c: any) => [c.action, String(c.xp_per_real)]))); setXpConfigOpen(true); }}>
+        <Button variant="outline" className="border-border" onClick={() => { setXpForm(Object.fromEntries(xpConfig.map((c: XpConfig) => [c.action, String(c.xp_per_real)]))); setXpConfigOpen(true); }}>
           <Settings2 className="w-4 h-4 mr-2" /> Config XP
         </Button>
       </div>
 
       {/* XP Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {xpConfig.map((cfg: any) => (
+        {xpConfig.map((cfg: XpConfig) => (
           <Card key={cfg.id} className="border-border">
             <CardContent className="p-4 text-center">
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{cfg.action === 'aposta' ? 'Apostas' : 'Depósitos'}</p>
@@ -191,7 +214,7 @@ export default function Levels() {
                 {isExpanded && (
                   <div className="border-t border-border">
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 p-4">
-                      {tierLevels.map((lvl: any) => (
+                      {tierLevels.map((lvl: Level) => (
                         <div
                           key={lvl.id}
                           className="group flex flex-col items-center gap-2 p-3 rounded-xl border border-border hover:border-primary/40 hover:bg-secondary/30 cursor-pointer transition-all"
@@ -313,7 +336,7 @@ export default function Levels() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground">Defina quanto XP o jogador ganha por R$1 em cada ação.</p>
-            {xpConfig.map((cfg: any) => (
+            {xpConfig.map((cfg: XpConfig) => (
               <div key={cfg.id}>
                 <Label className="text-xs capitalize">{cfg.action === 'aposta' ? 'Apostas' : 'Depósitos'} (XP por R$1)</Label>
                 <Input

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +14,37 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { logAudit } from '@/hooks/use-audit';
+
+interface Segment {
+  id: string;
+  name: string;
+}
+
+interface Mission {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  name: string;
+  description: string | null;
+  icon_url: string | null;
+  type: string;
+  condition_type: string;
+  condition_value: number;
+  reward_type: string;
+  reward_value: number;
+  segment_id: string | null;
+  status: string;
+  priority: number;
+  require_optin: boolean;
+  time_limit_hours: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  recurrence: string | null;
+  cta_text: string | null;
+  cta_url: string | null;
+  manual_claim: boolean;
+  active: boolean;
+}
 
 const MISSION_TYPES = [
   { value: 'daily', label: 'Diária' },
@@ -80,7 +110,7 @@ export default function Missions() {
     queryFn: async () => {
       const { data, error } = await supabase.from('segments').select('id, name').order('name');
       if (error) throw error;
-      return data as any[];
+      return data as Segment[];
     },
   });
 
@@ -89,14 +119,14 @@ export default function Missions() {
     queryFn: async () => {
       const { data, error } = await supabase.from('missions').select('*').order('priority', { ascending: true }).order('created_at', { ascending: false });
       if (error) throw error;
-      return data as any[];
+      return data as Mission[];
     },
   });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!form.name || !form.condition_type) throw new Error('Preencha nome e condição');
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         name: form.name,
         description: form.description || null,
         icon_url: form.icon_url || null,
@@ -151,7 +181,7 @@ export default function Missions() {
   });
 
   const duplicateMutation = useMutation({
-    mutationFn: async (m: any) => {
+    mutationFn: async (m: Mission) => {
       const { id, created_at, updated_at, ...rest } = m;
       const { error } = await supabase.from('missions').insert({ ...rest, name: `${m.name} (cópia)` });
       if (error) throw error;
@@ -166,7 +196,7 @@ export default function Missions() {
 
   const closeDialog = () => { setOpen(false); setEditId(null); setForm(emptyForm); };
 
-  const openEdit = (m: any) => {
+  const openEdit = (m: Mission) => {
     setEditId(m.id);
     setForm({
       name: m.name, description: m.description || '', icon_url: m.icon_url || '',
@@ -256,7 +286,7 @@ export default function Missions() {
                 <Badge variant="secondary" className="text-xs">{group.missions.length}</Badge>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {group.missions.map((m: any) => {
+                {group.missions.map((m: Mission) => {
                   const st = STATUS_MAP[m.status] || STATUS_MAP.ATIVO;
                   return (
                     <Card key={m.id} className="border-border hover:border-primary/30 transition-colors cursor-pointer group" onClick={() => openEdit(m)}>

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@supabase/supabase-js';
 import { getCorsHeaders, optionsResponse, verifyAuth } from './_cors.js';
 
@@ -32,15 +31,15 @@ async function countBonusCredits(
   try {
     const res = await fetch(`${baseUrl}/usuarios/transacoes?id=${uuid}`, { headers, signal: AbortSignal.timeout(10000) });
     const data = JSON.parse(await res.text());
-    const movs: any[] = data?.movimentacoes || [];
+    const movs: Record<string, unknown>[] = data?.movimentacoes || [];
     let count = 0;
     for (const m of movs) {
-      const tipo = (m.tipo || '').toUpperCase();
+      const tipo = (String(m.tipo || '')).toUpperCase();
       if (tipo !== 'BONUS') continue;
-      const v = typeof m.valor === 'number' ? m.valor : parseFloat(String(m.valor || '0').replace(/\./g, '').replace(',', '.'));
+      const v = typeof m.valor === 'number' ? m.valor : parseFloat(String(m.valor ?? '0').replace(/\./g, '').replace(',', '.'));
       if (Math.abs(v - valor) > 0.01) continue;
       // Check date
-      const d = m.data_registro || '';
+      const d = String(m.data_registro || '');
       if (d >= sinceDate) count++;
     }
     return count;
@@ -57,10 +56,10 @@ async function creditBonus(
     signal: AbortSignal.timeout(10000),
   });
   const text = await res.text();
-  let data: any;
+  let data: Record<string, unknown>;
   try { data = JSON.parse(text); } catch { return { success: false, error: `Resposta inválida: ${text.slice(0, 100)}` }; }
-  if (data.status === true || data.msg?.includes('sucesso')) return { success: true };
-  return { success: false, error: data.msg || data.error || JSON.stringify(data).slice(0, 100) };
+  if (data.status === true || (typeof data.msg === 'string' && data.msg.includes('sucesso'))) return { success: true };
+  return { success: false, error: (data.msg as string) || (data.error as string) || JSON.stringify(data).slice(0, 100) };
 }
 
 // Platform login
@@ -102,7 +101,7 @@ async function doLogin(siteUrl: string, loginUrl: string | undefined, username: 
     }
     if (res.ok) {
       const text = await res.text();
-      try { const d = JSON.parse(text); if (d.status === true || d.logged === true) return { cookies, success: true }; } catch {}
+      try { const d = JSON.parse(text) as Record<string, unknown>; if (d.status === true || d.logged === true) return { cookies, success: true }; } catch {}
     }
   } catch {}
   return { cookies: '', success: false };
@@ -166,7 +165,8 @@ export default async function handler(req: Request): Promise<Response> {
     // Today's date for duplicate check (BR timezone approximation)
     const today = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
 
-    const results: any[] = [];
+    interface BulkResult { cpf: string; status: string; bonus_count: number; error?: string }
+    const results: BulkResult[] = [];
     const batchSize = 5;
 
     for (let i = 0; i < cpfs.length; i += batchSize) {
@@ -193,13 +193,13 @@ export default async function handler(req: Request): Promise<Response> {
           if (result.success) {
             // Log to Supabase
             try {
-              await supabase.from('bonus_credits_log').insert({ cpf, valor, source: 'bulk-bonus', uuid } as any);
+              await supabase.from('bonus_credits_log').insert({ cpf, valor, source: 'bulk-bonus', uuid } as Record<string, unknown>);
             } catch {} // table may not exist yet, that's ok
             return { cpf, status: 'credited', bonus_count: 1 };
           }
           return { cpf, status: 'error', bonus_count: bonusCount, error: result.error };
-        } catch (e: any) {
-          return { cpf, status: 'error', bonus_count: 0, error: e.message };
+        } catch (e: unknown) {
+          return { cpf, status: 'error', bonus_count: 0, error: e instanceof Error ? e.message : 'Erro' };
         }
       }));
       results.push(...chunkResults);
@@ -217,8 +217,8 @@ export default async function handler(req: Request): Promise<Response> {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (err: unknown) {
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Erro' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

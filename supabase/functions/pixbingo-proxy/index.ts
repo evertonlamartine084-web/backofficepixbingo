@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ALLOWED_ORIGINS = [
@@ -151,7 +150,7 @@ function buildHeaders(cookies: string, baseUrl: string): Record<string, string> 
   return h;
 }
 
-async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: any): Promise<any> {
+async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: string | Record<string, string>): Promise<Record<string, unknown>> {
   const opts: RequestInit = { method, headers: { ...headers }, signal: AbortSignal.timeout(15000) };
   if (body && method === 'POST') {
     if (typeof body === 'string') {
@@ -217,7 +216,7 @@ Deno.serve(async (req) => {
     }
     const headers = buildHeaders(auth.cookies, baseUrl);
 
-    let result: any = null;
+    let result: Record<string, unknown> | null = null;
 
     switch (body.action) {
       case 'login':
@@ -296,7 +295,7 @@ Deno.serve(async (req) => {
         // Real form fields: uuid, carteira, valor, senha (admin password required)
         const creditBody: Record<string, string> = {
           uuid: id,
-          carteira: (body as any).carteira || 'BONUS',
+          carteira: (body as Record<string, unknown>).carteira as string || 'BONUS',
           valor: String(amount),
           senha: body.password, // admin password is required by the form
         };
@@ -390,7 +389,7 @@ Deno.serve(async (req) => {
 
         console.log(`[financeiro] page_status=${financePageRes.status}, login_page=${financeHtml.toLowerCase().includes('<h1>login')}, endpoint=${detectedPath}, csrf=${csrfToken ? 'yes' : 'no'}`);
 
-        const isFinanceError = (r: any) => {
+        const isFinanceError = (r: Record<string, unknown> | null) => {
           const code = Number(r?.code ?? r?._status ?? 0);
           const msg = String(r?.Msg || r?._raw || '').toLowerCase();
           return code >= 400 || msg.includes('inválid') || msg.includes('inval') || msg.includes('não encontrada') || msg.includes('nao encontrada');
@@ -407,7 +406,7 @@ Deno.serve(async (req) => {
           { label: 'POST minimal + data', method: 'POST', url: `${baseUrl}${detectedPath}`, body: Object.fromEntries(buildMinimalParams(false).entries()) },
         ];
 
-        let lastError: any = null;
+        let lastError: Record<string, unknown> | null = null;
         for (const attempt of attempts) {
           console.log(`[financeiro] tentativa: ${attempt.label}`);
           const current = await fetchJSON(attempt.url, headers, attempt.method, attempt.body);
@@ -481,7 +480,7 @@ Deno.serve(async (req) => {
           ]);
 
           // Try financeiro-geral with multiple strategies
-          let fgData: any = null;
+          let fgData: Record<string, unknown> | null = null;
           const fgStrategies = [
             { label: 'GET dt+data', fn: () => fetchJSON(`${baseUrl}/financeiro-geral/listar?${fgDtParams.toString()}`, headers, 'GET') },
             { label: 'POST dt+data', fn: () => fetchJSON(`${baseUrl}/financeiro-geral/listar`, headers, 'POST', Object.fromEntries(fgDtParams)) },
@@ -518,8 +517,10 @@ Deno.serve(async (req) => {
           const qtdSaque = Number(txSummary?.qtdeSaque || txSummary?.qtdSaque || 0);
 
           // Try multiple sources for unique depositors/sacantes
-          const totaisForUsers = Array.isArray(frData?.totais) ? frData.totais[0] : frData?.totais;
-          const fgTotaisForUsers = Array.isArray(fgData?.totais) ? fgData.totais[0] : fgData?.totais;
+          const frTotais = frData?.totais as Record<string, unknown>[] | Record<string, unknown> | undefined;
+          const totaisForUsers = (Array.isArray(frTotais) ? frTotais[0] : frTotais) as Record<string, unknown> | undefined;
+          const fgTotaisRaw = fgData?.totais as Record<string, unknown>[] | Record<string, unknown> | undefined;
+          const fgTotaisForUsers = (Array.isArray(fgTotaisRaw) ? fgTotaisRaw[0] : fgTotaisRaw) as Record<string, unknown> | undefined;
           
           const qtdDepositantes = Number(
             txSummary?.qtdDepositantes || txSummary?.depositantes || txSummary?.qtdeDepositantes ||
@@ -535,10 +536,10 @@ Deno.serve(async (req) => {
           );
 
           // Sum total_compra (bets) and total_premio (prizes) per product
-          const kenoRows = frData?.keno || [];
-          const cassinoRows = frData?.cassino || [];
+          const kenoRows = (frData?.keno || []) as Record<string, unknown>[];
+          const cassinoRows = (frData?.cassino || []) as Record<string, unknown>[];
 
-          const sumRows = (rows: any[]) => {
+          const sumRows = (rows: Record<string, unknown>[]) => {
             let compra = 0, premio = 0, bonusCompra = 0, bonusPremio = 0;
             for (const row of rows) {
               compra += Number(row?.total_compra || 0);
@@ -551,10 +552,13 @@ Deno.serve(async (req) => {
             return { apostas: compra, premios: premio, turnover: compra, ggr, bonusTurnover: bonusCompra, bonusGgr, margin: compra > 0 ? ((ggr / compra) * 100) : 0 };
           };
 
-          const totalKeno = frData?.totalKeno?.[0] || {};
-          const totalCassino = frData?.totalCassino?.[0] || {};
+          const frDataRecord = frData as Record<string, unknown>;
+          const totalKenoArr = frDataRecord?.totalKeno as Record<string, unknown>[] | undefined;
+          const totalKeno = totalKenoArr?.[0] || {};
+          const totalCassinoArr = frDataRecord?.totalCassino as Record<string, unknown>[] | undefined;
+          const totalCassino = totalCassinoArr?.[0] || {};
 
-          const buildFromTotal = (t: any) => {
+          const buildFromTotal = (t: Record<string, unknown>) => {
             const apostas = Number(t?.total_compra || 0);
             const premios = Number(t?.total_premio || 0);
             const bonusTurnover = Number(t?.total_compra_bonus || t?.bonus_compra || 0);
@@ -579,10 +583,10 @@ Deno.serve(async (req) => {
           const totalTransactions = Number(txSummary?.iTotalDisplayRecords || txSummary?.iTotalRecords || 0);
 
           // Extract totais - contains aggregated financial summary
-          const totaisArr = frData?.totais || [];
-          const totais = Array.isArray(totaisArr) ? totaisArr[0] : totaisArr;
-          const totalNewUsersArr = frData?.totalNewUsers || [];
-          const totalNewUsersObj = Array.isArray(totalNewUsersArr) ? totalNewUsersArr[0] : totalNewUsersArr;
+          const totaisArr = (frData?.totais || []) as Record<string, unknown>[] | Record<string, unknown>;
+          const totais = (Array.isArray(totaisArr) ? totaisArr[0] : totaisArr) as Record<string, unknown> | undefined;
+          const totalNewUsersArr = (frData?.totalNewUsers || []) as Record<string, unknown>[] | Record<string, unknown>;
+          const totalNewUsersObj = (Array.isArray(totalNewUsersArr) ? totalNewUsersArr[0] : totalNewUsersArr) as Record<string, unknown> | undefined;
 
           // Users data from totalNewUsers
           const newUsers = Number(totalNewUsersObj?.new_users || totalNewUsersObj?.novos || 0);
@@ -604,8 +608,8 @@ Deno.serve(async (req) => {
           } : null;
 
           // Wallet balance & bonus: prefer financeiro-geral, then totais from financeiro-resumo
-          const fgTotais = fgData?.totais;
-          const fgTotaisObj = Array.isArray(fgTotais) ? fgTotais[0] : fgTotais;
+          const fgTotaisWallet = fgData?.totais as Record<string, unknown>[] | Record<string, unknown> | undefined;
+          const fgTotaisObj = (Array.isArray(fgTotaisWallet) ? fgTotaisWallet[0] : fgTotaisWallet) as Record<string, unknown> | undefined;
           const fgSaldo = fgTotaisObj ? Number(fgTotaisObj.saldo || fgTotaisObj.credito || 0) : null;
           const fgBonus = fgTotaisObj ? Number(fgTotaisObj.bonus || fgTotaisObj.saldo_bonus || 0) : null;
 
@@ -799,7 +803,7 @@ Deno.serve(async (req) => {
         } catch {
           // Extract data from HTML
           const inputs = [...html.matchAll(/<input[^>]*name=['"]([^'"]+)['"][^>]*value=['"]([^'"]*)['"]/gi)]
-            .reduce((acc: Record<string, string>, m) => { acc[m[1]] = m[2]; return acc; }, {});
+            .reduce<Record<string, string>>((acc, m) => { acc[m[1]] = m[2]; return acc; }, {});
           result = { html_status: detailRes.status, fields: inputs };
         }
         break;
@@ -834,7 +838,7 @@ Deno.serve(async (req) => {
         break;
       }
       case 'scrape_page': {
-        const path = (body as any).path || '/dashboard';
+        const path = (body as Record<string, unknown>).path as string || '/dashboard';
         const pageRes = await fetch(`${baseUrl}${path}`, {
           method: 'GET',
           headers: { ...headers, Accept: 'text/html,application/xhtml+xml,*/*' },

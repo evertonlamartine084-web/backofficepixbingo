@@ -1,7 +1,81 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getCorsHeaders, optionsResponse } from './_cors.js';
 export const config = { runtime: 'edge' };
+
+interface XpConfigRow {
+  action: string;
+  xp_per_real: number;
+}
+
+interface TransactionRow {
+  tipo?: string;
+  operacao?: string;
+  valor: string | number;
+  data_registro?: string;
+}
+
+interface NormalizedTransaction {
+  tipo: string;
+  valor: string | number;
+  data_registro?: string;
+}
+
+interface DebugEntry {
+  strategy: Record<string, string> | string;
+  found?: number;
+  error?: string;
+  status?: number;
+  snippet?: string;
+}
+
+interface MiniGamePrize {
+  id: string;
+  label: string;
+  type: string;
+  value: number;
+  probability?: number;
+  sort_order?: number;
+  active?: boolean;
+  game_id?: string;
+}
+
+interface GameCell {
+  prize: MiniGamePrize;
+  winning: boolean;
+}
+
+interface ReferralConfig {
+  referrer_reward_type?: string;
+  referrer_reward_value?: number;
+  referred_reward_type?: string;
+  referred_reward_value?: number;
+  segment_id?: string;
+  max_referrals_per_player?: number;
+  require_deposit?: boolean;
+  require_bet?: boolean;
+  min_deposit_amount?: number;
+  min_bet_amount?: number;
+  commission_enabled?: boolean;
+  commission_duration_days?: number;
+  tiers?: Array<{ min_referrals: number; label: string; reward_type: string; reward_value: number }>;
+}
+
+interface LevelGained {
+  level: number;
+  xp_required: number;
+  reward_coins?: number;
+  reward_diamonds?: number;
+  reward_gems?: number;
+  tier?: string;
+  name?: string;
+}
+
+interface LeaderboardEntry {
+  tournament_id: string;
+  cpf: string;
+  score: number;
+  rank: number;
+}
 
 function isValidCPF(cpf: string): boolean {
   const digits = cpf.replace(/\D/g, '');
@@ -16,13 +90,13 @@ function isValidCPF(cpf: string): boolean {
 }
 
 // Inline XP sync to avoid import issues with Vercel Edge
-async function syncPlayerXpInline(cpf: string, supabase: any): Promise<void> {
+async function syncPlayerXpInline(cpf: string, supabase: SupabaseClient): Promise<void> {
   try {
     const { data: xpConfigs } = await supabase.from('xp_config').select('*');
     if (!xpConfigs?.length) return;
 
-    const apostaWeight = xpConfigs.find((c: any) => c.action === 'aposta')?.xp_per_real ?? 1;
-    const depositoWeight = xpConfigs.find((c: any) => c.action === 'deposito')?.xp_per_real ?? 0.3;
+    const apostaWeight = xpConfigs.find((c: XpConfigRow) => c.action === 'aposta')?.xp_per_real ?? 1;
+    const depositoWeight = xpConfigs.find((c: XpConfigRow) => c.action === 'deposito')?.xp_per_real ?? 0.3;
 
     const { data: wallet } = await supabase.from('player_wallets').select('*').eq('cpf', cpf).maybeSingle();
     if (!wallet) return;
@@ -46,8 +120,8 @@ async function syncPlayerXpInline(cpf: string, supabase: any): Promise<void> {
     if (!searchResult.uuid) return;
 
     // Fetch real game transactions via /usuarios/transacoes (has bets, deposits, wins)
-    let movimentacoes: any[] = [];
-    let historico: any[] = [];
+    let movimentacoes: TransactionRow[] = [];
+    let historico: TransactionRow[] = [];
     try {
       const txRes = await fetch(`${siteUrl}/usuarios/transacoes?id=${searchResult.uuid}`, {
         headers: hdrs, signal: AbortSignal.timeout(15000),
@@ -58,12 +132,12 @@ async function syncPlayerXpInline(cpf: string, supabase: any): Promise<void> {
     } catch { return; }
 
     const allTx = [
-      ...movimentacoes.map((m: any) => ({
+      ...movimentacoes.map((m: TransactionRow) => ({
         tipo: (m.tipo || '').toUpperCase(),
         valor: m.valor,
         data_registro: m.data_registro,
       })),
-      ...historico.map((h: any) => ({
+      ...historico.map((h: TransactionRow) => ({
         tipo: (h.operacao || h.tipo || '').toUpperCase(),
         valor: h.valor,
         data_registro: h.data_registro,
@@ -74,7 +148,7 @@ async function syncPlayerXpInline(cpf: string, supabase: any): Promise<void> {
 
     const lastSync = wallet.last_xp_sync ? new Date(wallet.last_xp_sync).getTime() : null;
 
-    const parseVal = (v: any): number => {
+    const parseVal = (v: string | number | null | undefined): number => {
       if (typeof v === 'number') return Math.abs(v);
       if (!v) return 0;
       const s = String(v).trim();
@@ -113,7 +187,7 @@ async function syncPlayerXpInline(cpf: string, supabase: any): Promise<void> {
         let correctLevel = 0;
         for (const lvl of fixLvls) { if ((wallet.xp || 0) >= lvl.xp_required) correctLevel = lvl.level; }
         if (correctLevel !== (wallet.level || 0)) {
-          await supabase.from('player_wallets').update({ level: correctLevel } as any).eq('cpf', cpf);
+          await supabase.from('player_wallets').update({ level: correctLevel } as Record<string, unknown>).eq('cpf', cpf);
         }
       }
       return;
@@ -142,13 +216,13 @@ async function syncPlayerXpInline(cpf: string, supabase: any): Promise<void> {
               cpf, from_level: wallet.level || 0, to_level: lvl.level,
               reward_coins: lvl.reward_coins || 0, reward_gems: lvl.reward_gems || 0,
               reward_diamonds: lvl.reward_diamonds || 0,
-            } as any);
+            } as Record<string, unknown>);
           } catch { /* ignore */ }
         }
       }
     }
 
-    const walletUpdate: any = {
+    const walletUpdate: Record<string, unknown> = {
       xp: currentXp, total_xp_earned: currentTotalXp, level: newLevel,
       last_xp_sync: newestTs ? new Date(newestTs).toISOString() : new Date().toISOString(),
     };
@@ -161,10 +235,10 @@ async function syncPlayerXpInline(cpf: string, supabase: any): Promise<void> {
     await supabase.from('player_wallets').update(walletUpdate).eq('cpf', cpf);
 
     if (betXp > 0) {
-      try { await supabase.from('xp_history').insert({ cpf, action: 'aposta', amount: totalBets, xp_earned: betXp, description: `R$${totalBets.toFixed(2)} apostado = ${betXp} XP` } as any); } catch { /* ignore */ }
+      try { await supabase.from('xp_history').insert({ cpf, action: 'aposta', amount: totalBets, xp_earned: betXp, description: `R$${totalBets.toFixed(2)} apostado = ${betXp} XP` } as Record<string, unknown>); } catch { /* ignore */ }
     }
     if (depXp > 0) {
-      try { await supabase.from('xp_history').insert({ cpf, action: 'deposito', amount: totalDeposits, xp_earned: depXp, description: `R$${totalDeposits.toFixed(2)} depositado = ${depXp} XP` } as any); } catch { /* ignore */ }
+      try { await supabase.from('xp_history').insert({ cpf, action: 'deposito', amount: totalDeposits, xp_earned: depXp, description: `R$${totalDeposits.toFixed(2)} depositado = ${depXp} XP` } as Record<string, unknown>); } catch { /* ignore */ }
     }
   } catch { /* ignore */ }
 }
@@ -242,9 +316,9 @@ function buildPlatformHeaders(cookies: string, baseUrl: string): Record<string, 
   };
 }
 
-async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string>, cpf: string): Promise<{ uuid: string | null; debug: any }> {
+async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string>, cpf: string): Promise<{ uuid: string | null; debug: DebugEntry[] }> {
   const userCols = ['username', 'celular', 'cpf', 'created_at', 'ultimo_login', 'situacao', 'uuid'];
-  const debugInfo: any[] = [];
+  const debugInfo: DebugEntry[] = [];
 
   // Strategy 1: Try /usuarios/listar with multiple search params
   const strategies = [
@@ -278,8 +352,8 @@ async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string
       const rows = data?.data || data?.aaData || [];
       debugInfo.push({ strategy: extra, found: rows.length });
       if (rows.length > 0) return { uuid: rows[0].uuid || null, debug: debugInfo };
-    } catch (e: any) {
-      debugInfo.push({ strategy: extra, error: e.message });
+    } catch (e: unknown) {
+      debugInfo.push({ strategy: extra, error: e instanceof Error ? e.message : 'Erro' });
     }
   }
 
@@ -293,8 +367,8 @@ async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string
     const data = JSON.parse(text);
     if (Array.isArray(data) && data.length > 0) return { uuid: data[0].uuid || data[0].id || null, debug: debugInfo };
     if (data?.data?.length > 0) return { uuid: data.data[0].uuid || null, debug: debugInfo };
-  } catch (e: any) {
-    debugInfo.push({ strategy: 'buscar', error: e.message });
+  } catch (e: unknown) {
+    debugInfo.push({ strategy: 'buscar', error: e instanceof Error ? e.message : 'Erro' });
   }
 
   // Strategy 3: Try /api/usuarios or /api/users
@@ -308,8 +382,8 @@ async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string
       const data = JSON.parse(text);
       if (Array.isArray(data) && data.length > 0) return { uuid: data[0].uuid || data[0].id || null, debug: debugInfo };
       if (data?.data?.length > 0) return { uuid: data.data[0].uuid || null, debug: debugInfo };
-    } catch (e: any) {
-      debugInfo.push({ strategy: path, error: e.message });
+    } catch (e: unknown) {
+      debugInfo.push({ strategy: path, error: e instanceof Error ? e.message : 'Erro' });
     }
   }
 
@@ -327,43 +401,43 @@ async function creditBonusOnPlatform(baseUrl: string, headers: Record<string, st
     const result = JSON.parse(text);
     const ok = result?.status === true || String(result?.msg || '').toLowerCase().includes('sucesso');
     return { success: ok, msg: result?.msg || result?.Msg || JSON.stringify(result).slice(0, 200) };
-  } catch (e: any) {
-    return { success: false, msg: e.message };
+  } catch (e: unknown) {
+    return { success: false, msg: e instanceof Error ? e.message : 'Erro' };
   }
 }
 
 // Process referral rewards for both referrer and referred
-async function processReferralRewards(supabase: any, referralId: string, referrerCpf: string, referredCpf: string, config: any) {
+async function processReferralRewards(supabase: SupabaseClient, referralId: string, referrerCpf: string, referredCpf: string, config: ReferralConfig | null) {
   if (!config) return;
   // Reward referrer
   if (config.referrer_reward_value > 0) {
     const { data: rw } = await supabase.from('player_wallets').select('*').eq('cpf', referrerCpf).maybeSingle();
     if (rw) {
       if (config.referrer_reward_type === 'coins') {
-        await supabase.from('player_wallets').update({ coins: (rw.coins || 0) + config.referrer_reward_value, total_coins_earned: (rw.total_coins_earned || 0) + config.referrer_reward_value } as any).eq('cpf', referrerCpf);
+        await supabase.from('player_wallets').update({ coins: (rw.coins || 0) + config.referrer_reward_value, total_coins_earned: (rw.total_coins_earned || 0) + config.referrer_reward_value } as Record<string, unknown>).eq('cpf', referrerCpf);
       } else if (config.referrer_reward_type === 'diamonds') {
-        await supabase.from('player_wallets').update({ diamonds: (rw.diamonds || 0) + config.referrer_reward_value } as any).eq('cpf', referrerCpf);
+        await supabase.from('player_wallets').update({ diamonds: (rw.diamonds || 0) + config.referrer_reward_value } as Record<string, unknown>).eq('cpf', referrerCpf);
       } else if (config.referrer_reward_type === 'xp') {
-        await supabase.from('player_wallets').update({ xp: (rw.xp || 0) + config.referrer_reward_value, total_xp_earned: (rw.total_xp_earned || 0) + config.referrer_reward_value } as any).eq('cpf', referrerCpf);
+        await supabase.from('player_wallets').update({ xp: (rw.xp || 0) + config.referrer_reward_value, total_xp_earned: (rw.total_xp_earned || 0) + config.referrer_reward_value } as Record<string, unknown>).eq('cpf', referrerCpf);
       }
-      await supabase.from('player_activity_log').insert({ cpf: referrerCpf, type: 'referral', amount: config.referrer_reward_value, source: 'referral_reward', description: `Recompensa por indicação` } as any);
+      await supabase.from('player_activity_log').insert({ cpf: referrerCpf, type: 'referral', amount: config.referrer_reward_value, source: 'referral_reward', description: `Recompensa por indicação` } as Record<string, unknown>);
     }
-    await supabase.from('referrals').update({ referrer_rewarded: true, referrer_reward_amount: config.referrer_reward_value } as any).eq('id', referralId);
+    await supabase.from('referrals').update({ referrer_rewarded: true, referrer_reward_amount: config.referrer_reward_value } as Record<string, unknown>).eq('id', referralId);
   }
   // Reward referred
   if (config.referred_reward_value > 0) {
     const { data: rw2 } = await supabase.from('player_wallets').select('*').eq('cpf', referredCpf).maybeSingle();
     if (rw2) {
       if (config.referred_reward_type === 'coins') {
-        await supabase.from('player_wallets').update({ coins: (rw2.coins || 0) + config.referred_reward_value, total_coins_earned: (rw2.total_coins_earned || 0) + config.referred_reward_value } as any).eq('cpf', referredCpf);
+        await supabase.from('player_wallets').update({ coins: (rw2.coins || 0) + config.referred_reward_value, total_coins_earned: (rw2.total_coins_earned || 0) + config.referred_reward_value } as Record<string, unknown>).eq('cpf', referredCpf);
       } else if (config.referred_reward_type === 'diamonds') {
-        await supabase.from('player_wallets').update({ diamonds: (rw2.diamonds || 0) + config.referred_reward_value } as any).eq('cpf', referredCpf);
+        await supabase.from('player_wallets').update({ diamonds: (rw2.diamonds || 0) + config.referred_reward_value } as Record<string, unknown>).eq('cpf', referredCpf);
       } else if (config.referred_reward_type === 'xp') {
-        await supabase.from('player_wallets').update({ xp: (rw2.xp || 0) + config.referred_reward_value, total_xp_earned: (rw2.total_xp_earned || 0) + config.referred_reward_value } as any).eq('cpf', referredCpf);
+        await supabase.from('player_wallets').update({ xp: (rw2.xp || 0) + config.referred_reward_value, total_xp_earned: (rw2.total_xp_earned || 0) + config.referred_reward_value } as Record<string, unknown>).eq('cpf', referredCpf);
       }
-      await supabase.from('player_activity_log').insert({ cpf: referredCpf, type: 'referral', amount: config.referred_reward_value, source: 'referral_welcome', description: `Bônus de boas-vindas (indicação)` } as any);
+      await supabase.from('player_activity_log').insert({ cpf: referredCpf, type: 'referral', amount: config.referred_reward_value, source: 'referral_welcome', description: `Bônus de boas-vindas (indicação)` } as Record<string, unknown>);
     }
-    await supabase.from('referrals').update({ referred_rewarded: true, referred_reward_amount: config.referred_reward_value, completed_at: new Date().toISOString(), status: 'completed' } as any).eq('id', referralId);
+    await supabase.from('referrals').update({ referred_rewarded: true, referred_reward_amount: config.referred_reward_value, completed_at: new Date().toISOString(), status: 'completed' } as Record<string, unknown>).eq('id', referralId);
   }
 }
 
@@ -391,7 +465,7 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     // Helper: filter by segment (show items matching segment OR items with no segment)
-    const applySegmentFilter = (query: any) => {
+    const applySegmentFilter = <T extends { or: (filter: string) => T }>(query: T): T => {
       if (!segmentId) return query;
       return query.or(`segment_id.eq.${segmentId},segment_id.is.null`);
     };
@@ -452,13 +526,17 @@ export default async function handler(req: Request): Promise<Response> {
         } catch (_e) {}
       }
 
-      // Check widget segment restriction — if configured, only show widget to players in that segment
+      // Check widget segment restriction and section toggles
+      let widgetSections: Record<string, boolean> = { missions: true, achievements: true, tournaments: true, wheel: true, mini_games: true, store: true, levels: true, referrals: true };
       {
         const { data: pCfg } = await supabase.from('platform_config')
-          .select('widget_segment_id')
+          .select('widget_segment_id, widget_sections')
           .eq('active', true)
           .limit(1)
           .maybeSingle();
+        if (pCfg?.widget_sections) {
+          widgetSections = { ...widgetSections, ...(pCfg.widget_sections as Record<string, boolean>) };
+        }
         if (pCfg?.widget_segment_id) {
           // No CPF = can't verify segment membership = hide widget
           if (!playerCpf) {
@@ -489,7 +567,7 @@ export default async function handler(req: Request): Promise<Response> {
         .eq('active', true).order('probability', { ascending: false });
 
       // Fire all independent queries in a single Promise.all
-      const baseQueries: PromiseLike<any>[] = [
+      const baseQueries: PromiseLike<{ data: unknown; error: unknown }>[] = [
         applySegmentFilter(achievementsQ),          // 0
         applySegmentFilter(missionsQ),              // 1
         applySegmentFilter(tournamentsQ),           // 2
@@ -526,8 +604,8 @@ export default async function handler(req: Request): Promise<Response> {
       const miniGames = miniGamesResult.data || [];
 
       // Get mini game prizes (depends on mini game IDs)
-      const miniGameIds = miniGames.map((g: any) => g.id);
-      let miniGamePrizes: any[] = [];
+      const miniGameIds = miniGames.map((g: Record<string, unknown>) => g.id);
+      let miniGamePrizes: Record<string, unknown>[] = [];
       if (miniGameIds.length > 0) {
         const { data: mgp } = await supabase.from('mini_game_prizes').select('*').in('game_id', miniGameIds).eq('active', true).order('sort_order');
         miniGamePrizes = mgp || [];
@@ -540,15 +618,15 @@ export default async function handler(req: Request): Promise<Response> {
       // Player-specific data
       let wallet = null;
       let playerSpins = null;
-      let missionProgress: any[] = [];
-      let achievementProgress: any[] = [];
-      let activityLog: any[] = [];
-      let pendingRewards: any[] = [];
-      let tournamentEntries: any[] = [];
-      let miniGameAttempts: any[] = [];
-      let referralConfig: any = referralConfigResult?.data || null;
-      let referralCode: any = null;
-      let playerReferrals: any[] = [];
+      let missionProgress: Record<string, unknown>[] = [];
+      let achievementProgress: Record<string, unknown>[] = [];
+      let activityLog: Record<string, unknown>[] = [];
+      let pendingRewards: Record<string, unknown>[] = [];
+      let tournamentEntries: Record<string, unknown>[] = [];
+      let miniGameAttempts: Record<string, unknown>[] = [];
+      let referralConfig: ReferralConfig | null = (referralConfigResult?.data as ReferralConfig | null) || null;
+      let referralCode: Record<string, unknown> | null = null;
+      let playerReferrals: Record<string, unknown>[] = [];
 
       if (playerCpf) {
         const walletResult = allResults[9];
@@ -593,7 +671,7 @@ export default async function handler(req: Request): Promise<Response> {
         // If player doesn't have a wallet yet, create one (insert only, never overwrite)
         if (!wallet) {
           const { data: newWallet } = await supabase.from('player_wallets')
-            .upsert({ cpf: playerCpf, coins: 0, xp: 0, level: 1 } as any, { onConflict: 'cpf', ignoreDuplicates: true })
+            .upsert({ cpf: playerCpf, coins: 0, xp: 0, level: 1 } as Record<string, unknown>, { onConflict: 'cpf', ignoreDuplicates: true })
             .select()
             .single();
           // If upsert returned nothing (existing row), re-fetch
@@ -608,7 +686,7 @@ export default async function handler(req: Request): Promise<Response> {
         // Reset daily spins if new day
         if (playerSpins && playerSpins.last_spin_date !== new Date().toISOString().slice(0, 10)) {
           await supabase.from('player_spins')
-            .update({ spins_used_today: 0, last_spin_date: new Date().toISOString().slice(0, 10) } as any)
+            .update({ spins_used_today: 0, last_spin_date: new Date().toISOString().slice(0, 10) } as Record<string, unknown>)
             .eq('cpf', playerCpf);
           playerSpins.spins_used_today = 0;
         }
@@ -618,8 +696,8 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       // Get tournament leaderboards for active tournaments
-      const tournamentIds = (tournaments.data || []).map((t: any) => t.id);
-      const leaderboards: Record<string, any[]> = {};
+      const tournamentIds = (tournaments.data || []).map((t: Record<string, unknown>) => t.id);
+      const leaderboards: Record<string, LeaderboardEntry[]> = {};
       if (tournamentIds.length > 0) {
         const { data: entries } = await supabase
           .from('player_tournament_entries')
@@ -636,29 +714,33 @@ export default async function handler(req: Request): Promise<Response> {
 
       const wheelCfg = wheelConfigResult?.data || { max_spins_per_day: 3, spin_cost_coins: 0, free_spins_per_day: 1 };
 
+      // Apply widget section toggles — return empty arrays for disabled sections
+      const ws = widgetSections;
+
       return new Response(JSON.stringify({
-        achievements: achievements.data || [],
-        missions: missions.data || [],
-        tournaments: tournaments.data || [],
-        wheel_prizes: wheelPrizes.data || [],
-        levels: levels.data || [],
-        store_items: storeItems.data || [],
-        wheel_config: wheelCfg,
-        leaderboards,
+        achievements: ws.achievements ? (achievements.data || []) : [],
+        missions: ws.missions ? (missions.data || []) : [],
+        tournaments: ws.tournaments ? (tournaments.data || []) : [],
+        wheel_prizes: ws.wheel ? (wheelPrizes.data || []) : [],
+        levels: ws.levels ? (levels.data || []) : [],
+        store_items: ws.store ? (storeItems.data || []) : [],
+        wheel_config: ws.wheel ? wheelCfg : { max_spins_per_day: 0, spin_cost_coins: 0, free_spins_per_day: 0 },
+        leaderboards: ws.tournaments ? leaderboards : {},
         wallet: wallet || null,
-        player_spins: playerSpins || null,
-        mission_progress: missionProgress,
-        achievement_progress: achievementProgress,
+        player_spins: ws.wheel ? (playerSpins || null) : null,
+        mission_progress: ws.missions ? missionProgress : [],
+        achievement_progress: ws.achievements ? achievementProgress : [],
         activity_log: activityLog,
         pending_rewards: pendingRewards,
-        tournament_entries: tournamentEntries,
-        mini_games: miniGames,
-        mini_game_prizes: miniGamePrizes,
-        mini_game_attempts: miniGameAttempts,
-        referral_config: referralConfig || null,
-        referral_code: referralCode || null,
-        referrals: playerReferrals || [],
+        tournament_entries: ws.tournaments ? tournamentEntries : [],
+        mini_games: ws.mini_games ? miniGames : [],
+        mini_game_prizes: ws.mini_games ? miniGamePrizes : [],
+        mini_game_attempts: ws.mini_games ? miniGameAttempts : [],
+        referral_config: ws.referrals ? (referralConfig || null) : null,
+        referral_code: ws.referrals ? (referralCode || null) : null,
+        referrals: ws.referrals ? (playerReferrals || []) : [],
         _ref_registered: refRegistered,
+        _widget_sections: ws,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=30' },
       });
@@ -682,7 +764,7 @@ export default async function handler(req: Request): Promise<Response> {
 
       if (!spinRecord) {
         const { data: newRecord } = await supabase.from('player_spins')
-          .upsert({ cpf: playerCpf, spins_used_today: 0, last_spin_date: today, total_spins: 0 } as any, { onConflict: 'cpf' })
+          .upsert({ cpf: playerCpf, spins_used_today: 0, last_spin_date: today, total_spins: 0 } as Record<string, unknown>, { onConflict: 'cpf' })
           .select().single();
         spinRecord = newRecord;
       }
@@ -716,7 +798,7 @@ export default async function handler(req: Request): Promise<Response> {
         }
 
         // Deduct coins
-        await supabase.from('player_wallets').update({ coins: (wallet.coins || 0) - coinsCost } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ coins: (wallet.coins || 0) - coinsCost } as Record<string, unknown>).eq('cpf', playerCpf);
       }
 
       // Get prizes
@@ -756,15 +838,15 @@ export default async function handler(req: Request): Promise<Response> {
           spins_used_today: spinsUsed + 1,
           last_spin_date: today,
           total_spins: (spinRecord?.total_spins || 0) + 1,
-        } as any, { onConflict: 'cpf' });
+        } as Record<string, unknown>, { onConflict: 'cpf' });
 
       // Award prize to wallet
       if (selected.type === 'coins' && selected.value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + selected.value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + selected.value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if (selected.type === 'xp' && selected.value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + selected.value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + selected.value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if (selected.type === 'bonus' && selected.value > 0) {
         try {
           await supabase.from('player_rewards_pending').insert({
@@ -773,7 +855,7 @@ export default async function handler(req: Request): Promise<Response> {
             reward_value: selected.value,
             source: 'Roleta Diária',
             description: `Bônus de R$${selected.value} da roleta`,
-          } as any);
+          } as Record<string, unknown>);
         } catch { /* ignore */ }
       } else if (selected.type === 'free_bet' && selected.value > 0) {
         try {
@@ -783,13 +865,13 @@ export default async function handler(req: Request): Promise<Response> {
             reward_value: selected.value,
             source: 'Roleta Diária',
             description: `Free bet de R$${selected.value} da roleta`,
-          } as any);
+          } as Record<string, unknown>);
         } catch { /* ignore */ }
       } else if (selected.type === 'spins' && selected.value > 0) {
         // Award extra spins by reducing spins_used_today
         const newUsed = Math.max(0, spinsUsed + 1 - selected.value);
         await supabase.from('player_spins')
-          .update({ spins_used_today: newUsed } as any)
+          .update({ spins_used_today: newUsed } as Record<string, unknown>)
           .eq('cpf', playerCpf);
       }
 
@@ -801,7 +883,7 @@ export default async function handler(req: Request): Promise<Response> {
           amount: selected.type === 'nothing' ? 0 : selected.value,
           source: 'Roleta Diária',
           description: `Girou a roleta e ganhou: ${selected.label}`,
-        } as any);
+        } as Record<string, unknown>);
       } catch { /* ignore */ }
 
       // If coins were spent, log that too
@@ -813,7 +895,7 @@ export default async function handler(req: Request): Promise<Response> {
             amount: -coinsCost,
             source: 'Roleta Diária',
             description: `Gasto ${coinsCost} moedas para girar a roleta`,
-          } as any);
+          } as Record<string, unknown>);
         } catch { /* ignore */ }
       }
 
@@ -872,7 +954,7 @@ export default async function handler(req: Request): Promise<Response> {
         }
         // Deduct
         await supabase.from('player_wallets')
-          .update({ coins: (wallet.coins || 0) - coinsPaid } as any)
+          .update({ coins: (wallet.coins || 0) - coinsPaid } as Record<string, unknown>)
           .eq('cpf', playerCpf);
       }
 
@@ -883,7 +965,7 @@ export default async function handler(req: Request): Promise<Response> {
         opted_in: true,
         bought_in: coinsPaid > 0,
         coins_paid: coinsPaid,
-      } as any);
+      } as Record<string, unknown>);
 
       // Log
       try {
@@ -894,7 +976,7 @@ export default async function handler(req: Request): Promise<Response> {
           source: 'Torneio',
           source_id: tournamentId,
           description: `Inscreveu-se no torneio: ${tournament.name}`,
-        } as any);
+        } as Record<string, unknown>);
       } catch { /* ignore */ }
 
       return new Response(JSON.stringify({ success: true, coins_paid: coinsPaid }), {
@@ -957,11 +1039,11 @@ export default async function handler(req: Request): Promise<Response> {
             headers: headers2, signal: AbortSignal.timeout(10000),
           });
           const txText = await txRes.text();
-          let txData: any;
+          let txData: Record<string, unknown> | null;
           try { txData = JSON.parse(txText); } catch { txData = null; }
           const carteiras = txData?.carteiras;
           // Parse BR currency format: "4.279,46" → 4279.46
-          const parseBR = (v: any): number => {
+          const parseBR = (v: unknown): number => {
             if (typeof v === 'number') return v;
             if (!v) return 0;
             return Number(String(v).replace(/\./g, '').replace(',', '.')) || 0;
@@ -990,8 +1072,8 @@ export default async function handler(req: Request): Promise<Response> {
         return new Response(JSON.stringify({ saldo, bonus }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
-      } catch (e: any) {
-        return new Response(JSON.stringify({ saldo: 0, bonus: 0, error: e.message }), {
+      } catch (e: unknown) {
+        return new Response(JSON.stringify({ saldo: 0, bonus: 0, error: e instanceof Error ? e.message : 'Erro' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -1079,7 +1161,7 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       // Deduct coins, diamonds, and gems (xp)
-      const walletUpdate: any = {};
+      const walletUpdate: Record<string, unknown> = {};
       if (item.price_coins > 0) walletUpdate.coins = coins - item.price_coins;
       if (item.price_diamonds > 0) walletUpdate.diamonds = diamonds - item.price_diamonds;
       if (item.price_xp > 0) walletUpdate.xp = xp - item.price_xp;
@@ -1126,8 +1208,8 @@ export default async function handler(req: Request): Promise<Response> {
             } else {
               deliveryNote = 'Config da plataforma não encontrada';
             }
-          } catch (e: any) {
-            deliveryNote = `Erro: ${e.message}`;
+          } catch (e: unknown) {
+            deliveryNote = `Erro: ${e instanceof Error ? e.message : 'Erro'}`;
           }
         } else {
           deliveryNote = 'Valor inválido para crédito';
@@ -1137,7 +1219,7 @@ export default async function handler(req: Request): Promise<Response> {
         if (bonusCoins > 0) {
           const newBalance = (coins - (item.price_coins || 0)) + bonusCoins;
           await supabase.from('player_wallets')
-            .update({ coins: newBalance } as any)
+            .update({ coins: newBalance } as Record<string, unknown>)
             .eq('cpf', playerCpf);
           deliveryStatus = 'delivered';
           deliveryNote = `+${bonusCoins} moedas adicionadas`;
@@ -1147,7 +1229,7 @@ export default async function handler(req: Request): Promise<Response> {
         if (bonusXp > 0) {
           const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
           await supabase.from('player_wallets')
-            .update({ xp: (w?.xp || 0) + bonusXp } as any)
+            .update({ xp: (w?.xp || 0) + bonusXp } as Record<string, unknown>)
             .eq('cpf', playerCpf);
           deliveryStatus = 'delivered';
           deliveryNote = `+${bonusXp} XP adicionado`;
@@ -1160,7 +1242,7 @@ export default async function handler(req: Request): Promise<Response> {
             .update({
               diamonds: (w?.diamonds || 0) + bonusDiamonds,
               total_diamonds_earned: (w?.total_diamonds_earned || 0) + bonusDiamonds,
-            } as any)
+            } as Record<string, unknown>)
             .eq('cpf', playerCpf);
           deliveryStatus = 'delivered';
           deliveryNote = `+${bonusDiamonds} diamantes adicionados`;
@@ -1179,11 +1261,11 @@ export default async function handler(req: Request): Promise<Response> {
           .select('*').eq('cpf', playerCpf).eq('game_id', targetGameId).maybeSingle();
         if (attRec) {
           await supabase.from('player_mini_game_attempts')
-            .update({ purchased_attempts: (attRec.purchased_attempts || 0) + qty } as any)
+            .update({ purchased_attempts: (attRec.purchased_attempts || 0) + qty } as Record<string, unknown>)
             .eq('cpf', playerCpf).eq('game_id', targetGameId);
         } else {
           await supabase.from('player_mini_game_attempts')
-            .insert({ cpf: playerCpf, game_id: targetGameId, attempts_today: 0, last_attempt_date: new Date().toISOString().slice(0, 10), total_attempts: 0, purchased_attempts: qty } as any);
+            .insert({ cpf: playerCpf, game_id: targetGameId, attempts_today: 0, last_attempt_date: new Date().toISOString().slice(0, 10), total_attempts: 0, purchased_attempts: qty } as Record<string, unknown>);
         }
         const gameLabels: Record<string, string> = { gem_chest: 'Baú de Gemas', gem_roulette: 'Roleta de Gemas', diamond_chest: 'Baú de Diamante' };
         deliveryStatus = 'delivered';
@@ -1218,8 +1300,8 @@ export default async function handler(req: Request): Promise<Response> {
             } else {
               deliveryNote = 'Config da plataforma não encontrada';
             }
-          } catch (e: any) {
-            deliveryNote = `Erro: ${e.message}`;
+          } catch (e: unknown) {
+            deliveryNote = `Erro: ${e instanceof Error ? e.message : 'Erro'}`;
           }
         } else {
           deliveryNote = 'Valor inválido para crédito';
@@ -1233,7 +1315,7 @@ export default async function handler(req: Request): Promise<Response> {
           source: 'Loja',
           source_id: itemId,
           description: `${item.name} — Giros grátis`,
-        } as any);
+        } as Record<string, unknown>);
         deliveryStatus = 'pending_manual';
         deliveryNote = `${rewardValue} giro(s) grátis — aguardando entrega`;
       } else if (rewardType === 'physical' || rewardType === 'coupon') {
@@ -1244,7 +1326,7 @@ export default async function handler(req: Request): Promise<Response> {
           source: 'Loja',
           source_id: itemId,
           description: `${item.name}${rewardType === 'coupon' ? ' — Cupom' : ' — Entrega física'}`,
-        } as any);
+        } as Record<string, unknown>);
         deliveryStatus = 'pending_manual';
         deliveryNote = rewardType === 'coupon' ? 'Cupom gerado, aguardando entrega' : 'Item físico, aguardando entrega';
       }
@@ -1261,11 +1343,11 @@ export default async function handler(req: Request): Promise<Response> {
         reward_value: rewardValue,
         delivered_at: deliveryStatus === 'delivered' ? new Date().toISOString() : null,
         delivery_note: deliveryNote,
-      } as any);
+      } as Record<string, unknown>);
 
       // Reduce stock
       if (item.stock !== null) {
-        await supabase.from('store_items').update({ stock: item.stock - 1 } as any).eq('id', itemId);
+        await supabase.from('store_items').update({ stock: item.stock - 1 } as Record<string, unknown>).eq('id', itemId);
       }
 
       // Log
@@ -1277,7 +1359,7 @@ export default async function handler(req: Request): Promise<Response> {
           source: 'Loja',
           source_id: itemId,
           description: `Comprou: ${item.name}`,
-        } as any);
+        } as Record<string, unknown>);
         if (deliveryStatus === 'delivered') {
           await supabase.from('player_activity_log').insert({
             cpf: playerCpf,
@@ -1286,7 +1368,7 @@ export default async function handler(req: Request): Promise<Response> {
             source: 'Loja',
             source_id: itemId,
             description: deliveryNote,
-          } as any);
+          } as Record<string, unknown>);
         }
       } catch { /* ignore */ }
 
@@ -1331,19 +1413,19 @@ export default async function handler(req: Request): Promise<Response> {
 
       // Mark claimed
       await supabase.from('player_rewards_pending')
-        .update({ claimed_at: new Date().toISOString() } as any)
+        .update({ claimed_at: new Date().toISOString() } as Record<string, unknown>)
         .eq('id', rewardId);
 
       // Award to wallet
       if (reward.reward_type === 'coins') {
         const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
         await supabase.from('player_wallets')
-          .update({ coins: (w?.coins || 0) + reward.reward_value } as any)
+          .update({ coins: (w?.coins || 0) + reward.reward_value } as Record<string, unknown>)
           .eq('cpf', playerCpf);
       } else if (reward.reward_type === 'xp') {
         const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
         await supabase.from('player_wallets')
-          .update({ xp: (w?.xp || 0) + reward.reward_value } as any)
+          .update({ xp: (w?.xp || 0) + reward.reward_value } as Record<string, unknown>)
           .eq('cpf', playerCpf);
       }
 
@@ -1355,7 +1437,7 @@ export default async function handler(req: Request): Promise<Response> {
           amount: reward.reward_value,
           source: reward.source,
           description: `Resgatou: ${reward.description || reward.source}`,
-        } as any);
+        } as Record<string, unknown>);
       } catch { /* ignore */ }
 
       return new Response(JSON.stringify({ success: true }), {
@@ -1382,7 +1464,7 @@ export default async function handler(req: Request): Promise<Response> {
         mission_id: missionId,
         opted_in: true,
         started_at: new Date().toISOString(),
-      } as any, { onConflict: 'cpf,mission_id' });
+      } as Record<string, unknown>, { onConflict: 'cpf,mission_id' });
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -1428,10 +1510,10 @@ export default async function handler(req: Request): Promise<Response> {
       // Award reward
       if (mission.reward_type === 'coins' && mission.reward_value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + mission.reward_value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + mission.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if (mission.reward_type === 'xp' && mission.reward_value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + mission.reward_value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + mission.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if ((mission.reward_type === 'bonus' || mission.reward_type === 'free_bet') && mission.reward_value > 0) {
         try {
           await supabase.from('player_rewards_pending').insert({
@@ -1440,13 +1522,13 @@ export default async function handler(req: Request): Promise<Response> {
             reward_value: mission.reward_value,
             source: mission.name,
             description: `Missão: ${mission.name}`,
-          } as any);
+          } as Record<string, unknown>);
         } catch { /* ignore */ }
       }
 
       // Mark as claimed
       await supabase.from('player_mission_progress')
-        .update({ claimed: true, claimed_at: new Date().toISOString() } as any)
+        .update({ claimed: true, claimed_at: new Date().toISOString() } as Record<string, unknown>)
         .eq('cpf', playerCpf).eq('mission_id', missionId);
 
       // Log activity
@@ -1457,7 +1539,7 @@ export default async function handler(req: Request): Promise<Response> {
           amount: mission.reward_value,
           source: mission.name,
           description: `Missão resgatada: ${mission.name}`,
-        } as any);
+        } as Record<string, unknown>);
       } catch { /* ignore */ }
 
       return new Response(JSON.stringify({ success: true, reward_type: mission.reward_type, reward_value: mission.reward_value }), {
@@ -1494,7 +1576,7 @@ export default async function handler(req: Request): Promise<Response> {
 
       if (!attemptRec) {
         const { data: newRec } = await supabase.from('player_mini_game_attempts')
-          .upsert({ cpf: playerCpf, game_id: gameId, attempts_today: 0, last_attempt_date: today, total_attempts: 0 } as any, { onConflict: 'cpf,game_id' })
+          .upsert({ cpf: playerCpf, game_id: gameId, attempts_today: 0, last_attempt_date: today, total_attempts: 0 } as Record<string, unknown>, { onConflict: 'cpf,game_id' })
           .select().single();
         attemptRec = newRec;
       }
@@ -1528,7 +1610,7 @@ export default async function handler(req: Request): Promise<Response> {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-        await supabase.from('player_wallets').update({ coins: (wallet.coins || 0) - coinsCost } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ coins: (wallet.coins || 0) - coinsCost } as Record<string, unknown>).eq('cpf', playerCpf);
       }
 
       // Get prizes
@@ -1542,7 +1624,7 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       // Weighted random selection
-      const totalWeight = prizes.reduce((s: number, p: any) => s + (p.probability || 1), 0);
+      const totalWeight = prizes.reduce((s: number, p: Record<string, unknown>) => s + ((p.probability as number) || 1), 0);
       let random = Math.random() * totalWeight;
       let selected = prizes[0];
       for (const prize of prizes) {
@@ -1551,7 +1633,7 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       // Update attempt record
-      const upsertData: any = {
+      const upsertData: Record<string, unknown> = {
         cpf: playerCpf,
         game_id: gameId,
         attempts_today: attemptsUsed + 1,
@@ -1568,13 +1650,13 @@ export default async function handler(req: Request): Promise<Response> {
       // Award prize
       if (selected.type === 'coins' && selected.value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + selected.value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + selected.value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if (selected.type === 'xp' && selected.value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('xp, total_xp_earned').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + selected.value, total_xp_earned: (w?.total_xp_earned || 0) + selected.value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + selected.value, total_xp_earned: (w?.total_xp_earned || 0) + selected.value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if (selected.type === 'diamonds' && selected.value > 0) {
         const { data: w } = await supabase.from('player_wallets').select('diamonds, total_diamonds_earned').eq('cpf', playerCpf).maybeSingle();
-        await supabase.from('player_wallets').update({ diamonds: (w?.diamonds || 0) + selected.value, total_diamonds_earned: (w?.total_diamonds_earned || 0) + selected.value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ diamonds: (w?.diamonds || 0) + selected.value, total_diamonds_earned: (w?.total_diamonds_earned || 0) + selected.value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if ((selected.type === 'bonus' || selected.type === 'free_bet') && selected.value > 0) {
         try {
           await supabase.from('player_rewards_pending').insert({
@@ -1583,7 +1665,7 @@ export default async function handler(req: Request): Promise<Response> {
             reward_value: selected.value,
             source: game.name,
             description: `${selected.label} - ${game.name}`,
-          } as any);
+          } as Record<string, unknown>);
         } catch { /* ignore */ }
       }
 
@@ -1595,15 +1677,15 @@ export default async function handler(req: Request): Promise<Response> {
           amount: selected.type === 'nothing' ? 0 : selected.value,
           source: game.name,
           description: `${game.name}: ${selected.label}`,
-        } as any);
+        } as Record<string, unknown>);
       } catch { /* ignore */ }
 
       // For scratch card: return 9 cells (3 winning + 6 random), shuffled
-      const gameData: any = {};
+      const gameData: Record<string, unknown> = {};
       if (game.type === 'scratch_card') {
-        const cells: any[] = [];
+        const cells: GameCell[] = [];
         for (let i = 0; i < 3; i++) cells.push({ prize: selected, winning: true });
-        const others = prizes.filter((p: any) => p.id !== selected.id);
+        const others = prizes.filter((p: MiniGamePrize) => p.id !== selected.id);
         for (let i = 0; i < 6; i++) {
           cells.push({ prize: others[i % Math.max(1, others.length)] || selected, winning: false });
         }
@@ -1614,9 +1696,9 @@ export default async function handler(req: Request): Promise<Response> {
         gameData.cells = cells;
       } else if (game.type === 'gift_box') {
         const numBoxes = 6;
-        const boxes: any[] = [];
+        const boxes: GameCell[] = [];
         boxes.push({ prize: selected, winning: true });
-        const nothing = prizes.find((p: any) => p.type === 'nothing') || { label: 'Tente novamente', type: 'nothing', value: 0 };
+        const nothing = prizes.find((p: MiniGamePrize) => p.type === 'nothing') || { label: 'Tente novamente', type: 'nothing', value: 0 };
         for (let i = 0; i < numBoxes - 1; i++) {
           boxes.push({ prize: nothing, winning: false });
         }
@@ -1659,7 +1741,7 @@ export default async function handler(req: Request): Promise<Response> {
       // Generate unique code
       const code = 'PBR' + playerCpf.slice(-4) + Math.random().toString(36).substring(2, 6).toUpperCase();
       const { data: newCode, error: codeErr } = await supabase.from('referral_codes')
-        .insert({ cpf: playerCpf, code } as any).select().single();
+        .insert({ cpf: playerCpf, code } as Record<string, unknown>).select().single();
       if (codeErr) {
         return new Response(JSON.stringify({ error: codeErr.message }), {
           status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -1678,11 +1760,11 @@ export default async function handler(req: Request): Promise<Response> {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      await supabase.from('referral_codes').update({ clicks: supabase.rpc ? undefined : 0 } as any).eq('code', refCode);
+      await supabase.from('referral_codes').update({ clicks: supabase.rpc ? undefined : 0 } as Record<string, unknown>).eq('code', refCode);
       // Increment clicks via raw update
       const { data: rc } = await supabase.from('referral_codes').select('clicks').eq('code', refCode).maybeSingle();
       if (rc) {
-        await supabase.from('referral_codes').update({ clicks: (rc.clicks || 0) + 1 } as any).eq('code', refCode);
+        await supabase.from('referral_codes').update({ clicks: (rc.clicks || 0) + 1 } as Record<string, unknown>).eq('code', refCode);
       }
       return new Response(JSON.stringify({ ok: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -1746,7 +1828,7 @@ export default async function handler(req: Request): Promise<Response> {
         referral_code_id: codeData.id,
         status,
         commission_expires_at: commissionExpires,
-      } as any).select().single();
+      } as Record<string, unknown>).select().single();
       if (refErr) {
         return new Response(JSON.stringify({ error: refErr.message }), {
           status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -1786,7 +1868,7 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       let newStatus = pendingRef.status;
-      const updates: any = {};
+      const updates: Record<string, unknown> = {};
 
       // Check deposit if required and not yet fulfilled
       if (pendingRef.status === 'deposit_required' && config.require_deposit) {
@@ -1875,17 +1957,17 @@ export default async function handler(req: Request): Promise<Response> {
       // Award tier reward
       const { data: w } = await supabase.from('player_wallets').select('*').eq('cpf', playerCpf).maybeSingle();
       if (tier.reward_type === 'coins') {
-        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + tier.reward_value, total_coins_earned: (w?.total_coins_earned || 0) + tier.reward_value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + tier.reward_value, total_coins_earned: (w?.total_coins_earned || 0) + tier.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if (tier.reward_type === 'diamonds') {
-        await supabase.from('player_wallets').update({ diamonds: (w?.diamonds || 0) + tier.reward_value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ diamonds: (w?.diamonds || 0) + tier.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
       } else if (tier.reward_type === 'xp') {
-        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + tier.reward_value, total_xp_earned: (w?.total_xp_earned || 0) + tier.reward_value } as any).eq('cpf', playerCpf);
+        await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + tier.reward_value, total_xp_earned: (w?.total_xp_earned || 0) + tier.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
       }
       // Log
       await supabase.from('player_activity_log').insert({
         cpf: playerCpf, type: 'referral', amount: tier.reward_value,
         source: `referral_tier_${tierIdx}`, description: `Bônus tier: ${tier.label}`,
-      } as any);
+      } as Record<string, unknown>);
       return new Response(JSON.stringify({ ok: true, reward_type: tier.reward_type, reward_value: tier.reward_value }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -1938,7 +2020,7 @@ export default async function handler(req: Request): Promise<Response> {
       // Check player segment membership
       const { data: playerSegments } = await supabase
         .from('segment_items').select('segment_id').eq('cpf', playerCpf);
-      const playerSegmentIds = new Set((playerSegments || []).map((s: any) => s.segment_id));
+      const playerSegmentIds = new Set((playerSegments || []).map((s: Record<string, unknown>) => s.segment_id));
 
       let missionsUpdated = 0;
       let missionsCompleted = 0;
@@ -1996,7 +2078,7 @@ export default async function handler(req: Request): Promise<Response> {
               await supabase.from('player_mission_progress').update({
                 progress: 0, completed: false, claimed: false,
                 completed_at: null, claimed_at: null, reset_at: now,
-              } as any).eq('cpf', playerCpf).eq('mission_id', mission.id);
+              } as Record<string, unknown>).eq('cpf', playerCpf).eq('mission_id', mission.id);
             } else {
               continue;
             }
@@ -2011,7 +2093,7 @@ export default async function handler(req: Request): Promise<Response> {
           const newProgress = Math.min(currentProgress + increment, target);
           const isCompleted = newProgress >= target;
 
-          const upsertData: any = {
+          const upsertData: Record<string, unknown> = {
             cpf: playerCpf,
             mission_id: mission.id,
             progress: newProgress,
@@ -2037,27 +2119,27 @@ export default async function handler(req: Request): Promise<Response> {
             if (!mission.manual_claim && mission.reward_value > 0) {
               if (mission.reward_type === 'coins') {
                 const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
-                if (w) await supabase.from('player_wallets').update({ coins: (w.coins || 0) + mission.reward_value } as any).eq('cpf', playerCpf);
+                if (w) await supabase.from('player_wallets').update({ coins: (w.coins || 0) + mission.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
               } else if (mission.reward_type === 'xp') {
                 const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
-                if (w) await supabase.from('player_wallets').update({ xp: (w.xp || 0) + mission.reward_value } as any).eq('cpf', playerCpf);
+                if (w) await supabase.from('player_wallets').update({ xp: (w.xp || 0) + mission.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
               } else {
                 await supabase.from('player_rewards_pending').insert({
                   cpf: playerCpf, reward_type: mission.reward_type,
                   reward_value: mission.reward_value, source: mission.name,
                   description: `Missão completada: ${mission.name}`,
-                } as any);
+                } as Record<string, unknown>);
               }
               await supabase.from('player_mission_progress').update({
                 claimed: true, claimed_at: now,
-              } as any).eq('cpf', playerCpf).eq('mission_id', mission.id);
+              } as Record<string, unknown>).eq('cpf', playerCpf).eq('mission_id', mission.id);
 
               try {
                 await supabase.from('player_activity_log').insert({
                   cpf: playerCpf, type: 'mission_complete',
                   amount: mission.reward_value, source: mission.name,
                   description: `Missão completada: ${mission.name} — ${mission.reward_type} ${mission.reward_value}`,
-                } as any);
+                } as Record<string, unknown>);
               } catch { /* ignore */ }
             }
           }
@@ -2106,7 +2188,7 @@ export default async function handler(req: Request): Promise<Response> {
             progress: newProgress,
             completed: isCompleted,
             completed_at: isCompleted ? now : null,
-          } as any, { onConflict: 'cpf,achievement_id' });
+          } as Record<string, unknown>, { onConflict: 'cpf,achievement_id' });
 
           achievementsUpdated++;
           if (isCompleted) {
@@ -2116,16 +2198,16 @@ export default async function handler(req: Request): Promise<Response> {
             if (ach.reward_value > 0) {
               if (ach.reward_type === 'coins') {
                 const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
-                if (w) await supabase.from('player_wallets').update({ coins: (w.coins || 0) + ach.reward_value } as any).eq('cpf', playerCpf);
+                if (w) await supabase.from('player_wallets').update({ coins: (w.coins || 0) + ach.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
               } else if (ach.reward_type === 'xp') {
                 const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
-                if (w) await supabase.from('player_wallets').update({ xp: (w.xp || 0) + ach.reward_value } as any).eq('cpf', playerCpf);
+                if (w) await supabase.from('player_wallets').update({ xp: (w.xp || 0) + ach.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
               } else {
                 await supabase.from('player_rewards_pending').insert({
                   cpf: playerCpf, reward_type: ach.reward_type,
                   reward_value: ach.reward_value, source: ach.name,
                   description: `Conquista desbloqueada: ${ach.name}`,
-                } as any);
+                } as Record<string, unknown>);
               }
 
               try {
@@ -2133,7 +2215,7 @@ export default async function handler(req: Request): Promise<Response> {
                   cpf: playerCpf, type: 'achievement_unlock',
                   amount: ach.reward_value, source: ach.name,
                   description: `Conquista: ${ach.name} — ${ach.reward_type} ${ach.reward_value}`,
-                } as any);
+                } as Record<string, unknown>);
               } catch { /* ignore */ }
             }
           }
@@ -2149,8 +2231,8 @@ export default async function handler(req: Request): Promise<Response> {
         try {
           // Get XP weights
           const { data: xpConfigs } = await supabase.from('xp_config').select('*').eq('active', true);
-          const apostaWeight = xpConfigs?.find((c: any) => c.action === 'aposta')?.xp_per_real ?? 1;
-          const depositoWeight = xpConfigs?.find((c: any) => c.action === 'deposito')?.xp_per_real ?? 0.3;
+          const apostaWeight = xpConfigs?.find((c: XpConfigRow) => c.action === 'aposta')?.xp_per_real ?? 1;
+          const depositoWeight = xpConfigs?.find((c: XpConfigRow) => c.action === 'deposito')?.xp_per_real ?? 0.3;
 
           const weight = eventType === 'bet' ? apostaWeight : depositoWeight;
           xpEarned = Math.floor(eventValue * weight);
@@ -2164,7 +2246,7 @@ export default async function handler(req: Request): Promise<Response> {
               await supabase.from('player_wallets').insert({
                 cpf: playerCpf, coins: 0, xp: 0, level: 1, diamonds: 0,
                 total_xp_earned: 0, total_diamonds_earned: 0,
-              } as any);
+              } as Record<string, unknown>);
               wallet = { cpf: playerCpf, coins: 0, xp: 0, level: 1, diamonds: 0, total_xp_earned: 0, total_diamonds_earned: 0 };
             }
 
@@ -2179,7 +2261,7 @@ export default async function handler(req: Request): Promise<Response> {
             let bonusCoins = 0;
             let bonusDiamonds = 0;
             newLevel = currentLevel;
-            const levelsGained: any[] = [];
+            const levelsGained: LevelGained[] = [];
 
             for (const lvl of (levels || [])) {
               if (currentTotalXp >= lvl.xp_required) {
@@ -2195,7 +2277,7 @@ export default async function handler(req: Request): Promise<Response> {
             leveledUp = newLevel > currentLevel;
 
             // Update wallet
-            const walletUpdate: any = {
+            const walletUpdate: Record<string, unknown> = {
               xp: currentXp,
               total_xp_earned: currentTotalXp,
               level: newLevel,
@@ -2218,7 +2300,7 @@ export default async function handler(req: Request): Promise<Response> {
               await supabase.from('xp_history').insert({
                 cpf: playerCpf, xp_earned: xpEarned, source: eventType,
                 description: `${eventType} R$${eventValue.toFixed(2)} → ${xpEarned} XP`,
-              } as any);
+              } as Record<string, unknown>);
             } catch { /* ignore */ }
 
             // Log level-ups
@@ -2228,12 +2310,12 @@ export default async function handler(req: Request): Promise<Response> {
                   await supabase.from('level_rewards_log').insert({
                     cpf: playerCpf, level: lvl.level, from_level: currentLevel,
                     reward_coins: lvl.reward_coins || 0, reward_diamonds: lvl.reward_diamonds || 0,
-                  } as any);
+                  } as Record<string, unknown>);
                   await supabase.from('player_activity_log').insert({
                     cpf: playerCpf, type: 'level_up', amount: lvl.level,
                     source: `Level ${lvl.level} - ${lvl.tier || ''} ${lvl.name || ''}`,
                     description: `Subiu para nível ${lvl.level}! +${lvl.reward_coins || 0} coins, +${lvl.reward_diamonds || 0} diamonds`,
-                  } as any);
+                  } as Record<string, unknown>);
                 } catch { /* ignore */ }
               }
             }
@@ -2257,7 +2339,7 @@ export default async function handler(req: Request): Promise<Response> {
             .eq('opted_in', true);
 
           if (entries?.length) {
-            const tournamentIds = entries.map((e: any) => e.tournament_id);
+            const tournamentIds = entries.map((e: Record<string, unknown>) => e.tournament_id);
             const { data: tournaments } = await supabase
               .from('tournaments')
               .select('id, metric, game_filter, min_bet, points_per, start_date, end_date')
@@ -2282,11 +2364,11 @@ export default async function handler(req: Request): Promise<Response> {
               const scoreIncrement = Math.floor(eventValue / divisor);
 
               if (scoreIncrement > 0) {
-                const entry = entries.find((e: any) => e.tournament_id === t.id);
+                const entry = entries.find((e: Record<string, unknown>) => e.tournament_id === t.id);
                 if (entry) {
                   const newScore = (entry.score || 0) + scoreIncrement;
                   await supabase.from('player_tournament_entries')
-                    .update({ score: newScore, updated_at: new Date().toISOString() } as any)
+                    .update({ score: newScore, updated_at: new Date().toISOString() } as Record<string, unknown>)
                     .eq('id', entry.id);
                   tournamentsUpdated++;
                 }
@@ -2304,7 +2386,7 @@ export default async function handler(req: Request): Promise<Response> {
                 if (allEntries) {
                   for (let i = 0; i < allEntries.length; i++) {
                     await supabase.from('player_tournament_entries')
-                      .update({ rank: i + 1 } as any)
+                      .update({ rank: i + 1 } as Record<string, unknown>)
                       .eq('id', allEntries[i].id);
                   }
                 }

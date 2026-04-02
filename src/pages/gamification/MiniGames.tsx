@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +14,39 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { logAudit } from '@/hooks/use-audit';
+
+interface Segment {
+  id: string;
+  name: string;
+}
+
+interface MiniGame {
+  id: string;
+  type: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  max_attempts_per_day: number;
+  free_attempts_per_day: number;
+  attempt_cost_coins: number;
+  theme: string;
+  segment_id: string | null;
+  created_at: string;
+  segments: { name: string } | null;
+}
+
+interface MiniGamePrize {
+  id: string;
+  game_id: string;
+  label: string;
+  type: string;
+  value: number;
+  probability: number;
+  icon: string | null;
+  color: string;
+  sort_order: number;
+  active: boolean;
+}
 
 const GAME_TYPES = [
   { value: 'scratch_card', label: 'Raspadinha', icon: '🎴' },
@@ -57,25 +89,25 @@ export default function MiniGames() {
     queryFn: async () => {
       const { data, error } = await supabase.from('segments').select('id, name').order('name');
       if (error) throw error;
-      return data as any[];
+      return data as Segment[];
     },
   });
 
   const { data: games = [], isLoading: gamesLoading } = useQuery({
     queryKey: ['mini_games'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('mini_games').select('*, segments(name)').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('mini_games' as 'segments').select('*, segments(name)').order('created_at', { ascending: false });
       if (error) throw error;
-      return data as any[];
+      return data as unknown as MiniGame[];
     },
   });
 
   const { data: allPrizes = [] } = useQuery({
     queryKey: ['mini_game_prizes'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('mini_game_prizes').select('*').order('sort_order');
+      const { data, error } = await supabase.from('mini_game_prizes' as 'segments').select('*').order('sort_order');
       if (error) throw error;
-      return data as any[];
+      return data as unknown as MiniGamePrize[];
     },
   });
 
@@ -98,10 +130,10 @@ export default function MiniGames() {
         segment_id: gameForm.segment_id || null,
       };
       if (editGameId) {
-        const { error } = await supabase.from('mini_games').update(payload as any).eq('id', editGameId);
+        const { error } = await supabase.from('mini_games' as 'segments').update(payload as Record<string, unknown>).eq('id', editGameId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('mini_games').insert(payload as any);
+        const { error } = await supabase.from('mini_games' as 'segments').insert(payload as Record<string, unknown>);
         if (error) throw error;
       }
       await logAudit({ action: editGameId ? 'EDITAR' : 'CRIAR', resource_type: 'mini_game', resource_name: payload.name });
@@ -113,12 +145,12 @@ export default function MiniGames() {
       setEditGameId(null);
       setGameForm(emptyGameForm);
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Erro'),
   });
 
   const deleteGameMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('mini_games').delete().eq('id', id);
+      const { error } = await supabase.from('mini_games' as 'segments').delete().eq('id', id);
       if (error) throw error;
       await logAudit({ action: 'EXCLUIR', resource_type: 'mini_game', resource_id: id });
     },
@@ -128,7 +160,7 @@ export default function MiniGames() {
       qc.invalidateQueries({ queryKey: ['mini_game_prizes'] });
       if (selectedGameId) setSelectedGameId(null);
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Erro'),
   });
 
   // Prize mutations
@@ -146,10 +178,10 @@ export default function MiniGames() {
         sort_order: parseInt(prizeForm.sort_order) || 0,
       };
       if (editPrizeId) {
-        const { error } = await supabase.from('mini_game_prizes').update(payload as any).eq('id', editPrizeId);
+        const { error } = await supabase.from('mini_game_prizes' as 'segments').update(payload as Record<string, unknown>).eq('id', editPrizeId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('mini_game_prizes').insert(payload as any);
+        const { error } = await supabase.from('mini_game_prizes' as 'segments').insert(payload as Record<string, unknown>);
         if (error) throw error;
       }
     },
@@ -160,30 +192,30 @@ export default function MiniGames() {
       setEditPrizeId(null);
       setPrizeForm(emptyPrizeForm);
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Erro'),
   });
 
   const deletePrizeMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('mini_game_prizes').delete().eq('id', id);
+      const { error } = await supabase.from('mini_game_prizes' as 'segments').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success('Prêmio excluído!');
       qc.invalidateQueries({ queryKey: ['mini_game_prizes'] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Erro'),
   });
 
   const togglePrizeMutation = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from('mini_game_prizes').update({ active } as any).eq('id', id);
+      const { error } = await supabase.from('mini_game_prizes' as 'segments').update({ active } as Record<string, unknown>).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['mini_game_prizes'] }),
   });
 
-  const openEditGame = (game: any) => {
+  const openEditGame = (game: MiniGame) => {
     setEditGameId(game.id);
     setGameForm({
       type: game.type, name: game.name, description: game.description || '',
@@ -195,7 +227,7 @@ export default function MiniGames() {
     setGameDialogOpen(true);
   };
 
-  const openEditPrize = (prize: any) => {
+  const openEditPrize = (prize: MiniGamePrize) => {
     setEditPrizeId(prize.id);
     setPrizeForm({
       label: prize.label, type: prize.type, value: String(prize.value),

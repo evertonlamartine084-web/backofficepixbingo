@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import {
   AreaChart, Area, BarChart, Bar,
@@ -18,12 +17,25 @@ const CHART_COLORS = {
 
 const formatBRL = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const CustomTooltip = ({ active, payload, label, formatter }: any) => {
+interface TooltipEntry {
+  color: string;
+  name: string;
+  value: number;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string;
+  formatter?: (value: number) => string;
+}
+
+const CustomTooltip = ({ active, payload, label, formatter }: CustomTooltipProps) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg border border-border bg-background px-3 py-2 text-xs shadow-xl">
       <p className="font-medium text-foreground mb-1">{label}</p>
-      {payload.map((entry: any, i: number) => (
+      {payload.map((entry: TooltipEntry, i: number) => (
         <div key={i} className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
           <span className="text-muted-foreground">{entry.name}:</span>
@@ -36,9 +48,11 @@ const CustomTooltip = ({ active, payload, label, formatter }: any) => {
   );
 };
 
+type ProxyCredentials = { username: string; password: string };
+
 interface DashboardChartsProps {
-  callProxy: (action: string, creds: any, params?: any) => Promise<any>;
-  creds: { username: string; password: string };
+  callProxy: (action: string, creds: ProxyCredentials | null, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  creds: ProxyCredentials;
 }
 
 export function DashboardCharts({ callProxy, creds }: DashboardChartsProps) {

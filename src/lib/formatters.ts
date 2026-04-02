@@ -5,8 +5,7 @@ export function formatBRL(val: number | null | undefined): string {
 }
 
 /** Converte string de moeda BRL ou número para number */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function parseBRL(val: any): number {
+export function parseBRL(val: string | number | null | undefined): number {
   if (typeof val === 'number') return val;
   if (typeof val !== 'string') return 0;
   const cleaned = val.replace(/[R$\s]/g, '').trim();
@@ -41,8 +40,7 @@ export function formatCPF(cpf: string): string {
 }
 
 /** Formata data para exibição (dd/mm/yyyy HH:mm) */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function formatDateTime(val: any): string {
+export function formatDateTime(val: string | number | Date | null | undefined): string {
   if (!val) return '—';
   try {
     const d = new Date(val);

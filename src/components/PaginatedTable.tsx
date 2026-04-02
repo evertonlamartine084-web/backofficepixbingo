@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -6,9 +5,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface PaginatedTableProps {
-  data: any[];
+  data: Record<string, unknown>[];
   columns: string[];
-  formatCell: (key: string, value: any) => string;
+  formatCell: (key: string, value: unknown) => string;
   formatLabel: (key: string) => string;
   pageSizeOptions?: number[];
   defaultPageSize?: number;
@@ -67,7 +66,7 @@ export function PaginatedTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pageData.map((item: any, i: number) => (
+            {pageData.map((item: Record<string, unknown>, i: number) => (
               <TableRow key={i} className="hover:bg-secondary/30">
                 {columns.map(k => (
                   <TableCell key={k} className="text-xs font-mono whitespace-nowrap">

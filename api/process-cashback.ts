@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@supabase/supabase-js';
 import { getCorsHeaders, optionsResponse, verifyAuth } from './_cors.js';
 
@@ -52,7 +51,7 @@ function buildHeaders(cookies: string): Record<string, string> {
   return { 'Accept': 'application/json, text/javascript, */*', 'X-Requested-With': 'XMLHttpRequest', 'Cookie': cookies, 'Referer': DEFAULT_SITE };
 }
 
-async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: any): Promise<any> {
+async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: Record<string, string>): Promise<Record<string, unknown>> {
   const opts: RequestInit = { method, headers: { ...headers }, signal: AbortSignal.timeout(15000) };
   if (body && method === 'POST') {
     opts.body = new URLSearchParams(body).toString();
@@ -60,7 +59,7 @@ async function fetchJSON(url: string, headers: Record<string, string>, method = 
   }
   const res = await fetch(url, opts);
   const text = await res.text();
-  try { return JSON.parse(text); } catch { return { _raw: text.slice(0, 500), _status: res.status }; }
+  try { return JSON.parse(text) as Record<string, unknown>; } catch { return { _raw: text.slice(0, 500), _status: res.status }; }
 }
 
 async function resolveUuid(cpf: string, headers: Record<string, string>): Promise<string | null> {
@@ -231,9 +230,9 @@ export default async function handler(req: Request): Promise<Response> {
             }).eq('id', item.id);
             errors++;
           }
-        } catch (e) {
+        } catch (e: unknown) {
           await supabase.from('cashback_items').update({
-            status: 'ERRO', credit_result: (e as Error).message,
+            status: 'ERRO', credit_result: e instanceof Error ? e.message : 'Erro',
           }).eq('id', item.id);
           errors++;
         }
@@ -373,10 +372,10 @@ export default async function handler(req: Request): Promise<Response> {
             errors++;
           }
         }
-      } catch (e) {
+      } catch (e: unknown) {
         await supabase.from('cashback_items').insert({
           execution_id: executionId, rule_id, cpf: player.cpf, cpf_masked: player.cpf_masked,
-          status: 'ERRO', credit_result: (e as Error).message,
+          status: 'ERRO', credit_result: e instanceof Error ? e.message : 'Erro',
         });
         errors++;
       }
@@ -404,8 +403,8 @@ export default async function handler(req: Request): Promise<Response> {
       },
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  } catch (error) {
-    console.error('[process-cashback]', (error as Error).message);
+  } catch (error: unknown) {
+    console.error('[process-cashback]', error instanceof Error ? error.message : 'Erro');
     return new Response(JSON.stringify({ success: false, error: 'Erro interno do servidor' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 import { Plus, MessageSquare, Trash2, Copy, Check, ExternalLink, Eye, CalendarIcon, Code, Type, Pin, MousePointer, Users, BarChart3, ChevronDown, ChevronUp, Pencil, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,7 @@ interface Popup {
   active: boolean;
   persistent: boolean;
   frequency: string;
-  style: Record<string, any>;
+  style: Record<string, unknown>;
   created_at: string;
   segment_name?: string;
 }
@@ -407,14 +407,14 @@ export default function Popups() {
         .order('created_at', { ascending: false });
       if (error) throw error;
 
-      const segmentIds = [...new Set((data as any[]).filter(p => p.segment_id).map(p => p.segment_id))];
+      const segmentIds = [...new Set(data.filter(p => p.segment_id).map(p => p.segment_id))];
       let segMap: Record<string, string> = {};
       if (segmentIds.length > 0) {
         const { data: segs } = await supabase.from('segments').select('id, name').in('id', segmentIds);
         if (segs) segMap = Object.fromEntries(segs.map(s => [s.id, s.name]));
       }
 
-      return (data as any[]).map(p => ({
+      return data.map(p => ({
         ...p,
         segment_name: p.segment_id ? segMap[p.segment_id] || '—' : null,
       })) as Popup[];
@@ -508,7 +508,7 @@ export default function Popups() {
         frequency: form.frequency,
         start_date: form.start_date.toISOString(),
         end_date: form.end_date.toISOString(),
-      } as any);
+      } as TablesInsert<'popups'>);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -539,7 +539,7 @@ export default function Popups() {
         frequency: form.frequency,
         start_date: form.start_date.toISOString(),
         end_date: form.end_date.toISOString(),
-      } as any).eq('id', id);
+      } as TablesUpdate<'popups'>).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -555,21 +555,21 @@ export default function Popups() {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from('popups').update({ active } as any).eq('id', id);
+      const { error } = await supabase.from('popups').update({ active } as TablesUpdate<'popups'>).eq('id', id);
       if (error) throw error;
       return { id, active };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['popups'] });
       toast.success('Status atualizado');
-      const p = popups?.find((p: any) => p.id === result.id);
+      const p = popups?.find((p: Popup) => p.id === result.id);
       logAudit({ action: 'STATUS', resource_type: 'popup', resource_id: result.id, resource_name: p?.name, details: { active: result.active } });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const p = popups?.find((p: any) => p.id === id);
+      const p = popups?.find((p: Popup) => p.id === id);
       const { error } = await supabase.from('popups').delete().eq('id', id);
       if (error) throw error;
       return p;

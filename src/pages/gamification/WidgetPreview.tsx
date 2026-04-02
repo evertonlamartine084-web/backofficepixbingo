@@ -1,17 +1,52 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Copy, Check, Code2, Eye } from 'lucide-react';
+import { Copy, Check, Code2, Eye, Target, Award, Swords, RotateCw, Gamepad2, ShoppingBag, Star, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://nehmmvtpagncmldivnxn.supabase.co';
 const WIDGET_SCRIPT_URL = `${SUPABASE_URL}/functions/v1/gamification-widget`;
 
+interface WidgetSections {
+  missions: boolean;
+  achievements: boolean;
+  tournaments: boolean;
+  wheel: boolean;
+  mini_games: boolean;
+  store: boolean;
+  levels: boolean;
+  referrals: boolean;
+}
+
+const DEFAULT_SECTIONS: WidgetSections = {
+  missions: true,
+  achievements: true,
+  tournaments: true,
+  wheel: true,
+  mini_games: true,
+  store: true,
+  levels: true,
+  referrals: true,
+};
+
+const SECTION_META: { key: keyof WidgetSections; label: string; icon: typeof Target; description: string }[] = [
+  { key: 'missions', label: 'Missões', icon: Target, description: 'Missões diárias e semanais' },
+  { key: 'achievements', label: 'Conquistas', icon: Award, description: 'Badges e conquistas desbloqueáveis' },
+  { key: 'tournaments', label: 'Torneios', icon: Swords, description: 'Rankings e competições' },
+  { key: 'wheel', label: 'Roleta Diária', icon: RotateCw, description: 'Giros gratuitos e prêmios' },
+  { key: 'mini_games', label: 'Mini Games', icon: Gamepad2, description: 'Raspadinha, baús e jogos extras' },
+  { key: 'store', label: 'Loja', icon: ShoppingBag, description: 'Itens compráveis com moedas' },
+  { key: 'levels', label: 'Níveis', icon: Star, description: 'Sistema de progressão e XP' },
+  { key: 'referrals', label: 'Indique e Ganhe', icon: UserPlus, description: 'Programa de indicação' },
+];
+
 export default function WidgetPreview() {
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedSegment, setSelectedSegment] = useState('_all');
@@ -21,10 +56,56 @@ export default function WidgetPreview() {
     queryFn: async () => {
       const { data, error } = await supabase.from('segments').select('id, name').order('name');
       if (error) throw error;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return data as any[];
+      return data as Array<{ id: string; name: string }>;
     },
   });
+
+  const { data: platformConfig } = useQuery({
+    queryKey: ['platform_config_widget'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('platform_config')
+        .select('id, widget_sections')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { id: string; widget_sections: WidgetSections | null } | null;
+    },
+  });
+
+  const [sections, setSections] = useState<WidgetSections>(DEFAULT_SECTIONS);
+
+  useEffect(() => {
+    if (platformConfig?.widget_sections) {
+      setSections({ ...DEFAULT_SECTIONS, ...platformConfig.widget_sections });
+    }
+  }, [platformConfig]);
+
+  const saveSectionsMutation = useMutation({
+    mutationFn: async (newSections: WidgetSections) => {
+      if (!platformConfig?.id) {
+        toast.error('Configure a plataforma primeiro em Config Plataforma');
+        throw new Error('No platform config');
+      }
+      const { error } = await supabase
+        .from('platform_config')
+        .update({ widget_sections: newSections } as Record<string, unknown>)
+        .eq('id', platformConfig.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Seções do widget atualizadas!');
+      queryClient.invalidateQueries({ queryKey: ['platform_config_widget'] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggleSection = (key: keyof WidgetSections) => {
+    const updated = { ...sections, [key]: !sections[key] };
+    setSections(updated);
+    saveSectionsMutation.mutate(updated);
+  };
 
   const segmentParam = selectedSegment !== '_all' ? ` data-segment="${selectedSegment}"` : '';
   const segmentName = selectedSegment !== '_all' ? segments.find(s => s.id === selectedSegment)?.name : null;
@@ -67,8 +148,7 @@ export default function WidgetPreview() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="_all">Todos os jogadores (sem filtro)</SelectItem>
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {segments.map((s: any) => (
+              {segments.map((s) => (
                 <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
               ))}
             </SelectContent>
@@ -77,6 +157,44 @@ export default function WidgetPreview() {
             {selectedSegment === '_all'
               ? 'O widget mostrará todas as missões, conquistas, torneios e prêmios ativos.'
               : `O widget filtrará apenas conteúdo direcionado ao segmento "${segmentName}" ou sem segmento definido.`}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Section toggles */}
+      <Card className="glass-card border-border">
+        <CardContent className="p-4 space-y-4">
+          <div>
+            <Label className="text-sm font-semibold">Seções do Widget</Label>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Ative ou desative cada seção do painel de gamificação. As seções desativadas não aparecerão para os jogadores.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {SECTION_META.map(({ key, label, icon: Icon, description }) => (
+              <div
+                key={key}
+                className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                  sections[key]
+                    ? 'bg-emerald-500/5 border-emerald-500/20'
+                    : 'bg-secondary/30 border-border opacity-60'
+                }`}
+              >
+                <Icon className={`w-4 h-4 shrink-0 ${sections[key] ? 'text-emerald-400' : 'text-muted-foreground'}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground">{label}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{description}</p>
+                </div>
+                <Switch
+                  checked={sections[key]}
+                  onCheckedChange={() => toggleSection(key)}
+                  disabled={saveSectionsMutation.isPending}
+                />
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            {Object.values(sections).filter(Boolean).length} de {SECTION_META.length} seções ativas
           </p>
         </CardContent>
       </Card>

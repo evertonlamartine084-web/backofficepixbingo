@@ -1,9 +1,28 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Trophy, Trash2, Edit2, Loader2, Award, Target } from 'lucide-react';
+
+interface Segment {
+  id: string;
+  name: string;
+}
+
+interface Achievement {
+  id: string;
+  name: string;
+  description: string | null;
+  icon_url: string | null;
+  category: string;
+  condition_type: string;
+  condition_value: number;
+  reward_type: string;
+  reward_value: number;
+  segment_id: string | null;
+  active: boolean;
+  created_at: string;
+}
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,7 +76,7 @@ export default function Achievements() {
     queryFn: async () => {
       const { data, error } = await supabase.from('segments').select('id, name').order('name');
       if (error) throw error;
-      return data as any[];
+      return data as Segment[];
     },
   });
 
@@ -66,7 +85,7 @@ export default function Achievements() {
     queryFn: async () => {
       const { data, error } = await supabase.from('achievements').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      return data as any[];
+      return data as Achievement[];
     },
   });
 
@@ -85,10 +104,10 @@ export default function Achievements() {
         segment_id: form.segment_id || null,
       };
       if (editId) {
-        const { error } = await supabase.from('achievements').update(payload as any).eq('id', editId);
+        const { error } = await supabase.from('achievements').update(payload as Record<string, unknown>).eq('id', editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('achievements').insert(payload as any);
+        const { error } = await supabase.from('achievements').insert(payload as Record<string, unknown>);
         if (error) throw error;
       }
     },
@@ -118,7 +137,7 @@ export default function Achievements() {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from('achievements').update({ active } as any).eq('id', id);
+      const { error } = await supabase.from('achievements').update({ active } as Record<string, unknown>).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['achievements'] }),
@@ -131,7 +150,7 @@ export default function Achievements() {
     setForm(emptyForm);
   };
 
-  const openEdit = (a: any) => {
+  const openEdit = (a: Achievement) => {
     setEditId(a.id);
     setForm({
       name: a.name, description: a.description || '', icon_url: a.icon_url || '',
@@ -183,7 +202,7 @@ export default function Achievements() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {achievements.map((a: any) => (
+              {achievements.map((a: Achievement) => (
                 <TableRow key={a.id} className="hover:bg-secondary/30">
                   <TableCell>
                     <div className="flex items-center gap-3">

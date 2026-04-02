@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const ALLOWED_ORIGINS = [
@@ -28,7 +27,7 @@ Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
   // Always return 200 so supabase-js SDK can read the body. Errors go in { error: "..." }.
-  const json = (body: Record<string, any>) =>
+  const json = (body: Record<string, unknown>) =>
     new Response(JSON.stringify(body), { headers: corsHeaders });
 
   if (req.method === 'OPTIONS') {
@@ -78,7 +77,7 @@ Deno.serve(async (req) => {
       return json({ error: 'Apenas admins podem gerenciar usuários' });
     }
 
-    let body: Record<string, any>;
+    let body: Record<string, unknown>;
     try {
       body = await req.json();
     } catch {
@@ -92,7 +91,7 @@ Deno.serve(async (req) => {
 
       const { data: roles } = await adminClient.from('user_roles').select('*');
       const roleMap = new Map<string, { role: string; allowed_pages: string[] | null }>();
-      (roles || []).forEach((r: any) => roleMap.set(r.user_id, { role: r.role, allowed_pages: r.allowed_pages }));
+      (roles || []).forEach((r: Record<string, unknown>) => roleMap.set(r.user_id as string, { role: r.role as string, allowed_pages: r.allowed_pages as string[] | null }));
 
       const result = users.map(u => {
         const info = roleMap.get(u.id);
@@ -125,7 +124,7 @@ Deno.serve(async (req) => {
       });
       if (authError) throw authError;
 
-      const insertData: any = { user_id: authData.user.id, role };
+      const insertData: Record<string, unknown> = { user_id: authData.user.id, role };
       if (allowed_pages && Array.isArray(allowed_pages)) {
         insertData.allowed_pages = allowed_pages;
       }
@@ -166,7 +165,7 @@ Deno.serve(async (req) => {
         return json({ error: 'user_id é obrigatório' });
       }
 
-      const updateData: any = { allowed_pages: allowed_pages || null };
+      const updateData: Record<string, unknown> = { allowed_pages: allowed_pages || null };
 
       const { data: existing } = await adminClient
         .from('user_roles')
@@ -214,8 +213,8 @@ Deno.serve(async (req) => {
     }
 
     return json({ error: 'Ação não reconhecida' });
-  } catch (err) {
-    console.error('manage-users error:', (err as Error).message);
+  } catch (err: unknown) {
+    console.error('manage-users error:', err instanceof Error ? err.message : 'Erro');
     return json({ error: 'Erro interno do servidor' });
   }
 });

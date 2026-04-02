@@ -1,9 +1,17 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, ShoppingBag, Trash2, Coins, Star, Pencil } from 'lucide-react';
+import type { Tables } from '@/integrations/supabase/types';
+
+interface StoreItem extends Tables<'store_items'> {
+  price_diamonds: number;
+  reward_type: string | null;
+  reward_value: string | null;
+  reward_description: string | null;
+  discount_percent: number;
+}
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,7 +62,7 @@ export default function Store() {
     queryFn: async () => {
       const { data, error } = await supabase.from('store_items').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      return data as any[];
+      return data as StoreItem[];
     },
   });
 
@@ -76,7 +84,7 @@ export default function Store() {
         reward_value: form.reward_value || null,
         reward_description: form.reward_description || null,
         discount_percent: parseInt(form.discount_percent) || 0,
-      } as any;
+      } as Record<string, unknown>;
 
       if (editingId) {
         const { error } = await supabase.from('store_items').update(payload).eq('id', editingId);
@@ -96,7 +104,7 @@ export default function Store() {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from('store_items').update({ active } as any).eq('id', id);
+      const { error } = await supabase.from('store_items').update({ active } as Record<string, unknown>).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['store_items'] }); toast.success('Status atualizado'); },
@@ -118,7 +126,7 @@ export default function Store() {
     setForm({ ...emptyForm });
   }
 
-  function openEdit(item: any) {
+  function openEdit(item: StoreItem) {
     setEditingId(item.id);
     // Detectar moeda principal do item
     let currency = 'coins';
@@ -174,7 +182,7 @@ export default function Store() {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {items.map((item: any) => {
+          {items.map((item: StoreItem) => {
             const price = item.price_coins > 0
               ? { value: item.price_coins, label: 'moedas', icon: <Coins className="w-3.5 h-3.5" />, color: 'text-amber-400' }
               : item.price_diamonds > 0

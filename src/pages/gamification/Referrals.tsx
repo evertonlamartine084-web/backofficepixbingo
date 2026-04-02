@@ -1,9 +1,64 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Users, Gift, TrendingUp, DollarSign, Settings2, Loader2, Copy, ExternalLink, UserPlus, Check, Clock, AlertCircle, Plus, Trash2 } from 'lucide-react';
+
+interface ReferralTier {
+  min_referrals: number;
+  reward_type: string;
+  reward_value: number;
+  label: string;
+}
+
+interface ReferralConfig {
+  id?: string;
+  created_at?: string;
+  updated_at?: string;
+  active: boolean;
+  referrer_reward_type: string;
+  referrer_reward_value: number;
+  referred_reward_type: string;
+  referred_reward_value: number;
+  require_deposit: boolean;
+  min_deposit_amount: number;
+  require_bet: boolean;
+  min_bet_amount: number;
+  max_referrals_per_player: number;
+  commission_enabled: boolean;
+  commission_percent: number;
+  commission_duration_days: number;
+  title: string;
+  description: string;
+  terms_text: string;
+  tiers: ReferralTier[];
+  segment_id?: string | null;
+}
+
+interface Referral {
+  id: string;
+  referrer_cpf: string;
+  referred_cpf: string;
+  status: string;
+  referrer_rewarded: boolean;
+  referrer_reward_amount: number;
+  referred_rewarded: boolean;
+  referred_reward_amount: number;
+  created_at: string;
+}
+
+interface ReferralCode {
+  id: string;
+  cpf: string;
+  code: string;
+  clicks: number;
+  created_at: string;
+}
+
+interface Segment {
+  id: string;
+  name: string;
+}
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,7 +82,7 @@ export default function Referrals() {
     queryFn: async () => {
       const { data, error } = await supabase.from('referral_config').select('*').limit(1).maybeSingle();
       if (error) throw error;
-      return data;
+      return data as ReferralConfig | null;
     },
   });
 
@@ -37,7 +92,7 @@ export default function Referrals() {
     queryFn: async () => {
       const { data, error } = await supabase.from('segments').select('id, name').order('name');
       if (error) throw error;
-      return data || [];
+      return (data || []) as Segment[];
     },
   });
 
@@ -47,7 +102,7 @@ export default function Referrals() {
     queryFn: async () => {
       const { data, error } = await supabase.from('referrals').select('*').order('created_at', { ascending: false }).limit(200);
       if (error) throw error;
-      return data || [];
+      return (data || []) as Referral[];
     },
   });
 
@@ -57,19 +112,19 @@ export default function Referrals() {
     queryFn: async () => {
       const { data, error } = await supabase.from('referral_codes').select('*').order('created_at', { ascending: false }).limit(100);
       if (error) throw error;
-      return data || [];
+      return (data || []) as ReferralCode[];
     },
   });
 
   // Stats
   const totalReferrals = referrals?.length || 0;
-  const completedReferrals = referrals?.filter((r: any) => r.status === 'completed').length || 0;
-  const pendingReferrals = referrals?.filter((r: any) => r.status !== 'completed').length || 0;
-  const totalRewardsGiven = referrals?.reduce((s: number, r: any) => s + (r.referrer_reward_amount || 0) + (r.referred_reward_amount || 0), 0) || 0;
-  const uniqueReferrers = new Set(referrals?.map((r: any) => r.referrer_cpf) || []).size;
+  const completedReferrals = referrals?.filter((r: Referral) => r.status === 'completed').length || 0;
+  const pendingReferrals = referrals?.filter((r: Referral) => r.status !== 'completed').length || 0;
+  const totalRewardsGiven = referrals?.reduce((s: number, r: Referral) => s + (r.referrer_reward_amount || 0) + (r.referred_reward_amount || 0), 0) || 0;
+  const uniqueReferrers = new Set(referrals?.map((r: Referral) => r.referrer_cpf) || []).size;
 
   // Config form state
-  const [formConfig, setFormConfig] = useState<any>(null);
+  const [formConfig, setFormConfig] = useState<ReferralConfig | null>(null);
 
   const openConfig = () => {
     setFormConfig(config ? { ...config, tiers: JSON.parse(JSON.stringify(config.tiers || [])) } : {
@@ -86,11 +141,8 @@ export default function Referrals() {
   const saveConfigMut = useMutation({
     mutationFn: async () => {
       if (!formConfig) return;
-      const payload = { ...formConfig };
-      delete payload.id;
-      delete payload.created_at;
-      delete payload.updated_at;
-      payload.updated_at = new Date().toISOString();
+      const { id: _id, created_at: _ca, updated_at: _ua, ...rest } = formConfig;
+      const payload = { ...rest, updated_at: new Date().toISOString() };
 
       if (config?.id) {
         const { error } = await supabase.from('referral_config').update(payload).eq('id', config.id);
@@ -105,7 +157,7 @@ export default function Referrals() {
       setConfigOpen(false);
       toast.success('Configuração salva!');
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Erro'),
   });
 
   const addTier = () => {
@@ -123,7 +175,7 @@ export default function Referrals() {
     setFormConfig({ ...formConfig, tiers: t });
   };
 
-  const updateTier = (idx: number, field: string, value: any) => {
+  const updateTier = (idx: number, field: string, value: string | number) => {
     if (!formConfig) return;
     const t = [...formConfig.tiers];
     t[idx] = { ...t[idx], [field]: value };
@@ -227,7 +279,7 @@ export default function Referrals() {
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Segmento</span>
-              <p className="font-semibold text-foreground">{config.segment_id ? (segments?.find((s: any) => s.id === config.segment_id)?.name || 'Segmento selecionado') : 'Todos'}</p>
+              <p className="font-semibold text-foreground">{config.segment_id ? (segments?.find((s: Segment) => s.id === config.segment_id)?.name || 'Segmento selecionado') : 'Todos'}</p>
             </div>
           </div>
         </div>
@@ -262,7 +314,7 @@ export default function Referrals() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {referrals?.map((ref: any) => (
+                  {referrals?.map((ref: Referral) => (
                     <TableRow key={ref.id} className="hover:bg-secondary/30">
                       <TableCell className="font-mono text-sm">{maskCPF(ref.referrer_cpf)}</TableCell>
                       <TableCell className="font-mono text-sm">{maskCPF(ref.referred_cpf)}</TableCell>
@@ -309,8 +361,8 @@ export default function Referrals() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {codes.map((c: any) => {
-                    const refsCount = referrals?.filter((r: any) => r.referrer_cpf === c.cpf).length || 0;
+                  {codes.map((c: ReferralCode) => {
+                    const refsCount = referrals?.filter((r: Referral) => r.referrer_cpf === c.cpf).length || 0;
                     return (
                       <TableRow key={c.id} className="hover:bg-secondary/30">
                         <TableCell className="font-mono text-sm">{maskCPF(c.cpf)}</TableCell>
@@ -357,7 +409,7 @@ export default function Referrals() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_none">Todos os jogadores</SelectItem>
-                    {(segments || []).map((s: any) => (
+                    {(segments || []).map((s: Segment) => (
                       <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -498,7 +550,7 @@ export default function Referrals() {
                     <Plus className="w-3 h-3 mr-1" /> Adicionar Tier
                   </Button>
                 </div>
-                {(formConfig.tiers || []).map((tier: any, idx: number) => (
+                {(formConfig.tiers || []).map((tier: ReferralTier, idx: number) => (
                   <div key={idx} className="p-3 rounded-lg bg-secondary/30 border border-border space-y-2 group relative">
                     <Button variant="ghost" size="icon" className="h-6 w-6 absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-destructive" onClick={() => removeTier(idx)}>
                       <Trash2 className="w-3 h-3" />

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +13,30 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { logAudit } from '@/hooks/use-audit';
+
+interface Segment {
+  id: string;
+  name: string;
+}
+
+interface Prize {
+  id: string;
+  label: string;
+  value: number;
+  type: string;
+  probability: number;
+  color: string;
+  icon_url: string | null;
+  segment_id: string | null;
+  active: boolean;
+}
+
+interface WheelConfig {
+  id?: string;
+  max_spins_per_day: number | string;
+  spin_cost_coins: number | string;
+  free_spins_per_day: number | string;
+}
 
 const PRIZE_TYPES = [
   { value: 'bonus', label: 'Bônus (R$)' },
@@ -38,7 +61,7 @@ export default function DailyWheel() {
     queryFn: async () => {
       const { data, error } = await supabase.from('segments').select('id, name').order('name');
       if (error) throw error;
-      return data as any[];
+      return data as Segment[];
     },
   });
 
@@ -47,7 +70,7 @@ export default function DailyWheel() {
     queryFn: async () => {
       const { data, error } = await supabase.from('daily_wheel_prizes').select('*').order('probability', { ascending: false });
       if (error) throw error;
-      return data as any[];
+      return data as Prize[];
     },
   });
 
@@ -57,11 +80,11 @@ export default function DailyWheel() {
     queryFn: async () => {
       const { data, error } = await supabase.from('wheel_config').select('*').limit(1).maybeSingle();
       if (error) throw error;
-      return data as any;
+      return data as WheelConfig | null;
     },
   });
 
-  const [configForm, setConfigForm] = useState<any>(null);
+  const [configForm, setConfigForm] = useState<WheelConfig | null>(null);
 
   const saveConfigMutation = useMutation({
     mutationFn: async () => {
@@ -73,10 +96,10 @@ export default function DailyWheel() {
         free_spins_per_day: isNaN(parseInt(cfg.free_spins_per_day)) ? 1 : parseInt(cfg.free_spins_per_day),
       };
       if (cfg.id) {
-        const { error } = await supabase.from('wheel_config').update(payload as any).eq('id', cfg.id);
+        const { error } = await supabase.from('wheel_config').update(payload as Record<string, unknown>).eq('id', cfg.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('wheel_config').insert(payload as any);
+        const { error } = await supabase.from('wheel_config').insert(payload as Record<string, unknown>);
         if (error) throw error;
       }
     },
@@ -101,10 +124,10 @@ export default function DailyWheel() {
         segment_id: form.segment_id || null,
       };
       if (editId) {
-        const { error } = await supabase.from('daily_wheel_prizes').update(payload as any).eq('id', editId);
+        const { error } = await supabase.from('daily_wheel_prizes').update(payload as Record<string, unknown>).eq('id', editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('daily_wheel_prizes').insert(payload as any);
+        const { error } = await supabase.from('daily_wheel_prizes').insert(payload as Record<string, unknown>);
         if (error) throw error;
       }
     },
@@ -134,7 +157,7 @@ export default function DailyWheel() {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from('daily_wheel_prizes').update({ active } as any).eq('id', id);
+      const { error } = await supabase.from('daily_wheel_prizes').update({ active } as Record<string, unknown>).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['daily_wheel_prizes'] }),
@@ -143,7 +166,7 @@ export default function DailyWheel() {
 
   const closeDialog = () => { setOpen(false); setEditId(null); setForm(emptyForm); };
 
-  const openEdit = (p: any) => {
+  const openEdit = (p: Prize) => {
     setEditId(p.id);
     setForm({
       label: p.label, value: String(p.value), type: p.type,
@@ -229,7 +252,7 @@ export default function DailyWheel() {
         <div className="glass-card p-4">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Preview da Roleta</p>
           <div className="flex items-center gap-4 flex-wrap">
-            {activeSlices.map((p: any) => (
+            {activeSlices.map((p: Prize) => (
               <div key={p.id} className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: p.color }} />
                 <span className="text-xs text-foreground">{p.label}</span>
@@ -264,7 +287,7 @@ export default function DailyWheel() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {prizes.map((p: any) => (
+              {prizes.map((p: Prize) => (
                 <TableRow key={p.id} className="hover:bg-secondary/30">
                   <TableCell>
                     <div className="w-6 h-6 rounded-full border border-border" style={{ backgroundColor: p.color }} />

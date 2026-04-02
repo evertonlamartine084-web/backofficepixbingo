@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ALLOWED_ORIGINS = [
@@ -90,13 +89,13 @@ Deno.serve(async (req) => {
 
     // Player's segment IDs
     const playerSegmentIds = new Set(
-      (segItemsRes.data || []).map((s: any) => s.segment_id)
+      (segItemsRes.data || []).map((s: Record<string, unknown>) => s.segment_id as string)
     );
 
     // Filter inbox: no segment (global) OR player is in segment
     const inbox = (inboxRes.data || [])
-      .filter((m: any) => !m.segment_id || playerSegmentIds.has(m.segment_id))
-      .map((m: any) => ({
+      .filter((m: Record<string, unknown>) => !m.segment_id || playerSegmentIds.has(m.segment_id as string))
+      .map((m: Record<string, unknown>) => ({
         id: m.id,
         title: m.title,
         message: m.message,
@@ -106,7 +105,7 @@ Deno.serve(async (req) => {
       }));
 
     const levels = levelsRes.data || [];
-    const store = (storeRes.data || []).map((item: any) => ({
+    const store = (storeRes.data || []).map((item: Record<string, unknown>) => ({
       id: item.id,
       name: item.name,
       description: item.description,
@@ -128,8 +127,8 @@ Deno.serve(async (req) => {
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' },
     });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
+  } catch (error: unknown) {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Erro' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
