@@ -1260,6 +1260,10 @@
       #pbg-widget-panel { width: 100vw !important; height: 100vh !important; max-height: 100vh !important; border-radius: 0 !important; max-width: 100vw !important; }
       #pbg-widget-fab { bottom: 16px !important; right: 16px !important; width: 56px !important; height: 56px !important; min-width: 56px !important; min-height: 56px !important; }
       .pbg-header { border-radius: 0 !important; }
+      #pbg-widget-backdrop.open { background: rgba(0,0,0,1) !important; }
+    }
+    @media (max-width: 768px) {
+      #pbg-widget-backdrop.open { background: rgba(0,0,0,0.95) !important; }
     }
   `;
 
