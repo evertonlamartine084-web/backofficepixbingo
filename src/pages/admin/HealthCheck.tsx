@@ -333,14 +333,14 @@ function buildTests(session: { user: { email?: string } } | null): TestCase[] {
     },
     // ── Edge Functions ──
     {
-      id: 'ef-segment-evaluate',
-      name: 'Edge function segment-evaluate',
+      id: 'ef-popup-check',
+      name: 'Edge function popup-check',
       group: 'Edge Functions',
-      description: 'Invoca segment-evaluate e verifica resposta',
+      description: 'Invoca popup-check e verifica resposta',
       run: async () => {
         try {
-          const { data, error } = await supabase.functions.invoke('segment-evaluate', {
-            body: { segment_id: '__healthcheck_nonexistent' },
+          const { data, error } = await supabase.functions.invoke('popup-check', {
+            body: { cpf: '70791576418' },
           });
           if (error) return { passed: false, details: `Erro: ${error.message}` };
           return { passed: true, details: `Resposta: ${JSON.stringify(data).slice(0, 100)}` };
@@ -353,14 +353,21 @@ function buildTests(session: { user: { email?: string } } | null): TestCase[] {
       id: 'ef-gamification-widget',
       name: 'Edge function gamification-widget',
       group: 'Edge Functions',
-      description: 'Invoca gamification-widget e verifica resposta',
+      description: 'Invoca gamification-widget com action=data via query param',
       run: async () => {
         try {
-          const { data, error } = await supabase.functions.invoke('gamification-widget', {
-            body: { action: 'health' },
+          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+          const url = `https://${projectId}.supabase.co/functions/v1/gamification-widget?action=data`;
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch(url, {
+            headers: {
+              'Authorization': `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
           });
-          if (error) return { passed: false, details: `Erro: ${error.message}` };
-          return { passed: true, details: `Resposta: ${JSON.stringify(data).slice(0, 100)}` };
+          if (!res.ok) return { passed: false, details: `HTTP ${res.status}: ${(await res.text()).slice(0, 100)}` };
+          const json = await res.json();
+          return { passed: true, details: `Resposta: ${JSON.stringify(json).slice(0, 100)}` };
         } catch (e) {
           return { passed: false, details: `Exception: ${e instanceof Error ? e.message : String(e)}` };
         }
@@ -525,13 +532,13 @@ function buildTests(session: { user: { email?: string } } | null): TestCase[] {
           .insert({ name: testName, segment_type: 'automatic', rules, match_type: 'all', color: '#7c3aed', icon: 'target' })
           .select('id, member_count').single();
         if (insertErr) return { passed: false, details: `Erro ao criar: ${insertErr.message}` };
-        // Tenta avaliar via edge function
-        try {
-          await supabase.functions.invoke('segment-evaluate', { body: { segment_id: data.id } });
-        } catch { /* ignora se nao processar */ }
+        // Verifica se o segmento foi salvo com regras
+        const { data: check } = await supabase.from('segments')
+          .select('rules, segment_type').eq('id', data.id).single();
+        const hasRules = Array.isArray((check?.rules as unknown[])) && (check?.rules as unknown[]).length > 0;
         const { data: readBack } = await supabase.from('segments').select('member_count').eq('id', data.id).single();
         await supabase.from('segments').delete().eq('id', data.id);
-        return { passed: true, details: `Segmento criado, avaliado (members: ${readBack?.member_count ?? 'N/A'}) e deletado` };
+        return { passed: true, details: `Segmento criado (rules: ${hasRules}, members: ${readBack?.member_count ?? 'N/A'}) e deletado` };
       },
     },
     {
