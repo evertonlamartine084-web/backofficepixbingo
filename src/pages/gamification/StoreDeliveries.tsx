@@ -12,8 +12,38 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyRow = Record<string, any>;
+interface StoreItemRef {
+  name: string;
+  image_url: string | null;
+  category: string;
+  reward_type: string;
+}
+
+interface StorePurchaseRow {
+  id: string;
+  cpf: string;
+  store_item_id: string;
+  status: string;
+  price_coins: number;
+  price_diamonds: number;
+  price_xp: number;
+  delivery_note: string | null;
+  reward_type: string | null;
+  reward_value: string | null;
+  delivered_at: string | null;
+  created_at: string;
+  store_items: StoreItemRef | null;
+}
+
+interface PendingRewardRow {
+  id: string;
+  cpf: string;
+  reward_type: string;
+  description: string | null;
+  reward_value: string | null;
+  created_at: string;
+  claimed_at: string | null;
+}
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   pending: { label: 'Pendente', color: 'bg-yellow-500/15 text-yellow-400', icon: Clock },
@@ -26,7 +56,7 @@ export default function StoreDeliveries() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('_all');
   const [cpfFilter, setCpfFilter] = useState('');
-  const [deliverDialog, setDeliverDialog] = useState<AnyRow | null>(null);
+  const [deliverDialog, setDeliverDialog] = useState<StorePurchaseRow | null>(null);
   const [deliveryNote, setDeliveryNote] = useState('');
 
   const { data: purchases = [], isLoading } = useQuery({
@@ -43,7 +73,7 @@ export default function StoreDeliveries() {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as AnyRow[];
+      return (data || []) as StorePurchaseRow[];
     },
   });
 
@@ -57,7 +87,7 @@ export default function StoreDeliveries() {
         .order('created_at', { ascending: false })
         .limit(100);
       if (error) throw error;
-      return (data || []) as AnyRow[];
+      return (data || []) as PendingRewardRow[];
     },
   });
 
@@ -69,7 +99,7 @@ export default function StoreDeliveries() {
           status: 'delivered',
           delivered_at: new Date().toISOString(),
           delivery_note: note || 'Entregue manualmente pelo operador',
-        } as AnyRow)
+        } as Record<string, unknown>)
         .eq('id', purchaseId);
       if (error) throw error;
     },
@@ -86,7 +116,7 @@ export default function StoreDeliveries() {
     mutationFn: async (rewardId: string) => {
       const { error } = await supabase
         .from('player_rewards_pending')
-        .update({ claimed_at: new Date().toISOString() } as AnyRow)
+        .update({ claimed_at: new Date().toISOString() } as Record<string, unknown>)
         .eq('id', rewardId);
       if (error) throw error;
     },
@@ -175,7 +205,7 @@ export default function StoreDeliveries() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pendingRewards.map((r: AnyRow) => (
+                {pendingRewards.map((r: PendingRewardRow) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-mono text-xs">{r.cpf}</TableCell>
                     <TableCell><Badge variant="outline" className="capitalize text-[10px]">{r.reward_type}</Badge></TableCell>
@@ -224,7 +254,7 @@ export default function StoreDeliveries() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {purchases.map((p: AnyRow) => {
+                {purchases.map((p: StorePurchaseRow) => {
                   const cfg = STATUS_CONFIG[p.status] || STATUS_CONFIG.pending;
                   const StatusIcon = cfg.icon;
                   return (

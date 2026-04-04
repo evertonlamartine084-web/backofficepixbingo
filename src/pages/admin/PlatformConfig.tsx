@@ -116,7 +116,6 @@ export default function PlatformConfig() {
         body: JSON.stringify({}),
       });
       const data = await res.json();
-      if (data.logs) console.log('Sync logs:', data.logs);
       if (data.success) {
         toast.success(`Sync concluído! ${data.updated} scores atualizados`);
         qc.invalidateQueries({ queryKey: ['platform_config'] });
@@ -144,7 +143,6 @@ export default function PlatformConfig() {
         body: JSON.stringify({}),
       });
       const data = await res.json();
-      if (data.logs) console.log('Mission sync logs:', data.logs);
       if (data.success) {
         toast.success(`Sync missões concluído! ${data.updated} atualizados, ${data.completed} concluídos`);
       } else {

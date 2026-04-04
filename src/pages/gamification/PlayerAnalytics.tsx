@@ -28,8 +28,95 @@ function formatCPF(cpf: string) {
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyRow = Record<string, any>;
+interface PlayerWalletRow {
+  id: string;
+  cpf: string;
+  coins: number;
+  diamonds: number;
+  xp: number;
+  total_xp_earned: number;
+  level: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface MissionRef {
+  title: string;
+  goal: number | null;
+  reward_type: string | null;
+  reward_amount: number | null;
+}
+
+interface MissionProgressRow {
+  id: string;
+  cpf: string;
+  mission_id: string;
+  current_value: number;
+  completed: boolean;
+  created_at: string;
+  missions: MissionRef | null;
+}
+
+interface AchievementRef {
+  title: string;
+  goal: number | null;
+  reward_type: string | null;
+  reward_amount: number | null;
+}
+
+interface AchievementProgressRow {
+  id: string;
+  cpf: string;
+  achievement_id: string;
+  current_value: number;
+  unlocked: boolean;
+  unlocked_at: string | null;
+  created_at: string;
+  achievements: AchievementRef | null;
+}
+
+interface TournamentRef {
+  title: string;
+  status: string | null;
+  prize_pool: string | number | null;
+}
+
+interface TournamentEntryRow {
+  id: string;
+  cpf: string;
+  tournament_id: string;
+  score: number;
+  rank: number | null;
+  created_at: string;
+  tournaments: TournamentRef | null;
+}
+
+interface ActivityLogRow {
+  id: string;
+  cpf: string;
+  event_type: string | null;
+  action: string | null;
+  description: string | null;
+  details: string | null;
+  created_at: string;
+}
+
+interface XpHistoryRow {
+  id: string;
+  cpf: string;
+  action: string;
+  xp_earned: number;
+  description: string | null;
+  created_at: string;
+}
+
+interface LevelRow {
+  id: string;
+  level_number: number;
+  name: string | null;
+  xp_required: number;
+  created_at: string;
+}
 
 export default function PlayerAnalytics() {
   const [cpfInput, setCpfInput] = useState('');
@@ -53,7 +140,7 @@ export default function PlayerAnalytics() {
         .eq('cpf', searchCpf)
         .maybeSingle();
       if (error) throw error;
-      return data as AnyRow | null;
+      return data as PlayerWalletRow | null;
     },
     enabled: !!searchCpf,
   });
@@ -66,7 +153,7 @@ export default function PlayerAnalytics() {
         .select('*, missions(title, goal, reward_type, reward_amount)')
         .eq('cpf', searchCpf);
       if (error) throw error;
-      return (data || []) as AnyRow[];
+      return (data || []) as MissionProgressRow[];
     },
     enabled: !!searchCpf,
   });
@@ -79,7 +166,7 @@ export default function PlayerAnalytics() {
         .select('*, achievements(title, goal, reward_type, reward_amount)')
         .eq('cpf', searchCpf);
       if (error) throw error;
-      return (data || []) as AnyRow[];
+      return (data || []) as AchievementProgressRow[];
     },
     enabled: !!searchCpf,
   });
@@ -93,7 +180,7 @@ export default function PlayerAnalytics() {
         .eq('cpf', searchCpf)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data || []) as AnyRow[];
+      return (data || []) as TournamentEntryRow[];
     },
     enabled: !!searchCpf,
   });
@@ -108,7 +195,7 @@ export default function PlayerAnalytics() {
         .order('created_at', { ascending: false })
         .limit(100);
       if (error) throw error;
-      return (data || []) as AnyRow[];
+      return (data || []) as ActivityLogRow[];
     },
     enabled: !!searchCpf,
   });
@@ -123,7 +210,7 @@ export default function PlayerAnalytics() {
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) throw error;
-      return (data || []) as AnyRow[];
+      return (data || []) as XpHistoryRow[];
     },
     enabled: !!searchCpf,
   });
@@ -136,7 +223,7 @@ export default function PlayerAnalytics() {
         .select('*')
         .order('level_number', { ascending: true });
       if (error) throw error;
-      return (data || []) as AnyRow[];
+      return (data || []) as LevelRow[];
     },
     enabled: !!searchCpf,
   });
@@ -148,8 +235,8 @@ export default function PlayerAnalytics() {
     ? Math.min(100, Math.round(((wallet?.total_xp_earned || 0) - (currentLevel?.xp_required || 0)) / ((nextLevel?.xp_required || 1) - (currentLevel?.xp_required || 0)) * 100))
     : 100;
 
-  const completedMissions = missions.filter((m: AnyRow) => m.completed).length;
-  const unlockedAchievements = achievements.filter((a: AnyRow) => a.unlocked).length;
+  const completedMissions = missions.filter((m) => m.completed).length;
+  const unlockedAchievements = achievements.filter((a) => a.unlocked).length;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -265,7 +352,7 @@ export default function PlayerAnalytics() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {missions.map((m: AnyRow) => (
+                        {missions.map((m) => (
                           <TableRow key={m.id}>
                             <TableCell className="font-medium">{m.missions?.title || m.mission_id}</TableCell>
                             <TableCell className="text-center">{m.current_value || 0}</TableCell>
@@ -307,7 +394,7 @@ export default function PlayerAnalytics() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {achievements.map((a: AnyRow) => (
+                        {achievements.map((a) => (
                           <TableRow key={a.id}>
                             <TableCell className="font-medium">{a.achievements?.title || a.achievement_id}</TableCell>
                             <TableCell className="text-center">{a.current_value || 0}</TableCell>
@@ -349,7 +436,7 @@ export default function PlayerAnalytics() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {tournaments.map((t: AnyRow) => (
+                        {tournaments.map((t) => (
                           <TableRow key={t.id}>
                             <TableCell className="font-medium">{t.tournaments?.title || t.tournament_id}</TableCell>
                             <TableCell className="text-center font-mono">{(t.score || 0).toLocaleString()}</TableCell>
@@ -392,7 +479,7 @@ export default function PlayerAnalytics() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {xpHistory.map((h: AnyRow) => (
+                        {xpHistory.map((h) => (
                           <TableRow key={h.id}>
                             <TableCell>
                               <Badge variant="outline" className="capitalize">{h.action}</Badge>
@@ -427,7 +514,7 @@ export default function PlayerAnalytics() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {activity.map((a: AnyRow) => (
+                        {activity.map((a) => (
                           <TableRow key={a.id}>
                             <TableCell>
                               <Badge variant="outline" className="capitalize text-[10px]">{a.event_type || a.action}</Badge>

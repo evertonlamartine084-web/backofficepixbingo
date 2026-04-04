@@ -48,8 +48,7 @@ export default function Flows() {
         name: form.name,
         description: form.description,
         steps: flowSteps,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+      } as Record<string, unknown>);
       if (error) throw error;
     },
     onSuccess: () => {

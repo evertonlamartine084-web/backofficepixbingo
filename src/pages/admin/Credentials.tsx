@@ -28,8 +28,7 @@ export default function Credentials() {
         type: form.type,
         value_encrypted: form.value,
         value_masked: masked,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+      } as Record<string, unknown>);
       if (error) throw error;
     },
     onSuccess: () => {

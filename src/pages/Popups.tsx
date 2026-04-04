@@ -20,6 +20,16 @@ import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { logAudit } from '@/hooks/use-audit';
+import DOMPurify from 'dompurify';
+
+/** Sanitize HTML: allow safe markup (styles, images, links) but block scripts and event handlers */
+const sanitizeHtml = (html: string): string =>
+  DOMPurify.sanitize(html, {
+    ADD_TAGS: ['style', 'link'],
+    ADD_ATTR: ['target', 'rel', 'style'],
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onchange', 'oninput', 'onsubmit'],
+  });
 
 interface Popup {
   id: string;
@@ -115,6 +125,26 @@ export default function Popups() {
   // Guard: prevent duplicate execution if GTM re-fires
   if (window.__pbr_popup_loaded) return;
   window.__pbr_popup_loaded = true;
+
+  // Defense-in-depth: strip dangerous tags/attributes from HTML at runtime
+  function sanitizeRuntime(html) {
+    var div = document.createElement('div');
+    div.innerHTML = html;
+    var dangerous = div.querySelectorAll('script,iframe,object,embed,form');
+    for (var i = 0; i < dangerous.length; i++) dangerous[i].remove();
+    var all = div.querySelectorAll('*');
+    for (var j = 0; j < all.length; j++) {
+      var attrs = all[j].attributes;
+      for (var k = attrs.length - 1; k >= 0; k--) {
+        if (attrs[k].name.indexOf('on') === 0) all[j].removeAttribute(attrs[k].name);
+      }
+      var href = all[j].getAttribute('href');
+      if (href && href.trim().toLowerCase().indexOf('javascript:') === 0) all[j].removeAttribute('href');
+      var src = all[j].getAttribute('src');
+      if (src && src.trim().toLowerCase().indexOf('javascript:') === 0) all[j].removeAttribute('src');
+    }
+    return div.innerHTML;
+  }
 
   var BASE = 'https://backofficepixbingobr.vercel.app/api';
   var CHECK_URL = BASE + '/popup-check';
@@ -275,7 +305,7 @@ export default function Popups() {
 
           if (p.custom_html) {
             var wrapper = document.createElement('div');
-            wrapper.innerHTML = p.custom_html;
+            wrapper.innerHTML = sanitizeRuntime(p.custom_html);
 
             // Track clicks on CTA links — prevent navigation until click is tracked
             wrapper.querySelectorAll('a').forEach(function(el) {
@@ -313,12 +343,7 @@ export default function Popups() {
 
             showPopup(wrapper, p.id, cpf, p.persistent);
 
-            // Re-execute scripts from custom HTML AFTER showPopup (innerHTML doesn't run them)
-            wrapper.querySelectorAll('script').forEach(function(oldScript) {
-              var newScript = document.createElement('script');
-              newScript.textContent = oldScript.textContent;
-              oldScript.parentNode.replaceChild(newScript, oldScript);
-            });
+            // Script tags are stripped by sanitization — no re-execution needed
           } else {
             var box = document.createElement('div');
             box.setAttribute('style', 'background:#fff;border-radius:12px;padding:28px 24px 24px;max-width:400px;width:90vw;text-align:center;position:relative;');
@@ -502,7 +527,7 @@ export default function Popups() {
         image_url: form.mode === 'simple' ? (form.image_url || null) : null,
         button_text: form.mode === 'simple' ? (form.button_text || 'OK') : '',
         button_url: form.mode === 'simple' ? (form.button_url || null) : null,
-        custom_html: form.mode === 'html' ? form.custom_html : null,
+        custom_html: form.mode === 'html' ? sanitizeHtml(form.custom_html) : null,
         segment_id: form.segment_id || null,
         persistent: form.persistent,
         frequency: form.frequency,
@@ -533,7 +558,7 @@ export default function Popups() {
         image_url: form.mode === 'simple' ? (form.image_url || null) : null,
         button_text: form.mode === 'simple' ? (form.button_text || 'OK') : '',
         button_url: form.mode === 'simple' ? (form.button_url || null) : null,
-        custom_html: form.mode === 'html' ? form.custom_html : null,
+        custom_html: form.mode === 'html' ? sanitizeHtml(form.custom_html) : null,
         segment_id: form.segment_id || null,
         persistent: form.persistent,
         frequency: form.frequency,
@@ -895,7 +920,7 @@ export default function Popups() {
             <div className="py-2">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Preview HTML</p>
               <iframe
-                srcDoc={prepareHtmlPreview(previewPopup.custom_html)}
+                srcDoc={prepareHtmlPreview(sanitizeHtml(previewPopup.custom_html))}
                 className="w-full min-h-[300px] rounded-lg border border-border bg-white"
                 sandbox="allow-scripts"
                 title="Popup Preview"

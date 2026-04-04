@@ -76,7 +76,7 @@ async function doLogin(siteUrl: string, loginUrl: string | undefined, username: 
     const initRes = await fetch(baseUrl, { method: 'GET', headers: { Accept: 'text/html' }, redirect: 'manual', signal: AbortSignal.timeout(10000) });
     const setCookies = initRes.headers.getSetCookie?.() || [];
     initialCookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
-  } catch {}
+  } catch { /* ignore init cookie failure */ }
 
   try {
     const hdrs: Record<string, string> = {
@@ -101,9 +101,9 @@ async function doLogin(siteUrl: string, loginUrl: string | undefined, username: 
     }
     if (res.ok) {
       const text = await res.text();
-      try { const d = JSON.parse(text) as Record<string, unknown>; if (d.status === true || d.logged === true) return { cookies, success: true }; } catch {}
+      try { const d = JSON.parse(text) as Record<string, unknown>; if (d.status === true || d.logged === true) return { cookies, success: true }; } catch { /* not JSON */ }
     }
-  } catch {}
+  } catch { /* login failed */ }
   return { cookies: '', success: false };
 }
 
@@ -120,7 +120,7 @@ export default async function handler(req: Request): Promise<Response> {
 
   try {
     const body = await req.json();
-    let { cpfs, valor, site_url, login_url, username, password } = body;
+    const { cpfs, valor, site_url, login_url, username, password } = body;
     const mode = body.mode || 'credit'; // 'credit' | 'check'
 
     if (!cpfs || !Array.isArray(cpfs) || cpfs.length === 0) {
@@ -194,7 +194,7 @@ export default async function handler(req: Request): Promise<Response> {
             // Log to Supabase
             try {
               await supabase.from('bonus_credits_log').insert({ cpf, valor, source: 'bulk-bonus', uuid } as Record<string, unknown>);
-            } catch {} // table may not exist yet, that's ok
+            } catch { /* table may not exist yet */ }
             return { cpf, status: 'credited', bonus_count: 1 };
           }
           return { cpf, status: 'error', bonus_count: bonusCount, error: result.error };

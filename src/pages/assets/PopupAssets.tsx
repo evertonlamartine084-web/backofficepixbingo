@@ -63,8 +63,7 @@ export default function PopupAssets() {
       logAudit({ action: editing ? 'EDITAR' : 'CRIAR', resource_type: 'popup_asset', resource_id: editing?.id, resource_name: form.name });
       closeDialog();
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const deleteMutation = useMutation({
@@ -79,8 +78,7 @@ export default function PopupAssets() {
       toast.success('Asset excluído');
       logAudit({ action: 'EXCLUIR', resource_type: 'popup_asset', resource_id: asset?.id, resource_name: asset?.name });
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const openNew = () => {

@@ -1,69 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getCorsHeaders, optionsResponse } from './_cors.js';
+import { platformLogin, buildPlatformHeaders, buildDataTableParams, USER_COLUMNS } from './_platform.js';
 
 export const config = { runtime: 'edge', maxDuration: 60 };
-
-// --- Platform login helpers ---
-
-async function platformLogin(siteUrl: string, username: string, password: string, loginUrl?: string | null): Promise<{ cookies: string; success: boolean }> {
-  const baseUrl = siteUrl.replace(/\/+$/, '');
-  let loginTarget = `${baseUrl}/login`;
-  if (loginUrl) {
-    const cleanLogin = loginUrl.replace(/\/+$/, '');
-    loginTarget = cleanLogin.endsWith('/login') ? cleanLogin : `${cleanLogin}/login`;
-  }
-
-  let initialCookies = '';
-  try {
-    const initRes = await fetch(baseUrl, {
-      method: 'GET', headers: { 'Accept': 'text/html' },
-      redirect: 'manual', signal: AbortSignal.timeout(10000),
-    });
-    const setCookies = initRes.headers.getSetCookie?.() || [];
-    initialCookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
-  } catch { /* ignore */ }
-
-  try {
-    const hdrs: Record<string, string> = {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Accept': 'text/html,application/json,*/*',
-      'Referer': `${baseUrl}/`, 'Origin': baseUrl,
-    };
-    if (initialCookies) hdrs['Cookie'] = initialCookies;
-
-    const res = await fetch(loginTarget, {
-      method: 'POST', headers: hdrs,
-      body: new URLSearchParams({ usuario: username, senha: password }).toString(),
-      redirect: 'manual', signal: AbortSignal.timeout(10000),
-    });
-
-    const setCookies = res.headers.getSetCookie?.() || [];
-    const cookieMap = new Map<string, string>();
-    for (const c of initialCookies.split('; ').filter(Boolean)) {
-      const [k, ...v] = c.split('=');
-      cookieMap.set(k, v.join('='));
-    }
-    for (const sc of setCookies) {
-      const [kv] = sc.split(';');
-      const [k, ...v] = kv.split('=');
-      cookieMap.set(k.trim(), v.join('='));
-    }
-    const cookies = Array.from(cookieMap.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
-
-    if (res.status === 302 || res.status === 301) {
-      const location = res.headers.get('location') || '';
-      if (!location.includes('/login') && !location.includes('error')) {
-        return { cookies, success: true };
-      }
-    }
-    if (res.ok) {
-      const text = await res.text();
-      try { const d = JSON.parse(text); if (d.status === true || d.logged === true) return { cookies, success: true }; } catch { /* ignore */ }
-    }
-  } catch { /* ignore */ }
-
-  return { cookies: '', success: false };
-}
 
 // --- Mission progress helper ---
 
@@ -257,15 +196,9 @@ export async function syncPlayerXp(cpf: string, supabase: SupabaseClient, debug 
       return result;
     }
 
-    const headers: Record<string, string> = {
-      'Accept': 'application/json, text/javascript, */*',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Cookie': login.cookies,
-      'Referer': siteUrl,
-    };
+    const headers = buildPlatformHeaders(login.cookies, siteUrl);
 
     // 5. Find player UUID on platform
-    const userCols = ['username', 'celular', 'cpf', 'created_at', 'ultimo_login', 'situacao', 'uuid'];
     const searchStrategies = [
       { busca_cpf: cpf },
       { busca_username: cpf },
@@ -275,20 +208,11 @@ export async function syncPlayerXp(cpf: string, supabase: SupabaseClient, debug 
     for (const extra of searchStrategies) {
       if (playerUuid) break;
       try {
-        const params = new URLSearchParams({ draw: '1', start: '0', length: '5' });
-        userCols.forEach((col, i) => {
-          params.set(`columns[${i}][data]`, col);
-          params.set(`columns[${i}][name]`, '');
-          params.set(`columns[${i}][searchable]`, 'true');
-          params.set(`columns[${i}][orderable]`, 'true');
-          params.set(`columns[${i}][search][value]`, '');
-          params.set(`columns[${i}][search][regex]`, 'false');
+        const params = buildDataTableParams({
+          columns: USER_COLUMNS,
+          length: 5,
+          extraParams: extra,
         });
-        params.set('order[0][column]', '0');
-        params.set('order[0][dir]', 'asc');
-        params.set('search[value]', '');
-        params.set('search[regex]', 'false');
-        for (const [k, v] of Object.entries(extra)) params.set(k, v);
 
         const res = await fetch(`${siteUrl}/usuarios/listar?${params.toString()}`, {
           method: 'GET', headers, signal: AbortSignal.timeout(15000),
@@ -311,24 +235,13 @@ export async function syncPlayerXp(cpf: string, supabase: SupabaseClient, debug 
     let historico: Historico[] = [];
     try {
       // Build DataTables params for /transferencias/listar filtered by CPF
-      const txParams = new URLSearchParams();
-      txParams.set('draw', '1');
-      txParams.set('start', '0');
-      txParams.set('length', '500');
-      txParams.set('busca_cpf', cpf);
-      const txCols = ['tipo', 'operacao', 'valor', 'carteira', 'jogo', 'data_registro'];
-      txCols.forEach((col, i) => {
-        txParams.set(`columns[${i}][data]`, col);
-        txParams.set(`columns[${i}][name]`, '');
-        txParams.set(`columns[${i}][searchable]`, 'true');
-        txParams.set(`columns[${i}][orderable]`, 'true');
-        txParams.set(`columns[${i}][search][value]`, '');
-        txParams.set(`columns[${i}][search][regex]`, 'false');
+      const txParams = buildDataTableParams({
+        columns: ['tipo', 'operacao', 'valor', 'carteira', 'jogo', 'data_registro'],
+        length: 500,
+        orderColumn: 5,
+        orderDir: 'desc',
+        extraParams: { busca_cpf: cpf },
       });
-      txParams.set('order[0][column]', '5');
-      txParams.set('order[0][dir]', 'desc');
-      txParams.set('search[value]', '');
-      txParams.set('search[regex]', 'false');
 
       const txRes = await fetch(`${siteUrl}/transferencias/listar?${txParams.toString()}`, {
         method: 'GET', headers, signal: AbortSignal.timeout(15000),

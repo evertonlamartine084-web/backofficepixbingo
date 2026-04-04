@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { getCorsHeaders, optionsResponse, verifyAuth } from './_cors.js';
+import { platformLogin, buildPlatformHeaders, fetchJSON, buildDataTableParams, USER_COLUMNS, TX_COLUMNS } from './_platform.js';
 
 export const config = { runtime: 'edge', maxDuration: 60 };
 
@@ -99,115 +100,7 @@ interface TransactionSummary {
   iTotalRecords?: number;
 }
 
-async function doLogin(body: ProxyRequest): Promise<{ cookies: string; success: boolean }> {
-  const siteUrl = body.site_url.replace(/\/+$/, '');
-  // If login_url is provided, derive the base domain from it (strip /login suffix)
-  let loginTarget = `${siteUrl}/login`;
-  let baseUrl = siteUrl;
-  if (body.login_url) {
-    const cleanLogin = body.login_url.replace(/\/+$/, '');
-    loginTarget = cleanLogin.endsWith('/login') ? cleanLogin : `${cleanLogin}/login`;
-    baseUrl = cleanLogin.replace(/\/login$/, '');
-  }
-
-  let initialCookies = '';
-  try {
-    const initRes = await fetch(baseUrl, {
-      method: 'GET',
-      headers: { 'Accept': 'text/html' },
-      redirect: 'manual',
-      signal: AbortSignal.timeout(10000),
-    });
-    const setCookies = initRes.headers.getSetCookie?.() || [];
-    initialCookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
-  } catch { /* ignore */ }
-
-  try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Accept': 'text/html,application/json,*/*',
-      'Referer': `${baseUrl}/`,
-      'Origin': baseUrl,
-    };
-    if (initialCookies) headers['Cookie'] = initialCookies;
-
-    const res = await fetch(loginTarget, {
-      method: 'POST',
-      headers,
-      body: new URLSearchParams({ usuario: body.username, senha: body.password }).toString(),
-      redirect: 'manual',
-      signal: AbortSignal.timeout(10000),
-    });
-
-    const setCookies = res.headers.getSetCookie?.() || [];
-    const cookieMap = new Map<string, string>();
-    for (const c of initialCookies.split('; ').filter(Boolean)) {
-      const [k, ...v] = c.split('=');
-      cookieMap.set(k, v.join('='));
-    }
-    for (const sc of setCookies) {
-      const [kv] = sc.split(';');
-      const [k, ...v] = kv.split('=');
-      cookieMap.set(k.trim(), v.join('='));
-    }
-    const cookies = Array.from(cookieMap.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
-
-    if (res.status === 302 || res.status === 301) {
-      const location = res.headers.get('location') || '';
-      if (!location.includes('/login') && !location.includes('error')) {
-        return { cookies, success: true };
-      }
-    }
-
-    if (res.ok) {
-      const text = await res.text();
-      try {
-        const data = JSON.parse(text);
-        if (data.status === true || data.logged === true) {
-          return { cookies, success: true };
-        }
-      } catch { /* ignore */ }
-      // If we got cookies back and the response isn't a login page, consider it success
-      if (setCookies.length > 0 && !text.includes('name="usuario"') && !text.includes('name="senha"')) {
-        return { cookies, success: true };
-      }
-    }
-  } catch { /* ignore */ }
-
-  return { cookies: '', success: false };
-}
-
-function buildHeaders(cookies: string, baseUrl: string): Record<string, string> {
-  const h: Record<string, string> = {
-    'Accept': 'application/json, text/javascript, */*',
-    'X-Requested-With': 'XMLHttpRequest',
-  };
-  if (cookies) h['Cookie'] = cookies;
-  if (baseUrl) h['Referer'] = baseUrl;
-  return h;
-}
-
-async function fetchJSON(url: string, headers: Record<string, string>, method = 'GET', body?: string | Record<string, string>): Promise<Record<string, unknown>> {
-  const opts: RequestInit = { method, headers: { ...headers }, signal: AbortSignal.timeout(15000) };
-  if (body && method === 'POST') {
-    if (typeof body === 'string') {
-      opts.body = body;
-      (opts.headers as Record<string, string>)['Content-Type'] = 'application/x-www-form-urlencoded';
-    } else {
-      opts.body = new URLSearchParams(body).toString();
-      (opts.headers as Record<string, string>)['Content-Type'] = 'application/x-www-form-urlencoded';
-    }
-  }
-
-  const res = await fetch(url, opts);
-  const text = await res.text();
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { _raw: text.slice(0, 500), _status: res.status };
-  }
-}
+// doLogin, buildHeaders, fetchJSON are now imported from ./_platform.js
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return optionsResponse(req);
@@ -266,12 +159,12 @@ export default async function handler(req: Request): Promise<Response> {
     const loginDomain = body.login_url ? body.login_url.replace(/\/+$/, '').replace(/\/login$/, '') : null;
     const baseUrl = loginDomain || normalizedUrl;
 
-    const auth = await doLogin(body);
+    const auth = await platformLogin(normalizedUrl, body.username, body.password, body.login_url);
     if (!auth.success) {
       return new Response(JSON.stringify({ success: false, error: 'Login falhou. Verifique credenciais e URL.' }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    const headers = buildHeaders(auth.cookies, baseUrl);
+    const headers = buildPlatformHeaders(auth.cookies, baseUrl);
 
     let result: Record<string, unknown> | null = null;
 
@@ -281,56 +174,36 @@ export default async function handler(req: Request): Promise<Response> {
         break;
 
       case 'list_users': {
-        const params = new URLSearchParams();
-        params.set('draw', String(body.draw || 1));
-        params.set('start', String(body.start || 0));
-        params.set('length', String(body.length || 50));
-        const userCols = ['username','celular','cpf','created_at','ultimo_login','situacao','uuid'];
-        userCols.forEach((col, i) => {
-          params.set(`columns[${i}][data]`, col);
-          params.set(`columns[${i}][name]`, '');
-          params.set(`columns[${i}][searchable]`, 'true');
-          params.set(`columns[${i}][orderable]`, 'true');
-          params.set(`columns[${i}][search][value]`, '');
-          params.set(`columns[${i}][search][regex]`, 'false');
-        });
-        params.set('order[0][column]', '0');
-        params.set('order[0][dir]', 'asc');
-        params.set('search[value]', '');
-        params.set('search[regex]', 'false');
-        if (body.busca_username) params.set('busca_username', body.busca_username);
-        if (body.busca_cpf) params.set('busca_cpf', body.busca_cpf);
-        if (body.busca_celular) params.set('busca_celular', body.busca_celular);
-        if (body.busca_data_inicio) params.set('busca_data_inicio', body.busca_data_inicio);
-        if (body.busca_data_fim) params.set('busca_data_fim', body.busca_data_fim);
+        const extra: Record<string, string> = {};
+        if (body.busca_username) extra.busca_username = body.busca_username;
+        if (body.busca_cpf) extra.busca_cpf = body.busca_cpf;
+        if (body.busca_celular) extra.busca_celular = body.busca_celular;
+        if (body.busca_data_inicio) extra.busca_data_inicio = body.busca_data_inicio;
+        if (body.busca_data_fim) extra.busca_data_fim = body.busca_data_fim;
         if (body.search && !body.busca_cpf && !body.busca_username) {
-          params.set('busca_cpf', body.search);
+          extra.busca_cpf = body.search;
         }
+        const params = buildDataTableParams({
+          columns: USER_COLUMNS,
+          draw: body.draw || 1,
+          start: body.start || 0,
+          length: body.length || 50,
+          extraParams: extra,
+        });
         result = await fetchJSON(`${baseUrl}/usuarios/listar?${params}`, headers);
         break;
       }
 
       case 'search_player': {
         const query = body.cpf || body.uuid || '';
-        const params = new URLSearchParams({ draw: '1', start: '0', length: '10' });
-        if (query.includes('-')) {
-          params.set('busca_uuid', query);
-        } else {
-          params.set('busca_cpf', query);
-        }
-        const userCols = ['username','celular','cpf','created_at','ultimo_login','situacao','uuid'];
-        userCols.forEach((col, i) => {
-          params.set(`columns[${i}][data]`, col);
-          params.set(`columns[${i}][name]`, '');
-          params.set(`columns[${i}][searchable]`, 'true');
-          params.set(`columns[${i}][orderable]`, 'true');
-          params.set(`columns[${i}][search][value]`, '');
-          params.set(`columns[${i}][search][regex]`, 'false');
+        const extra: Record<string, string> = query.includes('-')
+          ? { busca_uuid: query }
+          : { busca_cpf: query };
+        const params = buildDataTableParams({
+          columns: USER_COLUMNS,
+          length: 10,
+          extraParams: extra,
         });
-        params.set('order[0][column]', '0');
-        params.set('order[0][dir]', 'asc');
-        params.set('search[value]', '');
-        params.set('search[regex]', 'false');
         result = await fetchJSON(`${baseUrl}/usuarios/listar?${params}`, headers);
         break;
       }
@@ -355,33 +228,24 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       case 'list_transactions': {
-        const params = new URLSearchParams();
-        params.set('draw', String(body.draw || 1));
-        params.set('start', String(body.start || 0));
-        params.set('length', String(body.length || 50));
-        params.set('exportar', '0');
-        const txCols = ['id','tipo','valor','saldo_anterior','saldo_posterior','cpf','username','created_at','descricao','status'];
-        txCols.forEach((col, i) => {
-          params.set(`columns[${i}][data]`, col);
-          params.set(`columns[${i}][name]`, '');
-          params.set(`columns[${i}][searchable]`, 'true');
-          params.set(`columns[${i}][orderable]`, 'true');
-          params.set(`columns[${i}][search][value]`, '');
-          params.set(`columns[${i}][search][regex]`, 'false');
-        });
-        params.set('order[0][column]', '0');
-        params.set('order[0][dir]', 'desc');
-        params.set('search[value]', '');
-        params.set('search[regex]', 'false');
-        if (body.busca_data_inicio) params.set('busca_data_inicio', body.busca_data_inicio);
-        if (body.busca_data_fim) params.set('busca_data_fim', body.busca_data_fim);
-        if (body.busca_tipo_transacao) params.set('busca_tipo_transacao', body.busca_tipo_transacao);
-        if (body.busca_email) params.set('busca_email', body.busca_email);
-        if (body.busca_cpf) params.set('busca_cpf', body.busca_cpf);
-        if (body.busca_agrupamento) params.set('busca_agrupamento', body.busca_agrupamento || '');
+        const extra: Record<string, string> = { exportar: '0' };
+        if (body.busca_data_inicio) extra.busca_data_inicio = body.busca_data_inicio;
+        if (body.busca_data_fim) extra.busca_data_fim = body.busca_data_fim;
+        if (body.busca_tipo_transacao) extra.busca_tipo_transacao = body.busca_tipo_transacao;
+        if (body.busca_email) extra.busca_email = body.busca_email;
+        if (body.busca_cpf) extra.busca_cpf = body.busca_cpf;
+        if (body.busca_agrupamento) extra.busca_agrupamento = body.busca_agrupamento || '';
         if (body.search && !body.busca_cpf) {
-          params.set('busca_cpf', body.search);
+          extra.busca_cpf = body.search;
         }
+        const params = buildDataTableParams({
+          columns: TX_COLUMNS,
+          draw: body.draw || 1,
+          start: body.start || 0,
+          length: body.length || 50,
+          orderDir: 'desc',
+          extraParams: extra,
+        });
         result = await fetchJSON(`${baseUrl}/transferencias/listar?${params}`, headers);
         break;
       }
@@ -573,18 +437,12 @@ export default async function handler(req: Request): Promise<Response> {
         }
 
         if (primaryData) {
-          const txParams = new URLSearchParams();
-          txParams.set('draw', '1'); txParams.set('start', '0'); txParams.set('length', '1'); txParams.set('exportar', '0');
-          const txCols = ['id', 'tipo', 'valor', 'saldo_anterior', 'saldo_posterior', 'cpf', 'username', 'created_at', 'descricao', 'status'];
-          txCols.forEach((col, i) => {
-            txParams.set(`columns[${i}][data]`, col); txParams.set(`columns[${i}][name]`, '');
-            txParams.set(`columns[${i}][searchable]`, 'true'); txParams.set(`columns[${i}][orderable]`, 'true');
-            txParams.set(`columns[${i}][search][value]`, ''); txParams.set(`columns[${i}][search][regex]`, 'false');
+          const txExtra: Record<string, string> = { exportar: '0' };
+          if (body.busca_data_inicio) txExtra.busca_data_inicio = body.busca_data_inicio;
+          if (body.busca_data_fim) txExtra.busca_data_fim = body.busca_data_fim;
+          const txParams = buildDataTableParams({
+            columns: TX_COLUMNS, length: 1, orderDir: 'desc', extraParams: txExtra,
           });
-          txParams.set('order[0][column]', '0'); txParams.set('order[0][dir]', 'desc');
-          txParams.set('search[value]', ''); txParams.set('search[regex]', 'false');
-          if (body.busca_data_inicio) txParams.set('busca_data_inicio', body.busca_data_inicio);
-          if (body.busca_data_fim) txParams.set('busca_data_fim', body.busca_data_fim);
 
           const txSummaryRaw = await fetchJSON(`${baseUrl}/transferencias/listar?${txParams.toString()}`, headers, 'GET');
           const txSummary = txSummaryRaw as unknown as TransactionSummary;
@@ -593,35 +451,24 @@ export default async function handler(req: Request): Promise<Response> {
         }
 
         if (!result) {
-          const txParams = new URLSearchParams();
-          txParams.set('draw', '1'); txParams.set('start', '0'); txParams.set('length', '1'); txParams.set('exportar', '0');
-          const txCols = ['id', 'tipo', 'valor', 'saldo_anterior', 'saldo_posterior', 'cpf', 'username', 'created_at', 'descricao', 'status'];
-          txCols.forEach((col, i) => {
-            txParams.set(`columns[${i}][data]`, col); txParams.set(`columns[${i}][name]`, '');
-            txParams.set(`columns[${i}][searchable]`, 'true'); txParams.set(`columns[${i}][orderable]`, 'true');
-            txParams.set(`columns[${i}][search][value]`, ''); txParams.set(`columns[${i}][search][regex]`, 'false');
+          const txExtra: Record<string, string> = { exportar: '0' };
+          if (body.busca_data_inicio) txExtra.busca_data_inicio = body.busca_data_inicio;
+          if (body.busca_data_fim) txExtra.busca_data_fim = body.busca_data_fim;
+          const txParams = buildDataTableParams({
+            columns: TX_COLUMNS, length: 1, orderDir: 'desc', extraParams: txExtra,
           });
-          txParams.set('order[0][column]', '0'); txParams.set('order[0][dir]', 'desc');
-          txParams.set('search[value]', ''); txParams.set('search[regex]', 'false');
-          if (body.busca_data_inicio) txParams.set('busca_data_inicio', body.busca_data_inicio);
-          if (body.busca_data_fim) txParams.set('busca_data_fim', body.busca_data_fim);
 
           const frParams = new URLSearchParams();
           if (body.busca_data_inicio) frParams.set('busca_periodo_ini', body.busca_data_inicio);
           if (body.busca_data_fim) frParams.set('busca_periodo_fim', body.busca_data_fim);
 
-          const fgDtParams = new URLSearchParams();
-          fgDtParams.set('draw', '1'); fgDtParams.set('start', '0'); fgDtParams.set('length', '100');
-          const fgCols = ['data','depositos','saques','bonus','saldo','ggr','comissao','lucro'];
-          fgCols.forEach((col, i) => {
-            fgDtParams.set(`columns[${i}][data]`, col); fgDtParams.set(`columns[${i}][name]`, '');
-            fgDtParams.set(`columns[${i}][searchable]`, 'true'); fgDtParams.set(`columns[${i}][orderable]`, 'true');
-            fgDtParams.set(`columns[${i}][search][value]`, ''); fgDtParams.set(`columns[${i}][search][regex]`, 'false');
+          const fgExtra: Record<string, string> = {};
+          if (body.busca_data_inicio) fgExtra.busca_data_inicio = body.busca_data_inicio;
+          if (body.busca_data_fim) fgExtra.busca_data_fim = body.busca_data_fim;
+          const fgDtParams = buildDataTableParams({
+            columns: ['data', 'depositos', 'saques', 'bonus', 'saldo', 'ggr', 'comissao', 'lucro'],
+            length: 100, orderDir: 'desc', extraParams: fgExtra,
           });
-          fgDtParams.set('order[0][column]', '0'); fgDtParams.set('order[0][dir]', 'desc');
-          fgDtParams.set('search[value]', ''); fgDtParams.set('search[regex]', 'false');
-          if (body.busca_data_inicio) fgDtParams.set('busca_data_inicio', body.busca_data_inicio);
-          if (body.busca_data_fim) fgDtParams.set('busca_data_fim', body.busca_data_fim);
 
           const [txSummaryRaw, frDataRaw] = await Promise.all([
             fetchJSON(`${baseUrl}/transferencias/listar?${txParams.toString()}`, headers, 'GET'),
@@ -674,15 +521,11 @@ export default async function handler(req: Request): Promise<Response> {
           try {
             let itemUuid = item.uuid || '';
             if (!itemUuid && item.cpf) {
-              const searchParams = new URLSearchParams({ draw: '1', start: '0', length: '1', busca_cpf: item.cpf });
-              const userCols = ['username','celular','cpf','created_at','ultimo_login','situacao','uuid'];
-              userCols.forEach((col, i) => {
-                searchParams.set(`columns[${i}][data]`, col); searchParams.set(`columns[${i}][name]`, '');
-                searchParams.set(`columns[${i}][searchable]`, 'true'); searchParams.set(`columns[${i}][orderable]`, 'true');
-                searchParams.set(`columns[${i}][search][value]`, ''); searchParams.set(`columns[${i}][search][regex]`, 'false');
+              const searchParams = buildDataTableParams({
+                columns: USER_COLUMNS,
+                length: 1,
+                extraParams: { busca_cpf: item.cpf },
               });
-              searchParams.set('order[0][column]', '0'); searchParams.set('order[0][dir]', 'asc');
-              searchParams.set('search[value]', ''); searchParams.set('search[regex]', 'false');
               const searchResult = await fetchJSON(`${baseUrl}/usuarios/listar?${searchParams}`, headers);
               const found = searchResult?.aaData?.[0];
               if (found?.uuid) {
@@ -705,7 +548,7 @@ export default async function handler(req: Request): Promise<Response> {
             };
             const creditResult = await fetchJSON(`${baseUrl}/usuarios/creditos`, headers, 'POST', creditBody);
 
-            if (creditResult.status === true || creditResult.msg?.includes('sucesso')) {
+            if (creditResult.status === true || (typeof creditResult.msg === 'string' && creditResult.msg.includes('sucesso'))) {
               await supabase.from('batch_items').update({
                 status: 'BONUS_1X', qtd_bonus: 1,
                 log: [JSON.stringify(creditResult).slice(0, 200)]
@@ -780,16 +623,11 @@ export default async function handler(req: Request): Promise<Response> {
       }
 
       case 'list_partidas': {
-        const params = new URLSearchParams();
-        params.set('draw', '1'); params.set('start', '0'); params.set('length', '200');
-        const partidaCols = ['id', 'nome', 'status', 'tipo', 'created_at'];
-        partidaCols.forEach((col, i) => {
-          params.set(`columns[${i}][data]`, col); params.set(`columns[${i}][name]`, '');
-          params.set(`columns[${i}][searchable]`, 'true'); params.set(`columns[${i}][orderable]`, 'true');
-          params.set(`columns[${i}][search][value]`, ''); params.set(`columns[${i}][search][regex]`, 'false');
+        const params = buildDataTableParams({
+          columns: ['id', 'nome', 'status', 'tipo', 'created_at'],
+          length: 200,
+          orderDir: 'desc',
         });
-        params.set('order[0][column]', '0'); params.set('order[0][dir]', 'desc');
-        params.set('search[value]', ''); params.set('search[regex]', 'false');
 
         const dtResult = await fetchJSON(`${baseUrl}/partidas/listar?${params}`, headers);
         if (dtResult?.aaData || dtResult?.data) {
