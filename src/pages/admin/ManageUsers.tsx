@@ -56,21 +56,10 @@ export default function AdminUsers() {
   const [savingPerm, setSavingPerm] = useState(false);
 
   const callManageUsers = useCallback(async (body: Record<string, unknown>) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    if (!token) throw new Error('Sessão expirada — faça login novamente');
-
-    const res = await fetch('/api/manage-users', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
-    const payload = await res.json();
-    if (payload?.error) throw new Error(payload.error);
-    return payload;
+    const { data, error } = await supabase.functions.invoke('manage-users', { body });
+    if (error) throw new Error(error.message);
+    if (data?.error) throw new Error(data.error);
+    return data;
   }, []);
 
   const loadUsers = useCallback(async () => {

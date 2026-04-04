@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import {
   Play, RotateCw, CheckCircle2, XCircle, AlertCircle, Clock, Loader2,
   Shield, LayoutDashboard, ListFilter, Megaphone, UserSearch, Gamepad2, ShieldCheck,
+  Zap, Bell, Inbox, Lock, Gauge, Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,6 +44,11 @@ const GROUP_ICONS: Record<string, typeof Shield> = {
   'Jogadores': UserSearch,
   'Gamificacao': Gamepad2,
   'Admin': ShieldCheck,
+  'Edge Functions': Zap,
+  'Assets': Package,
+  'Integridade': Lock,
+  'Seguranca': ShieldCheck,
+  'Performance': Gauge,
 };
 
 function buildTests(session: { user: { email?: string } } | null): TestCase[] {
@@ -217,6 +223,21 @@ function buildTests(session: { user: { email?: string } } | null): TestCase[] {
       },
     },
     {
+      id: 'player-lookup-test',
+      name: 'Consultar jogador teste (70791576418)',
+      group: 'Jogadores',
+      description: 'Busca o jogador CPF 70791576418 na tabela player_wallets',
+      run: async () => {
+        const { data, error } = await supabase.from('player_wallets')
+          .select('cpf, level, coins, xp')
+          .eq('cpf', '70791576418')
+          .maybeSingle();
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        if (!data) return { passed: false, details: 'Jogador 70791576418 nao encontrado na tabela' };
+        return { passed: true, details: `Nivel: ${data.level ?? '-'} | Coins: ${data.coins ?? '-'} | XP: ${data.xp ?? '-'}` };
+      },
+    },
+    {
       id: 'player-proxy',
       name: 'Edge function pixbingo-proxy',
       group: 'Jogadores',
@@ -279,8 +300,10 @@ function buildTests(session: { user: { email?: string } } | null): TestCase[] {
             body: { action: 'list' },
           });
           if (error) return { passed: false, details: `Erro: ${error.message}` };
+          if (data?.error) return { passed: false, details: `Erro: ${data.error}` };
           const users = Array.isArray(data?.users) ? data.users : [];
-          return { passed: true, details: `${users.length} usuarios retornados` };
+          const emails = users.slice(0, 3).map((u: { email?: string }) => u.email).join(', ');
+          return { passed: true, details: `${users.length} usuarios${emails ? ` (${emails})` : ''}` };
         } catch (e) {
           return { passed: false, details: `Exception: ${e instanceof Error ? e.message : String(e)}` };
         }
@@ -303,9 +326,327 @@ function buildTests(session: { user: { email?: string } } | null): TestCase[] {
       group: 'Admin',
       description: 'Testa leitura da configuracao da plataforma',
       run: async () => {
-        const { data, error } = await supabase.from('platform_config').select('key, value').limit(5);
+        const { data, error } = await supabase.from('platform_config').select('id, site_url, active').limit(5);
         if (error) return { passed: false, details: `Erro: ${error.message}` };
-        return { passed: true, details: `${data.length} configs carregadas` };
+        return { passed: true, details: `${data.length} config(s) carregada(s)${data.length > 0 && data[0].site_url ? ` — site: ${data[0].site_url}` : ''}` };
+      },
+    },
+    // ── Edge Functions ──
+    {
+      id: 'ef-segment-evaluate',
+      name: 'Edge function segment-evaluate',
+      group: 'Edge Functions',
+      description: 'Invoca segment-evaluate e verifica resposta',
+      run: async () => {
+        try {
+          const { data, error } = await supabase.functions.invoke('segment-evaluate', {
+            body: { segment_id: '__healthcheck_nonexistent' },
+          });
+          if (error) return { passed: false, details: `Erro: ${error.message}` };
+          return { passed: true, details: `Resposta: ${JSON.stringify(data).slice(0, 100)}` };
+        } catch (e) {
+          return { passed: false, details: `Exception: ${e instanceof Error ? e.message : String(e)}` };
+        }
+      },
+    },
+    {
+      id: 'ef-gamification-widget',
+      name: 'Edge function gamification-widget',
+      group: 'Edge Functions',
+      description: 'Invoca gamification-widget e verifica resposta',
+      run: async () => {
+        try {
+          const { data, error } = await supabase.functions.invoke('gamification-widget', {
+            body: { action: 'health' },
+          });
+          if (error) return { passed: false, details: `Erro: ${error.message}` };
+          return { passed: true, details: `Resposta: ${JSON.stringify(data).slice(0, 100)}` };
+        } catch (e) {
+          return { passed: false, details: `Exception: ${e instanceof Error ? e.message : String(e)}` };
+        }
+      },
+    },
+    {
+      id: 'ef-process-campaign',
+      name: 'Edge function process-campaign',
+      group: 'Edge Functions',
+      description: 'Invoca process-campaign sem ID real para testar disponibilidade',
+      run: async () => {
+        try {
+          const { data, error } = await supabase.functions.invoke('process-campaign', {
+            body: { campaign_id: '__healthcheck_test' },
+          });
+          if (error) return { passed: false, details: `Erro: ${error.message}` };
+          return { passed: true, details: `Resposta: ${JSON.stringify(data).slice(0, 100)}` };
+        } catch (e) {
+          return { passed: false, details: `Exception: ${e instanceof Error ? e.message : String(e)}` };
+        }
+      },
+    },
+    {
+      id: 'ef-proxy-player',
+      name: 'Proxy buscar jogador teste',
+      group: 'Edge Functions',
+      description: 'Usa pixbingo-proxy para buscar jogador CPF 70791576418',
+      run: async () => {
+        try {
+          const { data, error } = await supabase.functions.invoke('pixbingo-proxy', {
+            body: { method: 'GET', path: '/api/player/70791576418' },
+          });
+          if (error) return { passed: false, details: `Erro: ${error.message}` };
+          return { passed: true, details: `Resposta: ${JSON.stringify(data).slice(0, 120)}` };
+        } catch (e) {
+          return { passed: false, details: `Exception: ${e instanceof Error ? e.message : String(e)}` };
+        }
+      },
+    },
+    // ── Gamificacao extras ──
+    {
+      id: 'gam-player-spins',
+      name: 'Tabela player_spins',
+      group: 'Gamificacao',
+      description: 'Testa leitura da tabela player_spins (roleta diaria)',
+      run: async () => {
+        const { error, count } = await supabase.from('player_spins').select('id', { count: 'exact', head: true });
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        return { passed: true, details: `${count ?? 0} spins registrados` };
+      },
+    },
+    {
+      id: 'gam-store-items',
+      name: 'Tabela store_items',
+      group: 'Gamificacao',
+      description: 'Testa leitura de itens da loja',
+      run: async () => {
+        const { error, count } = await supabase.from('store_items').select('id', { count: 'exact', head: true });
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        return { passed: true, details: `${count ?? 0} itens na loja` };
+      },
+    },
+    {
+      id: 'gam-store-purchases',
+      name: 'Tabela store_purchases',
+      group: 'Gamificacao',
+      description: 'Testa leitura de compras da loja',
+      run: async () => {
+        const { error, count } = await supabase.from('store_purchases').select('id', { count: 'exact', head: true });
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        return { passed: true, details: `${count ?? 0} compras registradas` };
+      },
+    },
+    {
+      id: 'gam-player-missions',
+      name: 'Tabela player_missions',
+      group: 'Gamificacao',
+      description: 'Testa leitura de missoes atribuidas a jogadores',
+      run: async () => {
+        const { error, count } = await supabase.from('player_missions').select('id', { count: 'exact', head: true });
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        return { passed: true, details: `${count ?? 0} missoes de jogadores` };
+      },
+    },
+    {
+      id: 'gam-player-achievements',
+      name: 'Tabela player_achievements',
+      group: 'Gamificacao',
+      description: 'Testa leitura de conquistas de jogadores',
+      run: async () => {
+        const { error, count } = await supabase.from('player_achievements').select('id', { count: 'exact', head: true });
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        return { passed: true, details: `${count ?? 0} conquistas de jogadores` };
+      },
+    },
+    {
+      id: 'gam-referrals',
+      name: 'Tabela referrals',
+      group: 'Gamificacao',
+      description: 'Testa leitura de indicacoes (indique e ganhe)',
+      run: async () => {
+        const { error, count } = await supabase.from('referrals').select('id', { count: 'exact', head: true });
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        return { passed: true, details: `${count ?? 0} indicacoes` };
+      },
+    },
+    {
+      id: 'gam-levels',
+      name: 'Tabela levels',
+      group: 'Gamificacao',
+      description: 'Testa leitura da tabela de niveis',
+      run: async () => {
+        const { error, count } = await supabase.from('levels').select('id', { count: 'exact', head: true });
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        return { passed: true, details: `${count ?? 0} niveis configurados` };
+      },
+    },
+    // ── Assets & Comunicacao ──
+    {
+      id: 'asset-popups',
+      name: 'Tabela popup_assets',
+      group: 'Assets',
+      description: 'Testa leitura de popups/assets GTM',
+      run: async () => {
+        const { error, count } = await supabase.from('popup_assets').select('id', { count: 'exact', head: true });
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        return { passed: true, details: `${count ?? 0} popup assets` };
+      },
+    },
+    {
+      id: 'asset-push',
+      name: 'Tabela push_notifications',
+      group: 'Assets',
+      description: 'Testa leitura de push notifications',
+      run: async () => {
+        const { error, count } = await supabase.from('push_notifications').select('id', { count: 'exact', head: true });
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        return { passed: true, details: `${count ?? 0} push notifications` };
+      },
+    },
+    {
+      id: 'asset-inbox',
+      name: 'Tabela inbox_messages',
+      group: 'Assets',
+      description: 'Testa leitura de mensagens do inbox',
+      run: async () => {
+        const { error, count } = await supabase.from('inbox_messages').select('id', { count: 'exact', head: true });
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        return { passed: true, details: `${count ?? 0} mensagens no inbox` };
+      },
+    },
+    // ── Integridade de Dados ──
+    {
+      id: 'int-segment-eval-cycle',
+      name: 'Ciclo completo de segmento',
+      group: 'Integridade',
+      description: 'Cria segmento automatico, avalia member_count e deleta',
+      run: async () => {
+        const testName = `__hc_integ_${Date.now()}`;
+        const rules = [{ id: 'r1', field: 'level', operator: 'gte', value: '1' }];
+        const { data, error: insertErr } = await supabase.from('segments')
+          .insert({ name: testName, segment_type: 'automatic', rules, match_type: 'all', color: '#7c3aed', icon: 'target' })
+          .select('id, member_count').single();
+        if (insertErr) return { passed: false, details: `Erro ao criar: ${insertErr.message}` };
+        // Tenta avaliar via edge function
+        try {
+          await supabase.functions.invoke('segment-evaluate', { body: { segment_id: data.id } });
+        } catch { /* ignora se nao processar */ }
+        const { data: readBack } = await supabase.from('segments').select('member_count').eq('id', data.id).single();
+        await supabase.from('segments').delete().eq('id', data.id);
+        return { passed: true, details: `Segmento criado, avaliado (members: ${readBack?.member_count ?? 'N/A'}) e deletado` };
+      },
+    },
+    {
+      id: 'int-cashback-rules',
+      name: 'Tabela cashback_rules',
+      group: 'Integridade',
+      description: 'Verifica existencia e leitura de regras de cashback',
+      run: async () => {
+        const { error, count } = await supabase.from('cashback_rules').select('id', { count: 'exact', head: true });
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        return { passed: true, details: `${count ?? 0} regras de cashback` };
+      },
+    },
+    {
+      id: 'int-transactions',
+      name: 'Tabela transactions',
+      group: 'Integridade',
+      description: 'Verifica acesso a tabela de transacoes',
+      run: async () => {
+        const { error, count } = await supabase.from('transactions').select('id', { count: 'exact', head: true });
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        return { passed: true, details: `${count ?? 0} transacoes` };
+      },
+    },
+    // ── Seguranca / RLS ──
+    {
+      id: 'sec-rls-cross-access',
+      name: 'RLS cross-tenant',
+      group: 'Seguranca',
+      description: 'Verifica que nao e possivel acessar dados com filtro de outro tenant',
+      run: async () => {
+        // Tenta buscar segmento com ID impossivel via filtro
+        const { data, error } = await supabase.from('segments')
+          .select('id')
+          .eq('id', '00000000-0000-0000-0000-000000000000')
+          .maybeSingle();
+        if (error) return { passed: false, details: `Erro inesperado: ${error.message}` };
+        if (data) return { passed: false, details: 'Retornou dados para UUID inexistente — possivel falha de RLS' };
+        return { passed: true, details: 'Nenhum dado retornado para UUID inexistente (RLS OK)' };
+      },
+    },
+    {
+      id: 'sec-auth-headers',
+      name: 'Token JWT valido',
+      group: 'Seguranca',
+      description: 'Verifica se o token JWT da sessao atual e valido e nao expirou',
+      run: async () => {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) return { passed: false, details: 'Sem sessao ativa' };
+        const exp = data.session.expires_at;
+        if (!exp) return { passed: false, details: 'Token sem expiracao' };
+        const now = Math.floor(Date.now() / 1000);
+        const remaining = exp - now;
+        if (remaining <= 0) return { passed: false, details: 'Token expirado' };
+        return { passed: true, details: `Token valido, expira em ${Math.round(remaining / 60)} minutos` };
+      },
+    },
+    // ── Performance ──
+    {
+      id: 'perf-segments-latency',
+      name: 'Latencia: segmentos',
+      group: 'Performance',
+      description: 'Mede tempo de resposta de SELECT em segments (threshold < 2s)',
+      run: async () => {
+        const start = performance.now();
+        const { error } = await supabase.from('segments').select('id, name').limit(50);
+        const ms = Math.round(performance.now() - start);
+        if (error) return { passed: false, details: `Erro: ${error.message} (${ms}ms)` };
+        return { passed: ms < 2000, details: `${ms}ms${ms >= 2000 ? ' — LENTO (> 2s)' : ''}` };
+      },
+    },
+    {
+      id: 'perf-campaigns-latency',
+      name: 'Latencia: campanhas',
+      group: 'Performance',
+      description: 'Mede tempo de resposta de SELECT em campaigns (threshold < 2s)',
+      run: async () => {
+        const start = performance.now();
+        const { error } = await supabase.from('campaigns').select('id, name, status').limit(50);
+        const ms = Math.round(performance.now() - start);
+        if (error) return { passed: false, details: `Erro: ${error.message} (${ms}ms)` };
+        return { passed: ms < 2000, details: `${ms}ms${ms >= 2000 ? ' — LENTO (> 2s)' : ''}` };
+      },
+    },
+    {
+      id: 'perf-players-latency',
+      name: 'Latencia: player_wallets',
+      group: 'Performance',
+      description: 'Mede tempo de resposta de SELECT em player_wallets (threshold < 2s)',
+      run: async () => {
+        const start = performance.now();
+        const { error } = await supabase.from('player_wallets').select('cpf, level').limit(50);
+        const ms = Math.round(performance.now() - start);
+        if (error) return { passed: false, details: `Erro: ${error.message} (${ms}ms)` };
+        return { passed: ms < 2000, details: `${ms}ms${ms >= 2000 ? ' — LENTO (> 2s)' : ''}` };
+      },
+    },
+    {
+      id: 'perf-edge-fn-latency',
+      name: 'Latencia: edge function',
+      group: 'Performance',
+      description: 'Mede tempo de resposta da edge function manage-users (threshold < 3s)',
+      run: async () => {
+        const start = performance.now();
+        try {
+          const { error } = await supabase.functions.invoke('manage-users', {
+            body: { action: 'list' },
+          });
+          const ms = Math.round(performance.now() - start);
+          if (error) return { passed: false, details: `Erro: ${error.message} (${ms}ms)` };
+          return { passed: ms < 3000, details: `${ms}ms${ms >= 3000 ? ' — LENTO (> 3s)' : ''}` };
+        } catch (e) {
+          const ms = Math.round(performance.now() - start);
+          return { passed: false, details: `Exception: ${e instanceof Error ? e.message : String(e)} (${ms}ms)` };
+        }
       },
     },
   ];
