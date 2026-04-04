@@ -120,7 +120,8 @@ export default async function handler(req: Request): Promise<Response> {
 
   try {
     const body = await req.json();
-    const { cpfs, valor, site_url, login_url, username, password } = body;
+    const { cpfs, valor } = body;
+    let { site_url, login_url, username, password } = body;
     const mode = body.mode || 'credit'; // 'credit' | 'check'
 
     if (!cpfs || !Array.isArray(cpfs) || cpfs.length === 0) {
