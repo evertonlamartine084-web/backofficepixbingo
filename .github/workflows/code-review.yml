@@ -1,0 +1,51 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: AI Review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get diff
+        id: diff
+        run: |
+          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD -- '*.ts' '*.tsx' '*.js' ':!node_modules' | head -3000)
+          echo "diff<<EODIFF" >> $GITHUB_OUTPUT
+          echo "$DIFF" >> $GITHUB_OUTPUT
+          echo "EODIFF" >> $GITHUB_OUTPUT
+
+      - name: Claude Review
+        if: steps.diff.outputs.diff != ''
+        uses: anthropics/anthropic-ai-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-sonnet-4-20250514
+          prompt: |
+            Você é um revisor de código para o projeto PixBingoBR (React + TypeScript + Supabase).
+            Analise o diff abaixo e comente APENAS problemas reais:
+            - Bugs ou erros de lógica
+            - Vulnerabilidades de segurança (XSS, injection, credenciais expostas)
+            - Quebra de funcionalidade existente
+
+            NÃO comente sobre: estilo, formatação, nomes de variáveis, falta de tipos, ou melhorias opcionais.
+            Se não houver problemas, responda apenas: "LGTM ✅"
+
+            Responda em português brasileiro.
+
+            ```diff
+            ${{ steps.diff.outputs.diff }}
+            ```
+          max_tokens: 1024
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          post_as_comment: true

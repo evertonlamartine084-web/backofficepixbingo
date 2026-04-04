@@ -454,6 +454,7 @@ export default async function handler(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const action = url.searchParams.get('action') || 'data';
     const segmentId = url.searchParams.get('segment') || null;
+    const widgetEnv = url.searchParams.get('env') || 'prod';
     const rawCpf = (url.searchParams.get('player') || '').replace(/\D/g, '');
     const playerCpf = rawCpf && isValidCPF(rawCpf) ? rawCpf : (rawCpf ? null : null);
 
@@ -518,24 +519,27 @@ export default async function handler(req: Request): Promise<Response> {
                     await supabase.rpc('add_wallet_balance', {
                       p_cpf: codeData.cpf, p_field: cfg.referrer_reward_type || 'coins', p_amount: cfg.referrer_reward_value || 100,
                     });
-                  } catch (_e) {}
+                  } catch (_e) { /* ignore referral reward failure */ }
                 }
               }
             }
           }
-        } catch (_e) {}
+        } catch (_e) { /* ignore referral code processing failure */ }
       }
 
       // Check widget segment restriction and section toggles
       let widgetSections: Record<string, boolean> = { missions: true, achievements: true, tournaments: true, wheel: true, mini_games: true, store: true, levels: true, referrals: true };
       {
         const { data: pCfg } = await supabase.from('platform_config')
-          .select('widget_segment_id, widget_sections')
+          .select('widget_segment_id, widget_sections, widget_sections_test')
           .eq('active', true)
           .limit(1)
           .maybeSingle();
-        if (pCfg?.widget_sections) {
-          widgetSections = { ...widgetSections, ...(pCfg.widget_sections as Record<string, boolean>) };
+        const sectionsSource = widgetEnv === 'test'
+          ? (pCfg as Record<string, unknown>)?.widget_sections_test
+          : (pCfg as Record<string, unknown>)?.widget_sections;
+        if (sectionsSource) {
+          widgetSections = { ...widgetSections, ...(sectionsSource as Record<string, boolean>) };
         }
         if (pCfg?.widget_segment_id) {
           // No CPF = can't verify segment membership = hide widget
@@ -1983,6 +1987,7 @@ export default async function handler(req: Request): Promise<Response> {
 
       const eventType = url.searchParams.get('event_type') || '';
       const eventValue = Number(url.searchParams.get('event_value') || 0);
+      const eventCount = Number(url.searchParams.get('event_count') || 1);
 
       // Map event_type to mission condition_types
       const CONDITION_MAP: Record<string, string[]> = {
@@ -2089,7 +2094,8 @@ export default async function handler(req: Request): Promise<Response> {
 
           const currentProgress = existing?.progress || 0;
           const target = mission.condition_value || 1;
-          const increment = eventValue || 1;
+          // condition_mode: 'count' = number of bets, 'amount' (default) = total R$ value
+          const increment = mission.condition_mode === 'count' ? eventCount : (eventValue || 1);
           const newProgress = Math.min(currentProgress + increment, target);
           const isCompleted = newProgress >= target;
 

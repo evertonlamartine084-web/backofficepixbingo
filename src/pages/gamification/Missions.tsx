@@ -91,7 +91,7 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 
 const emptyForm = {
   name: '', description: '', icon_url: '', type: 'daily',
-  condition_type: 'deposit', condition_value: '1',
+  condition_type: 'deposit', condition_value: '1', condition_mode: 'amount',
   reward_type: 'bonus', reward_value: '5', segment_id: '',
   status: 'ATIVO', priority: '100', require_optin: false,
   time_limit_hours: '', start_date: '', end_date: '',
@@ -133,6 +133,7 @@ export default function Missions() {
         type: form.type,
         condition_type: form.condition_type,
         condition_value: parseFloat(form.condition_value) || 1,
+        condition_mode: form.condition_mode || 'amount',
         reward_type: form.reward_type,
         reward_value: parseFloat(form.reward_value) || 0,
         segment_id: form.segment_id || null,
@@ -200,7 +201,7 @@ export default function Missions() {
     setEditId(m.id);
     setForm({
       name: m.name, description: m.description || '', icon_url: m.icon_url || '',
-      type: m.type, condition_type: m.condition_type,
+      type: m.type, condition_type: m.condition_type, condition_mode: (m as Record<string, unknown>).condition_mode as string || 'amount',
       condition_value: String(m.condition_value), reward_type: m.reward_type,
       reward_value: String(m.reward_value), segment_id: m.segment_id || '',
       status: m.status || 'ATIVO', priority: String(m.priority || 100),
@@ -423,7 +424,7 @@ export default function Missions() {
             {/* Condition + Reward */}
             <div className="border-t border-border pt-4">
               <p className="text-sm font-semibold text-foreground mb-3">Condição e Recompensa</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label>Condição</Label>
                   <Select value={form.condition_type} onValueChange={v => setForm(f => ({ ...f, condition_type: v }))}>
@@ -434,7 +435,17 @@ export default function Missions() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Valor da Condição</Label>
+                  <Label>Modo</Label>
+                  <Select value={form.condition_mode} onValueChange={v => setForm(f => ({ ...f, condition_mode: v }))}>
+                    <SelectTrigger className="bg-secondary border-border mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="amount">Valor (R$)</SelectItem>
+                      <SelectItem value="count">Quantidade</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>{form.condition_mode === 'count' ? 'Qtd necessária' : 'Valor (R$)'}</Label>
                   <Input type="number" value={form.condition_value} onChange={e => setForm(f => ({ ...f, condition_value: e.target.value }))} className="bg-secondary border-border font-mono mt-1" />
                 </div>
               </div>

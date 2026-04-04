@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Copy, Check, Code2, Eye, Target, Award, Swords, RotateCw, Gamepad2, ShoppingBag, Star, UserPlus } from 'lucide-react';
+import { Copy, Check, Code2, Eye, Target, Award, Swords, RotateCw, Gamepad2, ShoppingBag, Star, UserPlus, FlaskConical, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://nehmmvtpagncmldivnxn.supabase.co';
@@ -65,32 +67,38 @@ export default function WidgetPreview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('platform_config')
-        .select('id, widget_sections')
+        .select('id, widget_sections, widget_sections_test')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data as { id: string; widget_sections: WidgetSections | null } | null;
+      return data as { id: string; widget_sections: WidgetSections | null; widget_sections_test: WidgetSections | null } | null;
     },
   });
 
-  const [sections, setSections] = useState<WidgetSections>(DEFAULT_SECTIONS);
+  const [sectionsProd, setSectionsProd] = useState<WidgetSections>(DEFAULT_SECTIONS);
+  const [sectionsTest, setSectionsTest] = useState<WidgetSections>(DEFAULT_SECTIONS);
+  const [envTab, setEnvTab] = useState<'prod' | 'test'>('prod');
 
   useEffect(() => {
     if (platformConfig?.widget_sections) {
-      setSections({ ...DEFAULT_SECTIONS, ...platformConfig.widget_sections });
+      setSectionsProd({ ...DEFAULT_SECTIONS, ...platformConfig.widget_sections });
+    }
+    if (platformConfig?.widget_sections_test) {
+      setSectionsTest({ ...DEFAULT_SECTIONS, ...platformConfig.widget_sections_test });
     }
   }, [platformConfig]);
 
   const saveSectionsMutation = useMutation({
-    mutationFn: async (newSections: WidgetSections) => {
+    mutationFn: async ({ env, newSections }: { env: 'prod' | 'test'; newSections: WidgetSections }) => {
       if (!platformConfig?.id) {
         toast.error('Configure a plataforma primeiro em Config Plataforma');
         throw new Error('No platform config');
       }
+      const column = env === 'prod' ? 'widget_sections' : 'widget_sections_test';
       const { error } = await supabase
         .from('platform_config')
-        .update({ widget_sections: newSections } as Record<string, unknown>)
+        .update({ [column]: newSections } as Record<string, unknown>)
         .eq('id', platformConfig.id);
       if (error) throw error;
     },
@@ -101,10 +109,21 @@ export default function WidgetPreview() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const toggleSection = (key: keyof WidgetSections) => {
-    const updated = { ...sections, [key]: !sections[key] };
-    setSections(updated);
-    saveSectionsMutation.mutate(updated);
+  const toggleSection = (env: 'prod' | 'test', key: keyof WidgetSections) => {
+    if (env === 'prod') {
+      const updated = { ...sectionsProd, [key]: !sectionsProd[key] };
+      setSectionsProd(updated);
+      saveSectionsMutation.mutate({ env, newSections: updated });
+    } else {
+      const updated = { ...sectionsTest, [key]: !sectionsTest[key] };
+      setSectionsTest(updated);
+      saveSectionsMutation.mutate({ env, newSections: updated });
+    }
+  };
+
+  const copyTestToProd = () => {
+    setSectionsProd({ ...sectionsTest });
+    saveSectionsMutation.mutate({ env: 'prod', newSections: { ...sectionsTest } });
   };
 
   const segmentParam = selectedSegment !== '_all' ? ` data-segment="${selectedSegment}"` : '';
@@ -112,6 +131,9 @@ export default function WidgetPreview() {
 
   const embedCodeGTM = `<!-- PixBingoBR Gamification Widget${segmentName ? ` — Segmento: ${segmentName}` : ''} -->
 <script src="${window.location.origin}/widget/gamification.js"${segmentParam} data-require-login="false"></script>`;
+
+  const embedCodeTest = `<!-- PixBingoBR Gamification Widget — TESTE${segmentName ? ` — Segmento: ${segmentName}` : ''} -->
+<script src="${window.location.origin}/widget/gamification.js"${segmentParam} data-env="test" data-require-login="false"></script>`;
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -161,41 +183,75 @@ export default function WidgetPreview() {
         </CardContent>
       </Card>
 
-      {/* Section toggles */}
+      {/* Section toggles — Produção & Teste */}
       <Card className="glass-card border-border">
         <CardContent className="p-4 space-y-4">
           <div>
             <Label className="text-sm font-semibold">Seções do Widget</Label>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Ative ou desative cada seção do painel de gamificação. As seções desativadas não aparecerão para os jogadores.
+              Ative ou desative cada seção do painel de gamificação. Use o ambiente de <strong>Teste</strong> para validar antes de publicar em <strong>Produção</strong>.
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {SECTION_META.map(({ key, label, icon: Icon, description }) => (
-              <div
-                key={key}
-                className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                  sections[key]
-                    ? 'bg-emerald-500/5 border-emerald-500/20'
-                    : 'bg-secondary/30 border-border opacity-60'
-                }`}
-              >
-                <Icon className={`w-4 h-4 shrink-0 ${sections[key] ? 'text-emerald-400' : 'text-muted-foreground'}`} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground">{label}</p>
-                  <p className="text-[10px] text-muted-foreground truncate">{description}</p>
-                </div>
-                <Switch
-                  checked={sections[key]}
-                  onCheckedChange={() => toggleSection(key)}
+          <Tabs value={envTab} onValueChange={(v) => setEnvTab(v as 'prod' | 'test')}>
+            <div className="flex items-center justify-between">
+              <TabsList className="bg-secondary">
+                <TabsTrigger value="prod" className="gap-1.5 data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400">
+                  <Rocket className="w-3.5 h-3.5" /> Produção
+                </TabsTrigger>
+                <TabsTrigger value="test" className="gap-1.5 data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-400">
+                  <FlaskConical className="w-3.5 h-3.5" /> Teste
+                </TabsTrigger>
+              </TabsList>
+              {envTab === 'test' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-border text-xs"
+                  onClick={copyTestToProd}
                   disabled={saveSectionsMutation.isPending}
-                />
-              </div>
-            ))}
-          </div>
-          <p className="text-[10px] text-muted-foreground">
-            {Object.values(sections).filter(Boolean).length} de {SECTION_META.length} seções ativas
-          </p>
+                >
+                  <Rocket className="w-3.5 h-3.5 mr-1.5" /> Publicar em Produção
+                </Button>
+              )}
+            </div>
+            {(['prod', 'test'] as const).map((env) => {
+              const currentSections = env === 'prod' ? sectionsProd : sectionsTest;
+              const activeCount = Object.values(currentSections).filter(Boolean).length;
+              return (
+                <TabsContent key={env} value={env} className="mt-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={env === 'prod' ? 'default' : 'secondary'} className={env === 'prod' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/15 text-amber-400 border-amber-500/20'}>
+                      {env === 'prod' ? 'Produção — visível para jogadores' : 'Teste — apenas preview'}
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground">{activeCount}/{SECTION_META.length} ativas</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {SECTION_META.map(({ key, label, icon: Icon, description }) => (
+                      <div
+                        key={key}
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                          currentSections[key]
+                            ? env === 'prod' ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-amber-500/5 border-amber-500/20'
+                            : 'bg-secondary/30 border-border opacity-60'
+                        }`}
+                      >
+                        <Icon className={`w-4 h-4 shrink-0 ${currentSections[key] ? (env === 'prod' ? 'text-emerald-400' : 'text-amber-400') : 'text-muted-foreground'}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground">{label}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{description}</p>
+                        </div>
+                        <Switch
+                          checked={currentSections[key]}
+                          onCheckedChange={() => toggleSection(env, key)}
+                          disabled={saveSectionsMutation.isPending}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+              );
+            })}
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -203,11 +259,16 @@ export default function WidgetPreview() {
       <Card className="glass-card border-border">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground">Código GTM — Tag HTML Personalizada</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-foreground">Código GTM — Tag HTML Personalizada</h3>
+              <Badge variant="secondary" className={envTab === 'prod' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20 text-[10px]' : 'bg-amber-500/15 text-amber-400 border-amber-500/20 text-[10px]'}>
+                {envTab === 'prod' ? 'Produção' : 'Teste'}
+              </Badge>
+            </div>
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => copyToClipboard(embedCodeGTM, 'gtm')}
+              onClick={() => copyToClipboard(envTab === 'prod' ? embedCodeGTM : embedCodeTest, 'gtm')}
               className="text-xs"
             >
               {copied === 'gtm' ? <Check className="w-3.5 h-3.5 mr-1 text-success" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
@@ -215,8 +276,13 @@ export default function WidgetPreview() {
             </Button>
           </div>
           <pre className="bg-secondary/50 rounded-lg p-3 text-xs font-mono text-muted-foreground overflow-x-auto whitespace-pre-wrap break-all">
-            {embedCodeGTM}
+            {envTab === 'prod' ? embedCodeGTM : embedCodeTest}
           </pre>
+          {envTab === 'test' && (
+            <div className="bg-amber-500/5 border border-amber-500/10 rounded-lg p-2.5 text-[10px] text-amber-400">
+              Este código usa <code className="bg-secondary px-1 rounded">data-env="test"</code> — carrega as seções do ambiente de teste. Use para validar antes de publicar em produção.
+            </div>
+          )}
           <div className="bg-primary/5 border border-primary/10 rounded-lg p-3 text-xs text-muted-foreground space-y-1.5">
             <p className="font-semibold text-foreground">Como configurar no GTM:</p>
             <ol className="list-decimal list-inside space-y-1">
@@ -286,11 +352,11 @@ export default function WidgetPreview() {
             <h3 className="text-sm font-semibold text-foreground mb-3">Preview ao Vivo</h3>
             <div className="relative bg-[#0c0a1a] rounded-xl overflow-hidden" style={{ height: '600px' }}>
               <iframe
-                srcDoc={`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#0c0a1a;font-family:sans-serif;color:white;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center}.mock{opacity:0.3}.mock h1{font-size:28px}.mock p{font-size:14px;color:#71717a}</style></head><body><div class="mock"><h1>PixBingoBR</h1><p>Simulação do site do jogador</p><p style="margin-top:20px;font-size:12px">👉 Clique no botão roxo no canto inferior direito</p></div><script src="${window.location.origin}/widget/gamification.js"${segmentParam} data-require-login="false"></script></body></html>`}
+                srcDoc={`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#0c0a1a;font-family:sans-serif;color:white;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center}.mock{opacity:0.3}.mock h1{font-size:28px}.mock p{font-size:14px;color:#71717a}.env-badge{position:fixed;top:10px;left:50%;transform:translateX(-50%);padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600;z-index:9999}${envTab === 'test' ? '.env-badge{background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.3)}' : '.env-badge{background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3)}'}</style></head><body><div class="env-badge">${envTab === 'test' ? 'TESTE' : 'PRODUÇÃO'}</div><div class="mock"><h1>PixBingoBR</h1><p>Simulação do site do jogador</p><p style="margin-top:20px;font-size:12px">Clique no botão roxo no canto inferior direito</p></div><script src="${window.location.origin}/widget/gamification.js"${segmentParam}${envTab === 'test' ? ' data-env="test"' : ''} data-require-login="false"></script></body></html>`}
                 className="w-full h-full border-0 rounded-lg"
                 title="Widget Preview"
                 sandbox="allow-scripts allow-popups"
-                key={selectedSegment}
+                key={`${selectedSegment}-${envTab}`}
               />
             </div>
           </CardContent>

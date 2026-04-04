@@ -1,7 +1,7 @@
 /**
  * PixBingoBR Gamification Widget v2
  * Embed via GTM: <script src="YOUR_HOST/widget/gamification.js"></script>
- * Attributes: data-segment, data-player, data-require-login, data-auth-selector
+ * Attributes: data-segment, data-player, data-require-login, data-auth-selector, data-env
  */
 (function () {
   'use strict';
@@ -28,6 +28,7 @@
   const cfg = window.__pbgConfig || {};
 
   const SEGMENT_ID = currentScript?.getAttribute('data-segment') || cfg.segment || srcParams.get('segment') || null;
+  const WIDGET_ENV = currentScript?.getAttribute('data-env') || cfg.env || srcParams.get('env') || null;
   const REQUIRE_LOGIN = currentScript?.getAttribute('data-require-login') || cfg.requireLogin || srcParams.get('require-login') || null;
   const AUTH_SELECTOR = currentScript?.getAttribute('data-auth-selector') || cfg.authSelector || srcParams.get('auth-selector') || null;
 
@@ -1348,9 +1349,10 @@
 
   const apiCall = async (action, params = {}) => {
     const segQ = SEGMENT_ID ? `&segment=${SEGMENT_ID}` : '';
+    const envQ = WIDGET_ENV ? `&env=${WIDGET_ENV}` : '';
     const playerQ = PLAYER_CPF ? `&player=${PLAYER_CPF}` : '';
     const extra = Object.entries(params).map(([k,v]) => `&${k}=${v}`).join('');
-    const res = await fetch(`${API_URL}?action=${action}${segQ}${playerQ}${extra}`, { headers: { 'Content-Type': 'application/json' } });
+    const res = await fetch(`${API_URL}?action=${action}${segQ}${envQ}${playerQ}${extra}`, { headers: { 'Content-Type': 'application/json' } });
     return res.json();
   };
 
@@ -1375,6 +1377,19 @@
       }
       updateFab();
       renderContent();
+      // Auto-sync XP from platform transactions (runs in background, refreshes data after)
+      if (PLAYER_CPF && !window.__pbg_xp_synced) {
+        window.__pbg_xp_synced = true;
+        fetch(`${API_URL.replace('/gamification-widget', '/sync-player-xp')}?cpf=${PLAYER_CPF}`)
+          .then(r => r.json())
+          .then(result => {
+            if (result.success && (result.xp_earned > 0 || result.levels_gained > 0)) {
+              // Re-fetch data to show updated XP/level
+              apiCall('data').then(d => { data = d; updateFab(); renderContent(); }).catch(() => {});
+            }
+          })
+          .catch(() => {});
+      }
       // Auto-check referral qualification (deposit + bet)
       if (PLAYER_CPF && !window.__pbg_ref_checked) {
         window.__pbg_ref_checked = true;
@@ -1474,6 +1489,20 @@
     const m = Math.floor((diff % 3600000) / 60000);
     const s = Math.floor((diff % 60000) / 1000);
     return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  function getMissionTimeDisplay(mission) {
+    // 1) If mission has end_date, use that
+    if (mission.end_date) return getCountdown(mission.end_date);
+    // 2) If player has opted in and mission has time_limit_hours, calculate expiry from started_at
+    const progress = getMissionProgress(mission.id);
+    if (progress?.opted_in && progress?.started_at && mission.time_limit_hours) {
+      const expiresAt = new Date(new Date(progress.started_at).getTime() + mission.time_limit_hours * 3600000);
+      return getCountdown(expiresAt.toISOString());
+    }
+    // 3) If mission has time_limit_hours but not opted in, show static duration
+    if (mission.time_limit_hours) return String(mission.time_limit_hours).padStart(2,'0') + ':00:00';
+    return '--:--:--';
   }
 
   function getMissionRewardLabel(m) {
@@ -1611,11 +1640,10 @@
       `;
       available.forEach((m, _i) => {
         const globalIdx = data.missions.indexOf(m);
-        const countdown = getCountdown(m.end_date);
         const rewardLabel = getMissionRewardLabel(m);
         const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
         const timerSvg = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.681 7.526C12.681 10.39 10.37 12.711 7.52 12.711C4.669 12.711 2.358 10.39 2.358 7.526C2.358 4.663 4.669 2.341 7.52 2.341C10.37 2.341 12.681 4.663 12.681 7.526ZM14.089 7.526C14.089 11.17 11.148 14.125 7.52 14.125C3.892 14.125 0.95 11.17 0.95 7.526C0.95 3.882 3.892 0.927 7.52 0.927C11.148 0.927 14.089 3.882 14.089 7.526ZM8.223 4.227C8.223 3.836 7.908 3.52 7.52 3.52C7.131 3.52 6.816 3.836 6.816 4.227V7.526C6.816 7.749 6.92 7.958 7.097 8.092L8.974 9.506C9.285 9.74 9.726 9.677 9.96 9.364C10.193 9.052 10.13 8.609 9.819 8.374L8.223 7.173V4.227Z" fill="#A1A1AA"/></svg>';
-        const timeDisplay = countdown || (m.time_limit_hours ? String(m.time_limit_hours).padStart(2,'0') + ':00:00' : '--:--:--');
+        const timeDisplay = getMissionTimeDisplay(m);
         const iconBase = 'https://backofficepixbingobr.vercel.app/widget';
         const chestSvg = `<img src="${iconBase}/chest-icon.svg" width="28" height="30" alt="" style="display:block"/>`;
         const boltSvg = `<img src="${iconBase}/bolt-icon.svg" width="21" height="25" alt="" style="display:block"/>`;
@@ -1683,11 +1711,10 @@
         const progress = getMissionProgress(m.id);
         const pct = progress ? Math.min(100, Math.round((progress.progress / progress.target) * 100)) : 0;
         const isClaimed = progress?.claimed;
-        const countdown = getCountdown(m.end_date);
         const rewardLabel = getMissionRewardLabel(m);
         const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
         const timerSvg = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.681 7.526C12.681 10.39 10.37 12.711 7.52 12.711C4.669 12.711 2.358 10.39 2.358 7.526C2.358 4.663 4.669 2.341 7.52 2.341C10.37 2.341 12.681 4.663 12.681 7.526ZM14.089 7.526C14.089 11.17 11.148 14.125 7.52 14.125C3.892 14.125 0.95 11.17 0.95 7.526C0.95 3.882 3.892 0.927 7.52 0.927C11.148 0.927 14.089 3.882 14.089 7.526ZM8.223 4.227C8.223 3.836 7.908 3.52 7.52 3.52C7.131 3.52 6.816 3.836 6.816 4.227V7.526C6.816 7.749 6.92 7.958 7.097 8.092L8.974 9.506C9.285 9.74 9.726 9.677 9.96 9.364C10.193 9.052 10.13 8.609 9.819 8.374L8.223 7.173V4.227Z" fill="#A1A1AA"/></svg>';
-        const timeDisplay = countdown || (m.time_limit_hours ? String(m.time_limit_hours).padStart(2,'0') + ':00:00' : '--:--:--');
+        const timeDisplay = getMissionTimeDisplay(m);
         const iconBase = 'https://backofficepixbingobr.vercel.app/widget';
         const chestSvg = `<img src="${iconBase}/chest-icon.svg" width="28" height="30" alt="" style="display:block"/>`;
         const boltSvg = `<img src="${iconBase}/bolt-icon.svg" width="21" height="25" alt="" style="display:block"/>`;
@@ -1816,11 +1843,10 @@
       `;
       data.missions.forEach((m) => {
         const globalIdx = data.missions.indexOf(m);
-        const countdown = getCountdown(m.end_date);
         const rewardLabel = getMissionRewardLabel(m);
         const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
         const timerSvg = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.681 7.526C12.681 10.39 10.37 12.711 7.52 12.711C4.669 12.711 2.358 10.39 2.358 7.526C2.358 4.663 4.669 2.341 7.52 2.341C10.37 2.341 12.681 4.663 12.681 7.526ZM14.089 7.526C14.089 11.17 11.148 14.125 7.52 14.125C3.892 14.125 0.95 11.17 0.95 7.526C0.95 3.882 3.892 0.927 7.52 0.927C11.148 0.927 14.089 3.882 14.089 7.526ZM8.223 4.227C8.223 3.836 7.908 3.52 7.52 3.52C7.131 3.52 6.816 3.836 6.816 4.227V7.526C6.816 7.749 6.92 7.958 7.097 8.092L8.974 9.506C9.285 9.74 9.726 9.677 9.96 9.364C10.193 9.052 10.13 8.609 9.819 8.374L8.223 7.173V4.227Z" fill="#A1A1AA"/></svg>';
-        const timeDisplay = countdown || (m.time_limit_hours ? String(m.time_limit_hours).padStart(2,'0') + ':00:00' : '--:--:--');
+        const timeDisplay = getMissionTimeDisplay(m);
         const iconBase = 'https://backofficepixbingobr.vercel.app/widget';
         const chestSvg = `<img src="${iconBase}/chest-icon.svg" width="28" height="30" alt="" style="display:block"/>`;
         const boltSvg = `<img src="${iconBase}/bolt-icon.svg" width="21" height="25" alt="" style="display:block"/>`;
@@ -3477,8 +3503,28 @@
       }, 1000);
     }
 
-    // Update nav tabs
-    document.querySelectorAll('.pbg-nav-item').forEach(item => item.classList.toggle('active', item.dataset.tab === activeTab));
+    // Rebuild nav tabs based on widget sections
+    const navContainer = document.querySelector('.pbg-smartico-nav');
+    if (navContainer && data?._widget_sections) {
+      const ws = data._widget_sections;
+      const tabs = [];
+      if (ws.missions !== false) tabs.push({tab:'missions',icon:'target',label:'Missões'});
+      if (ws.achievements !== false) tabs.push({tab:'achievements',icon:'trophy',label:'Conquistas'});
+      if (ws.tournaments !== false) tabs.push({tab:'tournaments',icon:'swords',label:'Torneios'});
+      if (ws.wheel !== false) tabs.push({tab:'wheel',icon:'wheel',label:'Roleta'});
+      if (ws.mini_games !== false) tabs.push({tab:'games',icon:'gamepad',label:'Jogos'});
+      if (ws.store !== false) tabs.push({tab:'store',icon:'cart',label:'Loja'});
+      if (ws.referrals !== false && data?.referral_config) tabs.push({tab:'referral',icon:'userPlus',label:'Indicar'});
+      if (ws.levels !== false) tabs.push({tab:'levels',icon:'medal',label:'Níveis'});
+      tabs.push({tab:'history',icon:'clipboard',label:'Histórico',badge:true});
+      // If current activeTab is hidden, switch to first available
+      if (!tabs.some(t => t.tab === activeTab)) activeTab = tabs[0]?.tab || 'missions';
+      const pendingCount = (data.pending_rewards || []).length;
+      navContainer.innerHTML = tabs.map(t => `<div class="pbg-nav-item${t.tab===activeTab?' active':''}" data-tab="${t.tab}" onclick="window.__pbg('tab','${t.tab}')"><div class="pbg-nav-icon">${inlIcon(t.icon,20)}</div><span class="pbg-nav-lbl">${t.label}</span>${t.badge?`<span id="pbg-pending-badge" class="pbg-nav-badge" style="display:${pendingCount>0?'inline':'none'}">${pendingCount}</span>`:''}</div>`).join('');
+    } else {
+      // Fallback: just toggle active class
+      document.querySelectorAll('.pbg-nav-item').forEach(item => item.classList.toggle('active', item.dataset.tab === activeTab));
+    }
 
     // Update smartico header
     renderHeader();
@@ -3526,34 +3572,20 @@
         </div>
       </div>
       <div class="pbg-smartico-nav">
-        <div class="pbg-nav-item active" data-tab="missions" onclick="window.__pbg('tab','missions')">
-          <div class="pbg-nav-icon">${inlIcon('target',20)}</div><span class="pbg-nav-lbl">Missões</span>
-        </div>
-        <div class="pbg-nav-item" data-tab="achievements" onclick="window.__pbg('tab','achievements')">
-          <div class="pbg-nav-icon">${inlIcon('trophy',20)}</div><span class="pbg-nav-lbl">Conquistas</span>
-        </div>
-        <div class="pbg-nav-item" data-tab="tournaments" onclick="window.__pbg('tab','tournaments')">
-          <div class="pbg-nav-icon">${inlIcon('swords',20)}</div><span class="pbg-nav-lbl">Torneios</span>
-        </div>
-        <div class="pbg-nav-item" data-tab="wheel" onclick="window.__pbg('tab','wheel')">
-          <div class="pbg-nav-icon">${inlIcon('wheel',20)}</div><span class="pbg-nav-lbl">Roleta</span>
-        </div>
-        <div class="pbg-nav-item" data-tab="games" onclick="window.__pbg('tab','games')">
-          <div class="pbg-nav-icon">${inlIcon('gamepad',20)}</div><span class="pbg-nav-lbl">Jogos</span>
-        </div>
-        <div class="pbg-nav-item" data-tab="store" onclick="window.__pbg('tab','store')">
-          <div class="pbg-nav-icon">${inlIcon('cart',20)}</div><span class="pbg-nav-lbl">Loja</span>
-        </div>
-        ${data?.referral_config ? `<div class="pbg-nav-item" data-tab="referral" onclick="window.__pbg('tab','referral')">
-          <div class="pbg-nav-icon">${inlIcon('userPlus',20)}</div><span class="pbg-nav-lbl">Indicar</span>
-        </div>` : ''}
-        <div class="pbg-nav-item" data-tab="levels" onclick="window.__pbg('tab','levels')">
-          <div class="pbg-nav-icon">${inlIcon('medal',20)}</div><span class="pbg-nav-lbl">Níveis</span>
-        </div>
-        <div class="pbg-nav-item" data-tab="history" onclick="window.__pbg('tab','history')">
-          <div class="pbg-nav-icon">${inlIcon('clipboard',20)}</div><span class="pbg-nav-lbl">Histórico</span>
-          <span id="pbg-pending-badge" class="pbg-nav-badge" style="display:none">0</span>
-        </div>
+        ${(function() {
+          const ws = data?._widget_sections || {};
+          const tabs = [];
+          if (ws.missions !== false) tabs.push({tab:'missions',icon:'target',label:'Missões'});
+          if (ws.achievements !== false) tabs.push({tab:'achievements',icon:'trophy',label:'Conquistas'});
+          if (ws.tournaments !== false) tabs.push({tab:'tournaments',icon:'swords',label:'Torneios'});
+          if (ws.wheel !== false) tabs.push({tab:'wheel',icon:'wheel',label:'Roleta'});
+          if (ws.mini_games !== false) tabs.push({tab:'games',icon:'gamepad',label:'Jogos'});
+          if (ws.store !== false) tabs.push({tab:'store',icon:'cart',label:'Loja'});
+          if (ws.referrals !== false && data?.referral_config) tabs.push({tab:'referral',icon:'userPlus',label:'Indicar'});
+          if (ws.levels !== false) tabs.push({tab:'levels',icon:'medal',label:'Níveis'});
+          tabs.push({tab:'history',icon:'clipboard',label:'Histórico',badge:true});
+          return tabs.map((t,i) => `<div class="pbg-nav-item${i===0?' active':''}" data-tab="${t.tab}" onclick="window.__pbg('tab','${t.tab}')"><div class="pbg-nav-icon">${inlIcon(t.icon,20)}</div><span class="pbg-nav-lbl">${t.label}</span>${t.badge?'<span id="pbg-pending-badge" class="pbg-nav-badge" style="display:none">0</span>':''}</div>`).join('');
+        })()}
       </div>
       <div class="pbg-content" id="pbg-widget-content"></div>
     `;

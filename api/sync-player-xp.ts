@@ -65,12 +65,96 @@ async function platformLogin(siteUrl: string, username: string, password: string
   return { cookies: '', success: false };
 }
 
+// --- Mission progress helper ---
+
+async function updateMissionProgress(supabase: SupabaseClient, cpf: string, eventType: string, eventAmount: number, eventCount: number = 1, transactions?: Array<{ valor: number; ts: number }>) {
+  const CONDITION_MAP: Record<string, string[]> = {
+    deposit: ['deposit'], bet: ['bet'], play_keno: ['play_keno', 'total_games'], play_cassino: ['play_cassino', 'total_games'],
+  };
+  const matchingConditions = CONDITION_MAP[eventType] || [];
+  if (matchingConditions.length === 0) return;
+
+  const { data: playerSegments } = await supabase.from('segment_items').select('segment_id').eq('cpf', cpf);
+  const playerSegmentIds = new Set((playerSegments || []).map((s: Record<string, unknown>) => s.segment_id));
+
+  const { data: missions } = await supabase.from('missions').select('*').eq('status', 'ATIVO').eq('active', true).in('condition_type', matchingConditions);
+
+  for (const mission of (missions || [])) {
+    if (mission.segment_id && !playerSegmentIds.has(mission.segment_id)) continue;
+
+    const now = new Date().toISOString();
+    if (mission.start_date && now < mission.start_date) continue;
+    if (mission.end_date && now > mission.end_date) continue;
+
+    const { data: existing } = await supabase.from('player_mission_progress').select('*').eq('cpf', cpf).eq('mission_id', mission.id).maybeSingle();
+
+    if (mission.require_optin && (!existing || !existing.opted_in)) continue;
+    if (existing?.completed && existing?.claimed) {
+      if (mission.recurrence === 'none') continue;
+      const resetAt = existing.reset_at ? new Date(existing.reset_at) : new Date(existing.completed_at || existing.created_at);
+      const nowDate = new Date();
+      let shouldReset = false;
+      if (mission.recurrence === 'daily') shouldReset = nowDate.toDateString() !== resetAt.toDateString();
+      else if (mission.recurrence === 'weekly') shouldReset = (nowDate.getTime() - resetAt.getTime()) / 86400000 >= 7;
+      else if (mission.recurrence === 'monthly') shouldReset = nowDate.getMonth() !== resetAt.getMonth() || nowDate.getFullYear() !== resetAt.getFullYear();
+      if (shouldReset) {
+        await supabase.from('player_mission_progress').update({ progress: 0, completed: false, claimed: false, completed_at: null, claimed_at: null, reset_at: now } as Record<string, unknown>).eq('cpf', cpf).eq('mission_id', mission.id);
+      } else continue;
+    }
+    if (existing?.completed && !existing?.claimed) continue;
+
+    const currentProgress = existing?.progress || 0;
+    const target = mission.condition_value || 1;
+
+    // Filter transactions to only those AFTER opt-in (started_at)
+    let increment: number;
+    if (transactions && existing?.started_at) {
+      const optInTs = new Date(existing.started_at).getTime();
+      const afterOptIn = transactions.filter(t => t.ts >= optInTs);
+      increment = mission.condition_mode === 'count' ? afterOptIn.length : afterOptIn.reduce((sum, t) => sum + t.valor, 0);
+    } else {
+      // No transactions detail or no started_at — use totals as-is
+      increment = mission.condition_mode === 'count' ? eventCount : eventAmount;
+    }
+    if (increment <= 0) continue;
+
+    const newProgress = Math.min(currentProgress + increment, target);
+    const isCompleted = newProgress >= target;
+
+    if (existing) {
+      await supabase.from('player_mission_progress').update({
+        progress: newProgress, completed: isCompleted, ...(isCompleted ? { completed_at: now } : {}),
+      } as Record<string, unknown>).eq('cpf', cpf).eq('mission_id', mission.id);
+    } else {
+      await supabase.from('player_mission_progress').insert({
+        cpf, mission_id: mission.id, progress: newProgress, target, opted_in: !mission.require_optin,
+        completed: isCompleted, ...(isCompleted ? { completed_at: now } : {}), started_at: now,
+      } as Record<string, unknown>);
+    }
+
+    // Auto-credit reward if mission completed and doesn't need manual claim
+    if (isCompleted && !mission.manual_claim) {
+      try {
+        await supabase.from('player_mission_progress').update({ claimed: true, claimed_at: now } as Record<string, unknown>).eq('cpf', cpf).eq('mission_id', mission.id);
+        await supabase.from('player_rewards_pending').insert({
+          cpf, reward_type: mission.reward_type, reward_value: mission.reward_value, source: mission.name, source_id: mission.id,
+        } as Record<string, unknown>);
+        await supabase.from('player_activity_log').insert({
+          cpf, type: 'mission_complete', amount: mission.reward_value, source: mission.name, source_id: mission.id,
+          description: `Missão completada: ${mission.name} — ${mission.reward_type} ${mission.reward_value}`,
+        } as Record<string, unknown>);
+      } catch { /* ignore */ }
+    }
+  }
+}
+
 // --- Core XP sync logic ---
 
 interface SyncResult {
   success: boolean;
   cpf: string;
   xp_earned: number;
+  _debug?: unknown;
   bet_xp: number;
   deposit_xp: number;
   total_bets: number;
@@ -112,9 +196,12 @@ interface NormalizedTx {
   tipo: string;
   valor: string | number;
   data_registro: string;
+  jogo?: string;
+  descricao?: string;
+  carteira?: string;
 }
 
-export async function syncPlayerXp(cpf: string, supabase: SupabaseClient): Promise<SyncResult> {
+export async function syncPlayerXp(cpf: string, supabase: SupabaseClient, debug = false): Promise<SyncResult> {
   const result: SyncResult = {
     success: false, cpf, xp_earned: 0, bet_xp: 0, deposit_xp: 0,
     total_bets: 0, total_deposits: 0, transactions_processed: 0,
@@ -219,20 +306,57 @@ export async function syncPlayerXp(cpf: string, supabase: SupabaseClient): Promi
       return result;
     }
 
-    // 6. Fetch real game transactions via /usuarios/transacoes (has bets, deposits, wins)
+    // 6. Fetch real game transactions via /transferencias/listar (has actual bets, deposits)
     let movimentacoes: Movimentacao[] = [];
     let historico: Historico[] = [];
     try {
-      const txRes = await fetch(`${siteUrl}/usuarios/transacoes?id=${playerUuid}`, {
-        headers, signal: AbortSignal.timeout(15000),
+      // Build DataTables params for /transferencias/listar filtered by CPF
+      const txParams = new URLSearchParams();
+      txParams.set('draw', '1');
+      txParams.set('start', '0');
+      txParams.set('length', '500');
+      txParams.set('busca_cpf', cpf);
+      const txCols = ['tipo', 'operacao', 'valor', 'carteira', 'jogo', 'data_registro'];
+      txCols.forEach((col, i) => {
+        txParams.set(`columns[${i}][data]`, col);
+        txParams.set(`columns[${i}][name]`, '');
+        txParams.set(`columns[${i}][searchable]`, 'true');
+        txParams.set(`columns[${i}][orderable]`, 'true');
+        txParams.set(`columns[${i}][search][value]`, '');
+        txParams.set(`columns[${i}][search][regex]`, 'false');
+      });
+      txParams.set('order[0][column]', '5');
+      txParams.set('order[0][dir]', 'desc');
+      txParams.set('search[value]', '');
+      txParams.set('search[regex]', 'false');
+
+      const txRes = await fetch(`${siteUrl}/transferencias/listar?${txParams.toString()}`, {
+        method: 'GET', headers, signal: AbortSignal.timeout(15000),
       });
       const txData = JSON.parse(await txRes.text());
-      movimentacoes = txData?.movimentacoes || [];
-      historico = txData?.historico || [];
+      // /transferencias/listar returns DataTables format: { data: [...] } or { aaData: [...] }
+      const rows = txData?.data || txData?.aaData || [];
+      movimentacoes = rows.map((r: Record<string, unknown>) => ({
+        tipo: String(r.tipo || r.operacao || ''),
+        valor: r.valor as string | number,
+        data_registro: String(r.data_registro || ''),
+        jogo: String(r.jogo || ''),
+        descricao: String(r.descricao || ''),
+        carteira: String(r.carteira || ''),
+      }));
     } catch (e: unknown) {
       result.error = `Failed to fetch transactions: ${e instanceof Error ? e.message : 'Erro'}`;
       return result;
     }
+
+    // Also fetch /usuarios/transacoes for bonus/deposit history
+    try {
+      const txRes2 = await fetch(`${siteUrl}/usuarios/transacoes?id=${playerUuid}`, {
+        headers, signal: AbortSignal.timeout(15000),
+      });
+      const txData2 = JSON.parse(await txRes2.text());
+      historico = txData2?.historico || [];
+    } catch { /* ignore — transferencias/listar is the primary source */ }
 
     // Normalize all transactions into a unified format
     const allTx: NormalizedTx[] = [
@@ -240,11 +364,16 @@ export async function syncPlayerXp(cpf: string, supabase: SupabaseClient): Promi
         tipo: (m.tipo || '').toUpperCase(),
         valor: m.valor,
         data_registro: m.data_registro,
+        jogo: (m.jogo || '').toUpperCase(),
+        descricao: (m.descricao || '').toUpperCase(),
+        carteira: (m.carteira || '').toUpperCase(),
       })),
       ...historico.map((h: Historico) => ({
         tipo: (h.operacao || h.tipo || '').toUpperCase(),
         valor: h.valor,
         data_registro: h.data_registro,
+        jogo: (h.jogo || '').toUpperCase(),
+        carteira: (h.carteira || '').toUpperCase(),
       })),
     ];
 
@@ -274,6 +403,8 @@ export async function syncPlayerXp(cpf: string, supabase: SupabaseClient): Promi
 
     let totalBets = 0;
     let totalDeposits = 0;
+    let betCount = 0;
+    let depositCount = 0;
     let newestTs = 0;
     let processedCount = 0;
 
@@ -294,15 +425,31 @@ export async function syncPlayerXp(cpf: string, supabase: SupabaseClient): Promi
 
       if (isBet && valor > 0) {
         totalBets += valor;
+        betCount++;
         processedCount++;
       } else if (isDeposit && valor > 0) {
         totalDeposits += valor;
+        depositCount++;
         processedCount++;
       }
     }
 
     result.total_bets = totalBets;
     result.total_deposits = totalDeposits;
+
+    if (debug) {
+      // Show raw transaction types and classification
+      const debugTxs = allTx.slice(0, 50).map(tx => {
+        const tipo = tx.tipo;
+        const valor = parseVal(tx.valor);
+        const allFields = `${tipo} ${tx.jogo || ''} ${tx.carteira || ''} ${tx.descricao || ''}`;
+        const isBet = tipo.includes('COMPRA') || tipo.includes('APOSTA') || tipo.includes('BET') || tipo.includes('PURCHASE');
+        const isDeposit = tipo.includes('DEPOSITO') || tipo.includes('DEPOSIT') || tipo.includes('PIX_IN');
+        const isKenoBet = isBet && (allFields.includes('KENO') || allFields.includes('BINGO') || allFields.includes('LOTERIA'));
+        return { tipo, jogo: tx.jogo || '', carteira: tx.carteira || '', descricao: tx.descricao || '', valor, data: tx.data_registro, class: isKenoBet ? 'KENO' : isBet ? 'CASSINO' : isDeposit ? 'DEPOSITO' : 'OUTRO' };
+      });
+      result._debug = { total_raw_tx: allTx.length, sample: debugTxs, betCount, depositCount, lastSync: lastSync ? new Date(lastSync).toISOString() : null };
+    }
     result.transactions_processed = processedCount;
 
     if (processedCount === 0) {
@@ -467,6 +614,47 @@ export async function syncPlayerXp(cpf: string, supabase: SupabaseClient): Promi
       } catch { /* ignore */ }
     }
 
+    // 14. Update mission progress based on transaction totals
+    // We classify bets into keno/cassino based on transaction type keywords
+    try {
+      let totalKeno = 0;
+      let totalCassino = 0;
+      let kenoCount = 0;
+      let cassinoCount = 0;
+      const kenoTxs: Array<{ valor: number; ts: number }> = [];
+      const cassinoTxs: Array<{ valor: number; ts: number }> = [];
+      const betTxs: Array<{ valor: number; ts: number }> = [];
+      const depositTxs: Array<{ valor: number; ts: number }> = [];
+      for (const tx of allTx) {
+        const tipo = tx.tipo;
+        const valor = parseVal(tx.valor);
+        const txTs = parseDate(tx.data_registro || '');
+        if (lastSync && txTs && txTs <= lastSync) continue;
+        const isBet = tipo.includes('COMPRA') || tipo.includes('APOSTA') || tipo.includes('BET') || tipo.includes('PURCHASE');
+        const isDeposit = tipo.includes('DEPOSITO') || tipo.includes('DEPOSIT') || tipo.includes('PIX_IN');
+        if (isBet && valor > 0) {
+          betTxs.push({ valor, ts: txTs });
+          // Classify by jogo, carteira, descricao, or tipo keywords
+          const allFields = `${tipo} ${tx.jogo || ''} ${tx.carteira || ''} ${tx.descricao || ''}`;
+          const isKenoBet = allFields.includes('KENO') || allFields.includes('BINGO') || allFields.includes('LOTERIA');
+          if (isKenoBet) { totalKeno += valor; kenoCount++; kenoTxs.push({ valor, ts: txTs }); }
+          else { totalCassino += valor; cassinoCount++; cassinoTxs.push({ valor, ts: txTs }); }
+        } else if (isDeposit && valor > 0) {
+          depositTxs.push({ valor, ts: txTs });
+        }
+      }
+      // Update missions — pass individual transactions so progress can filter by opt-in date
+      const missionEvents: Array<{ event_type: string; event_amount: number; event_count: number; txs: Array<{ valor: number; ts: number }> }> = [];
+      if (betTxs.length > 0) missionEvents.push({ event_type: 'bet', event_amount: totalBets, event_count: betCount, txs: betTxs });
+      if (depositTxs.length > 0) missionEvents.push({ event_type: 'deposit', event_amount: totalDeposits, event_count: depositCount, txs: depositTxs });
+      if (kenoTxs.length > 0) missionEvents.push({ event_type: 'play_keno', event_amount: totalKeno, event_count: kenoCount, txs: kenoTxs });
+      if (cassinoTxs.length > 0) missionEvents.push({ event_type: 'play_cassino', event_amount: totalCassino, event_count: cassinoCount, txs: cassinoTxs });
+
+      for (const evt of missionEvents) {
+        await updateMissionProgress(supabase, cpf, evt.event_type, evt.event_amount, evt.event_count, evt.txs);
+      }
+    } catch { /* mission update is best-effort */ }
+
     result.success = true;
     return result;
 
@@ -498,6 +686,9 @@ export default async function handler(req: Request): Promise<Response> {
       cpf = url.searchParams.get('cpf') || null;
     }
 
+    const urlObj = new URL(req.url);
+    const debug = urlObj.searchParams.get('debug') === 'true';
+
     if (!cpf) {
       return new Response(JSON.stringify({ success: false, error: 'CPF é obrigatório' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -507,7 +698,7 @@ export default async function handler(req: Request): Promise<Response> {
     // Normalize CPF
     cpf = cpf.replace(/[.\-\s/]/g, '');
 
-    const result = await syncPlayerXp(cpf, supabase);
+    const result = await syncPlayerXp(cpf, supabase, debug);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
