@@ -8,7 +8,24 @@ export default defineConfig({
     host: "::",
     port: 8080,
   },
-  plugins: [react()],
+  preview: {
+    port: 8080,
+    host: "::",
+  },
+  plugins: [
+    react(),
+    {
+      name: 'spa-fallback',
+      configurePreviewServer(server) {
+        server.middlewares.use((req, _res, next) => {
+          if (req.url && !req.url.includes('.') && req.url !== '/') {
+            req.url = '/index.html';
+          }
+          next();
+        });
+      },
+    },
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

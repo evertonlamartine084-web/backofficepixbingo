@@ -1,4 +1,4 @@
-import { MutableRefObject } from 'react';
+import { MutableRefObject, SetStateAction } from 'react';
 import {
   Loader2, Upload, X, CreditCard, DollarSign, SearchCheck, ShieldCheck, ShieldX, Ban, Download,
   Zap, Settings2, RefreshCw, Filter, Users, Trash2, ChevronRight, ChevronLeft,
@@ -82,7 +82,7 @@ interface SegmentPlayerListProps {
   editRulesOpen: boolean;
   setEditRulesOpen: (o: boolean) => void;
   editRules: SegmentRule[];
-  setEditRules: (r: SegmentRule[]) => void;
+  setEditRules: (r: SetStateAction<SegmentRule[]>) => void;
   editMatchType: 'all' | 'any';
   setEditMatchType: (m: 'all' | 'any') => void;
   editAutoRefresh: boolean;

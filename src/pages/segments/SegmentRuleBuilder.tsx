@@ -1,4 +1,5 @@
 import { Plus, X, Filter } from 'lucide-react';
+import type { SetStateAction } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,16 +8,16 @@ import type { SegmentRule } from './types';
 
 interface SegmentRuleBuilderProps {
   rules: SegmentRule[];
-  setRules: (r: SegmentRule[]) => void;
+  setRules: (r: SetStateAction<SegmentRule[]>) => void;
   matchType: 'all' | 'any';
   setMatchType: (m: 'all' | 'any') => void;
 }
 
 export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }: SegmentRuleBuilderProps) {
-  const addRule = () => setRules([...rules, { id: generateId(), field: 'level', operator: 'gte', value: '' }]);
-  const removeRule = (id: string) => setRules(rules.filter(r => r.id !== id));
+  const addRule = () => setRules(prev => [...prev, { id: generateId(), field: 'level', operator: 'gte', value: '' }]);
+  const removeRule = (id: string) => setRules(prev => prev.filter(r => r.id !== id));
   const updateRule = (id: string, updates: Partial<SegmentRule>) => {
-    setRules(rules.map(r => r.id === id ? { ...r, ...updates } : r));
+    setRules(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
   };
 
   const categories = [...new Set(RULE_FIELDS.map(f => f.category))];

@@ -1,3 +1,4 @@
+import type { SetStateAction } from 'react';
 import { Loader2, Upload, Zap, RefreshCw, Eye, Users } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -23,7 +24,7 @@ interface SegmentFormProps {
   newType: 'manual' | 'automatic';
   setNewType: (v: 'manual' | 'automatic') => void;
   newRules: SegmentRule[];
-  setNewRules: (r: SegmentRule[]) => void;
+  setNewRules: (r: SetStateAction<SegmentRule[]>) => void;
   newMatchType: 'all' | 'any';
   setNewMatchType: (m: 'all' | 'any') => void;
   newAutoRefresh: boolean;
