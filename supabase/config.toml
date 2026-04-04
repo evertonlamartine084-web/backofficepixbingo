@@ -29,3 +29,12 @@ verify_jwt = false
 
 [functions.process-cashback]
 verify_jwt = false
+
+[functions.gamification-widget]
+verify_jwt = false
+
+[functions.sync-mission-progress]
+verify_jwt = false
+
+[functions.sync-tournament-scores]
+verify_jwt = false

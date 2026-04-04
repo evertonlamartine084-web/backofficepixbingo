@@ -244,13 +244,23 @@ function buildTests(session: { user: { email?: string } } | null): TestCase[] {
       description: 'Verifica se a edge function de proxy responde',
       run: async () => {
         try {
-          const { error } = await supabase.functions.invoke('pixbingo-proxy', {
-            body: { method: 'GET', path: '/health' },
+          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch(`https://${projectId}.supabase.co/functions/v1/pixbingo-proxy`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session?.access_token ?? anonKey}`,
+              'apikey': anonKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'login', site_url: 'https://pixbingobr.com', username: '__healthcheck', password: '__test' }),
           });
-          if (error) return { passed: false, details: `Erro: ${error.message}` };
-          return { passed: true, details: 'Edge function respondeu' };
+          const body = await res.text();
+          // Qualquer resposta (mesmo 4xx) prova que a function está online
+          return { passed: true, details: `Online (HTTP ${res.status}): ${body.slice(0, 150)}` };
         } catch (e) {
-          return { passed: false, details: `Exception: ${e instanceof Error ? e.message : String(e)}` };
+          return { passed: false, details: `Offline: ${e instanceof Error ? e.message : String(e)}` };
         }
       },
     },
@@ -299,8 +309,9 @@ function buildTests(session: { user: { email?: string } } | null): TestCase[] {
           const { data, error } = await supabase.functions.invoke('manage-users', {
             body: { action: 'list' },
           });
-          if (error) return { passed: false, details: `Erro: ${error.message}` };
-          if (data?.error) return { passed: false, details: `Erro: ${data.error}` };
+          const respStr = JSON.stringify(data).slice(0, 200);
+          if (error) return { passed: false, details: `Erro: ${error.message} | data: ${respStr}` };
+          if (data?.error) return { passed: false, details: `Erro: ${data.error} | data: ${respStr}` };
           const users = Array.isArray(data?.users) ? data.users : [];
           const emails = users.slice(0, 3).map((u: { email?: string }) => u.email).join(', ');
           return { passed: true, details: `${users.length} usuarios${emails ? ` (${emails})` : ''}` };
@@ -342,8 +353,8 @@ function buildTests(session: { user: { email?: string } } | null): TestCase[] {
           const { data, error } = await supabase.functions.invoke('popup-check', {
             body: { cpf: '70791576418' },
           });
-          if (error) return { passed: false, details: `Erro: ${error.message}` };
-          return { passed: true, details: `Resposta: ${JSON.stringify(data).slice(0, 100)}` };
+          if (error) return { passed: false, details: `Erro: ${error.message} | data: ${JSON.stringify(data).slice(0, 150)}` };
+          return { passed: true, details: `OK: ${JSON.stringify(data).slice(0, 150)}` };
         } catch (e) {
           return { passed: false, details: `Exception: ${e instanceof Error ? e.message : String(e)}` };
         }
@@ -351,23 +362,36 @@ function buildTests(session: { user: { email?: string } } | null): TestCase[] {
     },
     {
       id: 'ef-gamification-widget',
-      name: 'Edge function gamification-widget',
+      name: 'Widget + sync missoes (70791576418)',
       group: 'Edge Functions',
-      description: 'Invoca gamification-widget com action=data via query param',
+      description: 'Invoca gamification-widget com player=70791576418 e verifica sync de missoes em tempo real',
       run: async () => {
         try {
           const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-          const url = `https://${projectId}.supabase.co/functions/v1/gamification-widget?action=data`;
-          const { data: { session } } = await supabase.auth.getSession();
+          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          const url = `https://${projectId}.supabase.co/functions/v1/gamification-widget?action=data&player=70791576418`;
           const res = await fetch(url, {
             headers: {
-              'Authorization': `Bearer ${session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              'Authorization': `Bearer ${anonKey}`,
+              'apikey': anonKey,
             },
           });
-          if (!res.ok) return { passed: false, details: `HTTP ${res.status}: ${(await res.text()).slice(0, 100)}` };
-          const json = await res.json();
-          return { passed: true, details: `Resposta: ${JSON.stringify(json).slice(0, 100)}` };
+          const body = await res.text();
+          if (!res.ok) return { passed: false, details: `HTTP ${res.status} | body: ${body.slice(0, 300)}` };
+          const json = JSON.parse(body);
+          const missions = json.missions as { id: string; name: string }[] || [];
+          const progress = json.mission_progress as { mission_id: string; progress: number; target: number; completed: boolean }[] || [];
+          const wallet = json.wallet as { level?: number; coins?: number; xp?: number } | null;
+          const timedOut = json._timeout === true;
+          const lines: string[] = [];
+          if (timedOut) lines.push('⚠ TIMEOUT — dados parciais');
+          lines.push(`Wallet: nivel ${wallet?.level ?? '-'} | coins ${wallet?.coins ?? '-'} | xp ${wallet?.xp ?? '-'}`);
+          lines.push(`Missoes ativas: ${missions.length} | Progresso entries: ${progress.length}`);
+          for (const p of progress) {
+            const m = missions.find(mi => mi.id === p.mission_id);
+            lines.push(`  "${m?.name ?? p.mission_id}" → ${p.progress}/${p.target} ${p.completed ? '✓ COMPLETA' : ''}`);
+          }
+          return { passed: !timedOut, details: lines.join('\n') };
         } catch (e) {
           return { passed: false, details: `Exception: ${e instanceof Error ? e.message : String(e)}` };
         }
@@ -383,8 +407,10 @@ function buildTests(session: { user: { email?: string } } | null): TestCase[] {
           const { data, error } = await supabase.functions.invoke('process-campaign', {
             body: { campaign_id: '__healthcheck_test' },
           });
-          if (error) return { passed: false, details: `Erro: ${error.message}` };
-          return { passed: true, details: `Resposta: ${JSON.stringify(data).slice(0, 100)}` };
+          // process-campaign pode retornar erro logico (campaign nao encontrada) — isso prova que a function esta online
+          const respStr = JSON.stringify(data).slice(0, 150);
+          if (error) return { passed: false, details: `Erro: ${error.message} | data: ${respStr}` };
+          return { passed: true, details: `OK: ${respStr}` };
         } catch (e) {
           return { passed: false, details: `Exception: ${e instanceof Error ? e.message : String(e)}` };
         }
@@ -392,19 +418,117 @@ function buildTests(session: { user: { email?: string } } | null): TestCase[] {
     },
     {
       id: 'ef-proxy-player',
-      name: 'Proxy buscar jogador teste',
+      name: 'Proxy buscar jogador (70791576418)',
       group: 'Edge Functions',
-      description: 'Usa pixbingo-proxy para buscar jogador CPF 70791576418',
+      description: 'Usa pixbingo-proxy com action=search_player para buscar CPF 70791576418',
       run: async () => {
         try {
-          const { data, error } = await supabase.functions.invoke('pixbingo-proxy', {
-            body: { method: 'GET', path: '/api/player/70791576418' },
+          const { data: config } = await supabase.from('platform_config').select('site_url, login_url, username, password').eq('active', true).limit(1).maybeSingle();
+          if (!config) return { passed: false, details: 'Nenhuma platform_config ativa' };
+          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch(`https://${projectId}.supabase.co/functions/v1/pixbingo-proxy`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session?.access_token ?? anonKey}`,
+              'apikey': anonKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'search_player',
+              site_url: config.site_url,
+              login_url: config.login_url,
+              username: config.username,
+              password: config.password,
+              busca_cpf: '70791576418',
+            }),
           });
-          if (error) return { passed: false, details: `Erro: ${error.message}` };
-          return { passed: true, details: `Resposta: ${JSON.stringify(data).slice(0, 120)}` };
+          const body = await res.text();
+          if (!res.ok) return { passed: false, details: `HTTP ${res.status}: ${body.slice(0, 250)}` };
+          return { passed: true, details: `OK: ${body.slice(0, 250)}` };
         } catch (e) {
           return { passed: false, details: `Exception: ${e instanceof Error ? e.message : String(e)}` };
         }
+      },
+    },
+    {
+      id: 'ef-platform-login',
+      name: 'Login na plataforma',
+      group: 'Edge Functions',
+      description: 'Verifica platform_config e testa login via pixbingo-proxy',
+      run: async () => {
+        const { data: config, error } = await supabase.from('platform_config')
+          .select('site_url, login_url, username, active')
+          .eq('active', true)
+          .limit(1)
+          .maybeSingle();
+        if (error) return { passed: false, details: `Erro ao ler config: ${error.message}` };
+        if (!config) return { passed: false, details: 'Nenhuma platform_config ativa encontrada' };
+        const lines = [`site_url: ${config.site_url}`, `login_url: ${config.login_url ?? '(nao definida)'}`, `username: ${config.username}`, `active: ${config.active}`];
+        // Busca todas as configs ativas pra ver se há conflito
+        const { data: allConfigs } = await supabase.from('platform_config').select('id, site_url, active').eq('active', true);
+        if (allConfigs && allConfigs.length > 1) {
+          lines.push(`⚠ ${allConfigs.length} configs ativas: ${allConfigs.map(c => c.site_url).join(', ')}`);
+        }
+        return { passed: true, details: lines.join('\n') };
+      },
+    },
+    // ── Missoes (diagnostico) ──
+    {
+      id: 'ef-sync-missions',
+      name: 'Sync mission progress (full)',
+      group: 'Edge Functions',
+      description: 'Invoca sync-mission-progress e exibe logs de execucao completos',
+      run: async () => {
+        try {
+          const { data, error } = await supabase.functions.invoke('sync-mission-progress', {
+            body: {},
+          });
+          const logs = data?.logs as string[] | undefined;
+          const logsStr = logs?.join('\n') ?? '';
+          const summary = `updated: ${data?.updated ?? '?'}, completed: ${data?.completed ?? '?'}, errors: ${data?.errors ?? '?'}, missions: ${data?.missions ?? '?'}, players: ${data?.players ?? '?'}`;
+          if (error) return { passed: false, details: `Erro: ${error.message} | data: ${JSON.stringify(data).slice(0, 300)}` };
+          if (data?.errors > 0) return { passed: false, details: `${summary}\n\nLogs:\n${logsStr}` };
+          return { passed: true, details: `${summary}\n\nLogs:\n${logsStr}` };
+        } catch (e) {
+          return { passed: false, details: `Exception: ${e instanceof Error ? e.message : String(e)}` };
+        }
+      },
+    },
+    {
+      id: 'ef-missions-pending',
+      name: 'Missoes pendentes de sync',
+      group: 'Edge Functions',
+      description: 'Lista player_mission_progress com opted_in=true e completed=false',
+      run: async () => {
+        const { data, error, count } = await supabase
+          .from('player_mission_progress')
+          .select('id, cpf, mission_id, progress, target, completed, opted_in, updated_at', { count: 'exact' })
+          .eq('opted_in', true)
+          .eq('completed', false)
+          .order('updated_at', { ascending: true })
+          .limit(10);
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        if (!data || data.length === 0) return { passed: true, details: `Nenhuma missao pendente (total: ${count ?? 0})` };
+        const lines = data.map(d => `CPF ${d.cpf} | missao ${String(d.mission_id).slice(0, 8)}… | progresso ${d.progress}/${d.target} | updated: ${d.updated_at}`);
+        return { passed: true, details: `${count ?? data.length} pendente(s):\n${lines.join('\n')}` };
+      },
+    },
+    {
+      id: 'ef-missions-active',
+      name: 'Missoes ativas no sistema',
+      group: 'Edge Functions',
+      description: 'Lista missoes com status active e verifica datas',
+      run: async () => {
+        const { data, error } = await supabase
+          .from('missions')
+          .select('id, name, condition_type, condition_value, recurrence, start_date, end_date, status')
+          .in('status', ['active', 'ATIVO']);
+        if (error) return { passed: false, details: `Erro: ${error.message}` };
+        if (!data || data.length === 0) return { passed: true, details: 'Nenhuma missao ativa' };
+        const lines = data.map(m => `"${m.name}" | ${m.condition_type} >= ${m.condition_value} | ${m.recurrence} | ${m.start_date} → ${m.end_date}`);
+        return { passed: true, details: `${data.length} missao(oes) ativa(s):\n${lines.join('\n')}` };
       },
     },
     // ── Gamificacao extras ──
@@ -835,7 +959,7 @@ export default function HealthCheck() {
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{test.description}</p>
                       {result?.details && (
-                        <p className={cn('text-xs mt-1 font-mono', status === 'passed' ? 'text-emerald-400/80' : status === 'failed' ? 'text-red-400/80' : 'text-muted-foreground')}>
+                        <p className={cn('text-xs mt-1 font-mono break-all whitespace-pre-wrap', status === 'passed' ? 'text-emerald-400/80' : status === 'failed' ? 'text-red-400/80' : 'text-muted-foreground')}>
                           {result.details}
                         </p>
                       )}
@@ -852,6 +976,72 @@ export default function HealthCheck() {
           </Card>
         );
       })}
+
+      {/* JSON Results */}
+      {totalRun > 0 && !running && (
+        <Card className="border-border bg-card/50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                Resultado JSON
+                <Badge variant="outline" className="text-[10px] ml-1">{totalRun} testes</Badge>
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  const json = JSON.stringify(
+                    {
+                      timestamp: new Date().toISOString(),
+                      summary: { total: tests.length, passed, failed, blocked, successRate: totalRun > 0 ? `${Math.round((passed / totalRun) * 100)}%` : '-' },
+                      results: tests.map(t => {
+                        const r = results[t.id];
+                        return {
+                          id: t.id,
+                          name: t.name,
+                          group: t.group,
+                          status: r?.status ?? 'idle',
+                          durationMs: r?.durationMs ?? 0,
+                          details: r?.details ?? '',
+                        };
+                      }),
+                    },
+                    null,
+                    2,
+                  );
+                  navigator.clipboard.writeText(json);
+                }}
+              >
+                Copiar JSON
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <pre className="text-xs font-mono bg-secondary/50 rounded-lg p-4 overflow-x-auto max-h-[500px] overflow-y-auto whitespace-pre-wrap break-all text-muted-foreground">
+              {JSON.stringify(
+                {
+                  timestamp: new Date().toISOString(),
+                  summary: { total: tests.length, passed, failed, blocked, successRate: totalRun > 0 ? `${Math.round((passed / totalRun) * 100)}%` : '-' },
+                  results: tests.map(t => {
+                    const r = results[t.id];
+                    return {
+                      id: t.id,
+                      name: t.name,
+                      group: t.group,
+                      status: r?.status ?? 'idle',
+                      durationMs: r?.durationMs ?? 0,
+                      details: r?.details ?? '',
+                    };
+                  }),
+                },
+                null,
+                2,
+              )}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

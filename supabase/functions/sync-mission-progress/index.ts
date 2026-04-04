@@ -30,13 +30,20 @@ const ALLOWED_SITE_URLS = [
 
 // --- Platform login/fetch helpers ---
 
-async function doLogin(siteUrl: string, username: string, password: string, loginUrl?: string | null): Promise<{ cookies: string; success: boolean }> {
+async function doLogin(
+  siteUrl: string, username: string, password: string,
+  loginUrl?: string | null,
+  log?: (msg: string) => void,
+): Promise<{ cookies: string; success: boolean }> {
+  const l = log || ((m: string) => console.log(`[sync-missions] ${m}`));
   const baseUrl = siteUrl.replace(/\/+$/, '');
   let loginTarget = `${baseUrl}/login`;
   if (loginUrl) {
     const cleanLogin = loginUrl.replace(/\/+$/, '');
     loginTarget = cleanLogin.endsWith('/login') ? cleanLogin : `${cleanLogin}/login`;
   }
+
+  l(`doLogin: baseUrl=${baseUrl}, loginTarget=${loginTarget}, user=${username}, pass=${password.slice(0,4)}...`);
 
   let initialCookies = '';
   try {
@@ -46,7 +53,10 @@ async function doLogin(siteUrl: string, username: string, password: string, logi
     });
     const setCookies = initRes.headers.getSetCookie?.() || [];
     initialCookies = setCookies.map((c: string) => c.split(';')[0]).join('; ');
-  } catch { /* ignore */ }
+    l(`doLogin: GET ${baseUrl} → ${initRes.status}, cookies: ${initialCookies.slice(0, 100)}`);
+  } catch (e) {
+    l(`doLogin: GET ${baseUrl} falhou: ${e instanceof Error ? e.message : String(e)}`);
+  }
 
   try {
     const hdrs: Record<string, string> = {
@@ -56,9 +66,12 @@ async function doLogin(siteUrl: string, username: string, password: string, logi
     };
     if (initialCookies) hdrs['Cookie'] = initialCookies;
 
+    const postBody = new URLSearchParams({ usuario: username, senha: password }).toString();
+    l(`doLogin: POST ${loginTarget} body=${postBody.replace(password, '***')}`);
+
     const res = await fetch(loginTarget, {
       method: 'POST', headers: hdrs,
-      body: new URLSearchParams({ usuario: username, senha: password }).toString(),
+      body: postBody,
       redirect: 'manual', signal: AbortSignal.timeout(10000),
     });
 
@@ -77,15 +90,31 @@ async function doLogin(siteUrl: string, username: string, password: string, logi
 
     if (res.status === 302 || res.status === 301) {
       const location = res.headers.get('location') || '';
+      l(`doLogin: redirect ${res.status} → ${location}`);
       if (!location.includes('/login') && !location.includes('error')) {
+        l(`doLogin: SUCCESS via redirect`);
         return { cookies, success: true };
       }
+      l(`doLogin: redirect aponta para login/error — falha`);
     }
+
+    const text = await res.text();
+    l(`doLogin: response HTTP ${res.status}, body: ${text.slice(0, 300)}`);
+
     if (res.ok) {
-      const text = await res.text();
-      try { const d = JSON.parse(text); if (d.status === true || d.logged === true) return { cookies, success: true }; } catch { /* ignore */ }
+      try {
+        const d = JSON.parse(text);
+        if (d.status === true || d.logged === true) {
+          l(`doLogin: SUCCESS via JSON`);
+          return { cookies, success: true };
+        }
+      } catch { /* not JSON */ }
     }
-  } catch { /* ignore */ }
+
+    l(`doLogin: FAILED — HTTP ${res.status}`);
+  } catch (e) {
+    l(`doLogin: EXCEPTION — ${e instanceof Error ? e.message : String(e)}`);
+  }
 
   return { cookies: '', success: false };
 }
@@ -307,24 +336,28 @@ Deno.serve(async (req: Request) => {
   const log = (msg: string) => { console.log(`[sync-missions] ${msg}`); logs.push(msg); };
 
   try {
-    // 1. Get active platform config
-    const { data: config } = await supabase
+    // 1. Get active platform config (try all active configs, prefer pixbingobr.com)
+    const { data: allConfigs } = await supabase
       .from('platform_config')
       .select('*')
-      .eq('active', true)
-      .limit(1)
-      .single();
+      .eq('active', true);
 
-    if (!config) {
+    if (!allConfigs || allConfigs.length === 0) {
       log('Nenhuma configuração de plataforma ativa encontrada');
       return new Response(JSON.stringify({ success: false, error: 'Sem config ativa', logs }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    log(`${allConfigs.length} config(s) ativa(s): ${allConfigs.map(c => c.site_url).join(', ')}`);
+
+    // Prefer configs with pixbingobr.com, fallback to first
+    const config = allConfigs.find(c => c.site_url?.includes('pixbingobr.com')) || allConfigs[0];
+
     const siteUrl = config.site_url.replace(/\/+$/, '');
     const loginDomain = config.login_url ? config.login_url.replace(/\/+$/, '').replace(/\/login$/, '') : null;
     const baseUrl = loginDomain || siteUrl;
+    log(`Config selecionada: site_url=${siteUrl}, login_url=${config.login_url ?? 'N/A'}, baseUrl=${baseUrl}, username=${config.username}`);
 
     // SSRF protection
     if (!ALLOWED_SITE_URLS.some(u => baseUrl === u || baseUrl.startsWith(u + '/'))) {
@@ -336,7 +369,7 @@ Deno.serve(async (req: Request) => {
 
     // 2. Login to platform
     log(`Tentando login: base=${baseUrl}`);
-    const auth = await doLogin(baseUrl, config.username, config.password, config.login_url);
+    const auth = await doLogin(baseUrl, config.username, config.password, config.login_url, log);
     if (!auth.success) {
       log('Falha no login');
       return new Response(JSON.stringify({ success: false, error: 'Login falhou', logs }), {

@@ -65,7 +65,12 @@ interface ProxyRequest {
 
 async function doLogin(body: ProxyRequest): Promise<{ cookies: string; success: boolean }> {
   const baseUrl = body.site_url.replace(/\/+$/, '');
-  const loginUrl = body.login_url || `${baseUrl}/login`;
+  let loginUrl = body.login_url || `${baseUrl}/login`;
+  // Ensure loginUrl ends with /login
+  loginUrl = loginUrl.replace(/\/+$/, '');
+  if (!loginUrl.endsWith('/login')) {
+    loginUrl = `${loginUrl}/login`;
+  }
 
   // Step 1: GET site for session cookie
   let initialCookies = '';

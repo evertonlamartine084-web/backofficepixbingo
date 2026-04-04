@@ -119,6 +119,145 @@ async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string
   return null;
 }
 
+async function fetchPlayerTransactions(baseUrl: string, headers: Record<string, string>, playerUuid: string): Promise<Record<string, unknown>> {
+  try {
+    const res = await fetch(`${baseUrl}/usuarios/transacoes?id=${playerUuid}`, {
+      method: 'GET', headers, signal: AbortSignal.timeout(12000),
+    });
+    const text = await res.text();
+    return JSON.parse(text);
+  } catch { return {}; }
+}
+
+function parseDate(s: string): number {
+  if (!s) return 0;
+  // Try BR format dd/mm/yyyy HH:MM:SS
+  const brMatch = s.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+  if (brMatch) return new Date(`${brMatch[3]}-${brMatch[2]}-${brMatch[1]}T${brMatch[4]}:${brMatch[5]}:${brMatch[6]}`).getTime();
+  return new Date(s).getTime() || 0;
+}
+
+function parseBrCurrency(val: unknown): number {
+  const str = String(val).replace(/[R$\s.]/g, '').replace(',', '.');
+  return Math.abs(Number(str)) || 0;
+}
+
+interface NormalizedTx { data_registro: string; tipo: string; valor: string | number; jogo: string; carteira: string; }
+
+function calculateMissionProgress(
+  movimentacoes: Record<string, unknown>[],
+  historico: Record<string, unknown>[],
+  conditionType: string,
+  startTs: number,
+  endTs: number,
+): number {
+  const normalize = (arr: Record<string, unknown>[], isMov: boolean): NormalizedTx[] =>
+    arr.map(h => ({
+      data_registro: String(h.data_registro || ''),
+      tipo: String(isMov ? (h.tipo || '') : (h.operacao || h.tipo || '')).toUpperCase(),
+      valor: h.valor as string | number,
+      jogo: String(h.jogo || (isMov ? (h.descricao || '') : '')),
+      carteira: String(h.carteira || ''),
+    }));
+  const allTx = [...normalize(historico, false), ...normalize(movimentacoes, true)]
+    .filter(tx => { const ts = parseDate(tx.data_registro); return ts >= startTs && ts <= endTs; });
+
+  switch (conditionType) {
+    case 'deposit': {
+      let total = 0;
+      for (const tx of allTx) if (tx.tipo.includes('DEPOSITO') || tx.tipo.includes('PIX')) total += parseBrCurrency(tx.valor);
+      return total;
+    }
+    case 'bet': {
+      let total = 0;
+      for (const tx of allTx) if (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET')) total += parseBrCurrency(tx.valor);
+      return total;
+    }
+    case 'win': {
+      let count = 0;
+      for (const tx of allTx) if (tx.tipo.includes('PREMIO') || tx.tipo.includes('GANHO') || tx.tipo.includes('WIN')) count++;
+      return count;
+    }
+    case 'total_deposit': {
+      let total = 0;
+      for (const tx of allTx) if (tx.tipo.includes('DEPOSITO') || tx.tipo.includes('PIX')) total += parseBrCurrency(tx.valor);
+      return total;
+    }
+    case 'total_bet': {
+      let total = 0;
+      for (const tx of allTx) if (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET')) total += parseBrCurrency(tx.valor);
+      return total;
+    }
+    case 'total_games': {
+      let count = 0;
+      for (const tx of allTx) if (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET')) count++;
+      return count;
+    }
+    default: return -1; // tracked internally (login, spin, etc.)
+  }
+}
+
+async function syncPlayerMissions(
+  supabase: ReturnType<typeof createClient>,
+  playerCpf: string,
+  baseUrl: string,
+  platformHeaders: Record<string, string>,
+  missions: Record<string, unknown>[],
+  progressEntries: Record<string, unknown>[],
+): Promise<Record<string, unknown>[]> {
+  const pending = progressEntries.filter((p: Record<string, unknown>) => p.opted_in && !p.completed);
+  if (pending.length === 0 || missions.length === 0) return progressEntries;
+
+  try {
+    const playerUuid = await searchPlayerByCpf(baseUrl, platformHeaders, playerCpf);
+    if (!playerUuid) return progressEntries;
+
+    const txResult = await fetchPlayerTransactions(baseUrl, platformHeaders, playerUuid);
+    const movimentacoes = (txResult?.movimentacoes as Record<string, unknown>[]) || [];
+    const historico = (txResult?.historico as Record<string, unknown>[]) || [];
+
+    const missionMap = new Map(missions.map((m: Record<string, unknown>) => [m.id, m]));
+
+    for (const entry of pending) {
+      const mission = missionMap.get(entry.mission_id);
+      if (!mission) continue;
+
+      let startTs: number;
+      let endTs: number;
+      const recurrence = mission.recurrence as string;
+
+      if (recurrence === 'daily') {
+        const d = new Date(); d.setHours(0, 0, 0, 0); startTs = d.getTime(); endTs = Date.now();
+      } else if (recurrence === 'weekly') {
+        const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); d.setHours(0, 0, 0, 0); startTs = d.getTime(); endTs = Date.now();
+      } else if (recurrence === 'monthly') {
+        const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); startTs = d.getTime(); endTs = Date.now();
+      } else {
+        startTs = mission.start_date ? new Date(mission.start_date as string).getTime() : 0;
+        endTs = mission.end_date ? new Date(mission.end_date as string).getTime() : Date.now();
+      }
+
+      const progress = calculateMissionProgress(movimentacoes, historico, mission.condition_type as string, startTs, endTs);
+      if (progress === -1) continue;
+
+      const target = Number(mission.condition_value) || 1;
+      const completed = progress >= target;
+
+      await supabase.from('player_mission_progress').update({
+        progress, target, completed,
+        ...(completed ? { completed_at: new Date().toISOString() } : {}),
+      } as Record<string, unknown>).eq('id', entry.id);
+
+      // Update local entry for response
+      (entry as Record<string, unknown>).progress = progress;
+      (entry as Record<string, unknown>).target = target;
+      (entry as Record<string, unknown>).completed = completed;
+    }
+  } catch { /* non-blocking: if sync fails, return stale data */ }
+
+  return progressEntries;
+}
+
 async function creditBonusOnPlatform(baseUrl: string, headers: Record<string, string>, playerUuid: string, amount: number, password: string): Promise<{ success: boolean; msg?: string }> {
   const hdrs = { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' };
   try {
@@ -291,6 +430,22 @@ Deno.serve(async (req: Request) => {
           // Re-fetch mission progress to include newly enrolled
           const { data: updatedProgress } = await supabase.from('player_mission_progress').select('*').eq('cpf', playerCpf);
           missionProgress = updatedProgress || missionProgress;
+        }
+
+        // Sync mission progress in real-time from platform transactions
+        const activeMissionsForSync = missions.data || [];
+        if (activeMissionsForSync.length > 0 && missionProgress.length > 0) {
+          const { data: config } = await supabase.from('platform_config').select('*').eq('active', true).limit(1).single();
+          if (config) {
+            const siteUrl = config.site_url.replace(/\/+$/, '');
+            const loginDomain = config.login_url ? config.login_url.replace(/\/+$/, '').replace(/\/login$/, '') : null;
+            const syncBaseUrl = loginDomain || siteUrl;
+            const auth = await platformLogin(syncBaseUrl, config.username, config.password, config.login_url);
+            if (auth.success) {
+              const pHeaders = buildPlatformHeaders(auth.cookies, syncBaseUrl);
+              missionProgress = await syncPlayerMissions(supabase, playerCpf!, syncBaseUrl, pHeaders, activeMissionsForSync, missionProgress);
+            }
+          }
         }
       }
 
