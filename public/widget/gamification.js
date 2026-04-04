@@ -1505,6 +1505,15 @@
     return '--:--:--';
   }
 
+  function getMissionExpiresAt(mission) {
+    if (mission.end_date) return mission.end_date;
+    const progress = getMissionProgress(mission.id);
+    if (progress?.opted_in && progress?.started_at && mission.time_limit_hours) {
+      return new Date(new Date(progress.started_at).getTime() + mission.time_limit_hours * 3600000).toISOString();
+    }
+    return '';
+  }
+
   function getMissionRewardLabel(m) {
     const labels = { bonus: fmt(m.reward_value), free_bet: fmt(m.reward_value), cartelas: `${m.reward_value} Cartelas`, coins: `${String(m.reward_value).padStart(2,'0')} Fichas Douradas`, xp: `${m.reward_value} XP`, diamonds: `${m.reward_value} Diamantes`, spins: `${m.reward_value} Giros na Roleta` };
     return labels[m.reward_type] || `${m.reward_value} ${m.reward_type}`;
@@ -1663,7 +1672,7 @@
             </div>
             <div class="pbg-m-part-duration">
               <span class="pbg-m-part-duration-label">DURAÇÃO</span>
-              <div class="pbg-m-part-duration-time">${timerSvg}<span>${timeDisplay}</span></div>
+              <div class="pbg-m-part-duration-time">${timerSvg}<span class="pbg-m-live-timer" data-expires="${getMissionExpiresAt(m)}">${timeDisplay}</span></div>
             </div>
             <div class="pbg-m-part-prize-row">
               ${chestSvg}
@@ -1734,7 +1743,7 @@
             </div>
             <div class="pbg-m-part-duration">
               <span class="pbg-m-part-duration-label">DURAÇÃO</span>
-              <div class="pbg-m-part-duration-time">${timerSvg}<span>${timeDisplay}</span></div>
+              <div class="pbg-m-part-duration-time">${timerSvg}<span class="pbg-m-live-timer" data-expires="${getMissionExpiresAt(m)}">${timeDisplay}</span></div>
             </div>
             <div class="pbg-m-part-prize-row">
               ${chestSvg}
@@ -1866,7 +1875,7 @@
             </div>
             <div class="pbg-m-part-duration">
               <span class="pbg-m-part-duration-label">DURAÇÃO</span>
-              <div class="pbg-m-part-duration-time">${timerSvg}<span>${timeDisplay}</span></div>
+              <div class="pbg-m-part-duration-time">${timerSvg}<span class="pbg-m-live-timer" data-expires="${getMissionExpiresAt(m)}">${timeDisplay}</span></div>
             </div>
             <div class="pbg-m-part-prize-row">
               ${chestSvg}
@@ -3481,6 +3490,23 @@
     el.innerHTML = (renderers[activeTab] || renderMissions)();
     el.classList.toggle('pbg-no-pad', activeTab === 'wheel');
     el.scrollTop = 0;
+
+    // Live countdown timer for mission durations
+    if (window.__pbg_mission_timer) { clearInterval(window.__pbg_mission_timer); window.__pbg_mission_timer = null; }
+    if (activeTab === 'missions') {
+      window.__pbg_mission_timer = setInterval(() => {
+        document.querySelectorAll('.pbg-m-live-timer[data-expires]').forEach(el => {
+          const expires = el.getAttribute('data-expires');
+          if (!expires) return;
+          const diff = new Date(expires).getTime() - Date.now();
+          if (diff <= 0) { el.textContent = '00:00:00'; return; }
+          const h = Math.floor(diff / 3600000);
+          const m = Math.floor((diff % 3600000) / 60000);
+          const s = Math.floor((diff % 60000) / 1000);
+          el.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        });
+      }, 1000);
+    }
 
     // Live countdown timer for wheel tab
     if (window.__pbg_wheel_timer) { clearInterval(window.__pbg_wheel_timer); window.__pbg_wheel_timer = null; }
