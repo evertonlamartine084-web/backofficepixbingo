@@ -193,6 +193,31 @@ function calculateMissionProgress(
       for (const tx of allTx) if (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET')) count++;
       return count;
     }
+    case 'play_cassino': {
+      let total = 0;
+      for (const tx of allTx) {
+        const jogo = (tx.jogo || '').toLowerCase();
+        const isKeno = jogo.includes('keno') || jogo.includes('bingo');
+        if (!isKeno && jogo.length > 0) {
+          if (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET')) {
+            total += parseBrCurrency(tx.valor);
+          }
+        }
+      }
+      return total;
+    }
+    case 'play_keno': {
+      let total = 0;
+      for (const tx of allTx) {
+        const jogo = (tx.jogo || '').toLowerCase();
+        if (jogo.includes('keno') || jogo.includes('bingo')) {
+          if (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET')) {
+            total += parseBrCurrency(tx.valor);
+          }
+        }
+      }
+      return total;
+    }
     default: return -1; // tracked internally (login, spin, etc.)
   }
 }
@@ -225,21 +250,30 @@ async function syncPlayerMissions(
       let startTs: number;
       let endTs: number;
       const recurrence = mission.recurrence as string;
+      const optedInAt = entry.started_at ? new Date(entry.started_at as string).getTime() : 0;
 
       if (recurrence === 'daily') {
-        const d = new Date(); d.setHours(0, 0, 0, 0); startTs = d.getTime(); endTs = Date.now();
+        const d = new Date(); d.setHours(0, 0, 0, 0);
+        startTs = Math.max(d.getTime(), optedInAt);
+        endTs = Date.now();
       } else if (recurrence === 'weekly') {
-        const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); d.setHours(0, 0, 0, 0); startTs = d.getTime(); endTs = Date.now();
+        const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); d.setHours(0, 0, 0, 0);
+        startTs = Math.max(d.getTime(), optedInAt);
+        endTs = Date.now();
       } else if (recurrence === 'monthly') {
-        const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); startTs = d.getTime(); endTs = Date.now();
+        const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0);
+        startTs = Math.max(d.getTime(), optedInAt);
+        endTs = Date.now();
       } else {
-        startTs = mission.start_date ? new Date(mission.start_date as string).getTime() : 0;
+        const missionStart = mission.start_date ? new Date(mission.start_date as string).getTime() : 0;
+        startTs = Math.max(missionStart, optedInAt);
         endTs = mission.end_date ? new Date(mission.end_date as string).getTime() : Date.now();
       }
 
-      const progress = calculateMissionProgress(movimentacoes, historico, mission.condition_type as string, startTs, endTs);
-      if (progress === -1) continue;
+      const rawProgress = calculateMissionProgress(movimentacoes, historico, mission.condition_type as string, startTs, endTs);
+      if (rawProgress === -1) continue;
 
+      const progress = Math.round(rawProgress * 100) / 100;
       const target = Number(mission.condition_value) || 1;
       const completed = progress >= target;
 

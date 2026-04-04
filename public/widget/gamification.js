@@ -1341,7 +1341,7 @@
       min_balance: `Saldo acima de ${fmt(value)}`,
       consecutive_days: `${value} dias consecutivos`, total_wins: `${value} vitória(s)`, total_games: `${value} partida(s)`,
       referrals: `${value} indicação(ões)`, deposit: `Depositar ${fmt(value)}`, bet: `Apostar ${fmt(value)}`,
-      win: `Vencer ${value}x`, login: `Login ${value}x`, play_keno: `Jogar Keno ${value}x`, play_cassino: `Jogar Cassino ${value}x`,
+      win: `Vencer ${value}x`, login: `Login ${value}x`, play_keno: `Apostar ${fmt(value)} no Keno`, play_cassino: `Apostar ${fmt(value)} no Cassino`,
       referral: `Indicar ${value} amigo(s)`, spin_wheel: `Girar roleta ${value}x`, store_purchase: `Comprar na loja ${value}x`,
     };
     return map[type] || `${type}: ${value}`;
@@ -1525,7 +1525,7 @@
       if (!m) { selectedMission = null; return renderMissions(); }
       const progress = getMissionProgress(m.id);
       const mTarget = progress?.target || Number(m.condition_value) || 1;
-      const mProgress = progress?.progress || 0;
+      const mProgress = Math.round((progress?.progress || 0) * 100) / 100;
       const pct = Math.min(100, Math.round((mProgress / mTarget) * 100));
       const isCompleted = progress?.completed;
       const isOptedIn = progress?.opted_in;

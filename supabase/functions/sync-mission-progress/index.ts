@@ -264,32 +264,32 @@ function calculateMissionProgress(
     }
 
     case 'play_keno': {
-      // Count keno/bingo games played
-      let count = 0;
+      // Sum keno/bingo bet amounts (in BRL)
+      let total = 0;
       for (const tx of filteredHist) {
         const jogo = (tx.jogo || '').toLowerCase();
         if (jogo.includes('keno') || jogo.includes('bingo')) {
           if (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET')) {
-            count++;
+            total += parseBrCurrency(tx.valor);
           }
         }
       }
-      return count;
+      return total;
     }
 
     case 'play_cassino': {
-      // Count casino games played
-      let count = 0;
+      // Sum casino bet amounts (in BRL)
+      let total = 0;
       for (const tx of filteredHist) {
         const jogo = (tx.jogo || '').toLowerCase();
         const isKeno = jogo.includes('keno') || jogo.includes('bingo');
         if (!isKeno && jogo.length > 0) {
           if (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET')) {
-            count++;
+            total += parseBrCurrency(tx.valor);
           }
         }
       }
-      return count;
+      return total;
     }
 
     case 'total_games': {
@@ -398,7 +398,7 @@ Deno.serve(async (req: Request) => {
     const missionIds = missions.map(m => m.id);
     const { data: progressEntries } = await supabase
       .from('player_mission_progress')
-      .select('id, cpf, mission_id, progress, target, completed, opted_in')
+      .select('id, cpf, mission_id, progress, target, completed, opted_in, started_at')
       .in('mission_id', missionIds)
       .eq('opted_in', true)
       .eq('completed', false);
@@ -449,30 +449,28 @@ Deno.serve(async (req: Request) => {
           // Determine date range for progress calculation
           let startTs: number;
           let endTs: number;
+          const optedInAt = entry.started_at ? new Date(entry.started_at).getTime() : 0;
 
           if (mission.recurrence === 'daily') {
-            // Daily missions: only count today's transactions
             const todayStart = new Date();
             todayStart.setHours(0, 0, 0, 0);
-            startTs = todayStart.getTime();
+            startTs = Math.max(todayStart.getTime(), optedInAt);
             endTs = Date.now();
           } else if (mission.recurrence === 'weekly') {
-            // Weekly: from start of current week (Monday)
             const weekStart = new Date();
             weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
             weekStart.setHours(0, 0, 0, 0);
-            startTs = weekStart.getTime();
+            startTs = Math.max(weekStart.getTime(), optedInAt);
             endTs = Date.now();
           } else if (mission.recurrence === 'monthly') {
-            // Monthly: from start of current month
             const monthStart = new Date();
             monthStart.setDate(1);
             monthStart.setHours(0, 0, 0, 0);
-            startTs = monthStart.getTime();
+            startTs = Math.max(monthStart.getTime(), optedInAt);
             endTs = Date.now();
           } else {
-            // One-time mission: use mission date range or opt-in date
-            startTs = mission.start_date ? new Date(mission.start_date).getTime() : 0;
+            const missionStart = mission.start_date ? new Date(mission.start_date).getTime() : 0;
+            startTs = Math.max(missionStart, optedInAt);
             endTs = mission.end_date ? new Date(mission.end_date).getTime() : Date.now();
           }
 
@@ -487,14 +485,16 @@ Deno.serve(async (req: Request) => {
           // Skip internally-tracked condition types
           if (progress === -1) continue;
 
+          // Round to 2 decimal places to avoid floating point artifacts
+          const roundedProgress = Math.round(progress * 100) / 100;
           const target = Number(mission.condition_value) || 1;
-          const completed = progress >= target;
+          const completed = roundedProgress >= target;
 
           // Update progress
           await supabase
             .from('player_mission_progress')
             .update({
-              progress,
+              progress: roundedProgress,
               target,
               completed,
               ...(completed ? { completed_at: new Date().toISOString() } : {}),

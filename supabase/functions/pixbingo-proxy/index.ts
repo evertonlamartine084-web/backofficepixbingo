@@ -206,6 +206,23 @@ Deno.serve(async (req) => {
 
   try {
     const body: ProxyRequest = await req.json();
+
+    // Auto-resolve credentials from platform_config if empty or 'auto'
+    if (!body.username || body.username === 'auto' || !body.password || body.password === 'auto') {
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      );
+      const { data: configs } = await supabaseAdmin.from('platform_config').select('*').eq('active', true);
+      if (configs && configs.length > 0) {
+        const config = configs.find((c: Record<string, unknown>) => String(c.site_url || '').includes('pixbingobr.com')) || configs[0];
+        body.username = config.username as string;
+        body.password = config.password as string;
+        if (!body.site_url || body.site_url === 'auto') body.site_url = config.site_url as string;
+        if (!body.login_url || body.login_url === 'auto') body.login_url = config.login_url as string;
+      }
+    }
+
     const baseUrl = body.site_url.replace(/\/+$/, '');
 
     // SSRF protection: validate site_url against whitelist
@@ -214,9 +231,10 @@ Deno.serve(async (req) => {
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    console.log(`[proxy] action=${body.action}, site_url=${body.site_url}, login_url=${body.login_url}, username=${body.username}, password=${body.password?.slice(0,4)}...`);
     const auth = await doLogin(body);
     if (!auth.success) {
-      return new Response(JSON.stringify({ success: false, error: 'Login falhou. Verifique credenciais e URL.' }),
+      return new Response(JSON.stringify({ success: false, error: 'Login falhou. Verifique credenciais e URL.', debug: { site_url: body.site_url, login_url: body.login_url, username: body.username } }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     const headers = buildHeaders(auth.cookies, baseUrl);
@@ -395,9 +413,12 @@ Deno.serve(async (req) => {
         console.log(`[financeiro] page_status=${financePageRes.status}, login_page=${financeHtml.toLowerCase().includes('<h1>login')}, endpoint=${detectedPath}, csrf=${csrfToken ? 'yes' : 'no'}`);
 
         const isFinanceError = (r: Record<string, unknown> | null) => {
-          const code = Number(r?.code ?? r?._status ?? 0);
-          const msg = String(r?.Msg || r?._raw || '').toLowerCase();
-          return code >= 400 || msg.includes('inválid') || msg.includes('inval') || msg.includes('não encontrada') || msg.includes('nao encontrada');
+          if (!r) return true;
+          const code = Number(r.code ?? r._status ?? 0);
+          const msg = String(r.Msg || r._raw || '').toLowerCase();
+          const message = String(r.message || '').toLowerCase();
+          return code >= 400 || msg.includes('inválid') || msg.includes('inval') || msg.includes('não encontrada') || msg.includes('nao encontrada')
+            || message.includes('error') || message.includes('exception') || !!r.exception;
         };
 
         const attempts: Array<{ label: string; method: 'GET' | 'POST'; url: string; body?: Record<string, string> }> = [
