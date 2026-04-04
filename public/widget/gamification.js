@@ -3580,6 +3580,7 @@
     const backdrop = document.createElement('div');
     backdrop.id = 'pbg-widget-backdrop';
     backdrop.onclick = () => toggle(false);
+    backdrop.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
     document.body.appendChild(backdrop);
 
     const panel = document.createElement('div');
@@ -3960,6 +3961,10 @@
     if (panel) panel.classList.toggle('open', isOpen);
     if (backdrop) backdrop.classList.toggle('open', isOpen);
     if (fab) { if (isOpen) { fab.style.setProperty('display', 'none', 'important'); } else { fab.style.removeProperty('display'); } }
+    // Lock/unlock body scroll when widget is open
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+    document.body.style.touchAction = isOpen ? 'none' : '';
+    document.documentElement.style.overflow = isOpen ? 'hidden' : '';
     if (isOpen && !data) fetchData();
   }
 
