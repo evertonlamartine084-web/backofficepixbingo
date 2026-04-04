@@ -38,6 +38,7 @@ const PlayerAnalytics = lazy(() => import("@/pages/gamification/PlayerAnalytics"
 const StoreDeliveries = lazy(() => import("@/pages/gamification/StoreDeliveries"));
 const Referrals = lazy(() => import("@/pages/gamification/Referrals"));
 const Partidas = lazy(() => import("@/pages/Partidas"));
+const HealthCheck = lazy(() => import("@/pages/admin/HealthCheck"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -75,6 +76,7 @@ const App = () => (
               <Route path="/admin/manage-users" element={<ManageUsers />} />
               <Route path="/admin/audit" element={<AuditLog />} />
               <Route path="/admin/platform" element={<PlatformConfig />} />
+              <Route path="/admin/health" element={<HealthCheck />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/assets/levels" element={<Levels />} />
               <Route path="/assets/store" element={<Store />} />

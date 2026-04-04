@@ -5,7 +5,7 @@ import {
   ArrowUpDown, ListFilter, ShieldCheck, Megaphone, Gamepad2,
   MessageSquare, Package, User, RotateCcw, ScrollText,
   Award, Target, Swords, RotateCw, Star, ShoppingBag,
-  Bell, Inbox, Trophy, Gift, Dices, BarChart3, UserPlus,
+  Bell, Inbox, Trophy, Gift, Dices, BarChart3, UserPlus, HeartPulse,
 } from 'lucide-react';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -56,6 +56,7 @@ const adminItems = [
   { to: '/admin/manage-users', icon: ShieldCheck, label: 'Gestão de Usuários' },
   { to: '/admin/audit', icon: ScrollText, label: 'Log de Auditoria' },
   { to: '/admin/platform', icon: Settings, label: 'Config Plataforma' },
+  { to: '/admin/health', icon: HeartPulse, label: 'Health Check' },
 ];
 
 const profileQuickLinks = [
