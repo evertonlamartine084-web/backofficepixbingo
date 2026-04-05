@@ -1604,15 +1604,12 @@
           ` : ''}
 
           <!-- Reward -->
-          <div class="pbg-m-detail-section" style="background:rgba(16,185,129,0.04);border-color:rgba(16,185,129,0.12)">
-            <div class="pbg-m-detail-section-title" style="color:#34d399">${inlIcon('gift',14)} Recompensa</div>
-            <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 0">
-              <div style="font-size:28px">${{bonus:inlIcon('dollar',28),free_bet:inlIcon('ticket',28),cartelas:inlIcon('card',28),coins:inlIcon('coin',28),xp:inlIcon('star',28),diamonds:inlIcon('diamond',28),spins:inlIcon('wheel',28)}[m.reward_type] || inlIcon('gift',28)}</div>
-              <div>
-                <div style="font-size:18px;font-weight:800;color:#fff">${m.reward_type === 'bonus' || m.reward_type === 'free_bet' ? fmt(m.reward_value) : m.reward_value}</div>
-                <div style="font-size:11px;color:#71717a">${{bonus:'Bônus',free_bet:'Aposta Grátis',cartelas:'Cartelas',coins:'Moedas',xp:'Pontos XP',diamonds:'Diamantes',spins:'Giros na Roleta'}[m.reward_type] || m.reward_type}</div>
-              </div>
+          <div style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.02));border:1px solid rgba(16,185,129,0.18);border-radius:14px;padding:16px;text-align:center">
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;background:rgba(16,185,129,0.12);margin-bottom:10px">
+              <span style="color:#34d399">${{bonus:inlIcon('dollar',24),free_bet:inlIcon('ticket',24),cartelas:inlIcon('card',24),coins:inlIcon('coin',24),xp:inlIcon('star',24),diamonds:inlIcon('diamond',24),spins:inlIcon('wheel',24)}[m.reward_type] || inlIcon('gift',24)}</span>
             </div>
+            <div style="font-size:24px;font-weight:900;color:#fff;line-height:1.2">${m.reward_type === 'bonus' || m.reward_type === 'free_bet' ? fmt(m.reward_value) : m.reward_value}</div>
+            <div style="font-size:12px;font-weight:600;color:#34d399;margin-top:4px;text-transform:uppercase;letter-spacing:0.06em">${{bonus:'Bônus',free_bet:'Aposta Grátis',cartelas:'Cartelas',coins:'Moedas',xp:'Pontos XP',diamonds:'Diamantes',spins:'Giros na Roleta'}[m.reward_type] || m.reward_type}</div>
           </div>
 
           <!-- Actions -->
