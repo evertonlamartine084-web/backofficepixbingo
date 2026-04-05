@@ -159,8 +159,17 @@
       min-width: 54px !important; min-height: 54px !important;
       overflow: hidden !important;
       left: auto !important; top: auto !important;
+      outline: none !important;
+      -webkit-appearance: none !important;
+      appearance: none !important;
+      line-height: 1 !important;
+      font-size: 0 !important;
+      text-indent: 0 !important;
+      text-decoration: none !important;
+      filter: none !important;
     }
     #pbg-widget-fab:hover { transform: scale(1.08) !important; }
+    #pbg-widget-fab::before, #pbg-widget-fab::after { display: none !important; content: none !important; }
 
     .pbg-fab-ring {
       display: none;
@@ -1254,7 +1263,7 @@
 
     @media (max-width: 420px) {
       #pbg-widget-panel { width: 100vw !important; height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; max-width: 100vw !important; }
-      #pbg-widget-fab { bottom: 16px !important; right: 16px !important; width: 56px !important; height: 56px !important; min-width: 56px !important; min-height: 56px !important; }
+      #pbg-widget-fab { bottom: 16px !important; right: 16px !important; width: 54px !important; height: 54px !important; min-width: 54px !important; min-height: 54px !important; }
       .pbg-header { border-radius: 0 !important; }
       #pbg-widget-backdrop.open { background: rgba(0,0,0,1) !important; }
       .pbg-content { padding-bottom: 60px !important; }
@@ -3932,16 +3941,6 @@
     const hasLevel = levelNum !== '';
 
     fabEl.innerHTML = `
-      <div class="pbg-fab-ring">
-        <svg viewBox="0 0 68 68">
-          <defs><linearGradient id="pbg-fab-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:${color}"/>
-            <stop offset="100%" style="stop-color:#06b6d4"/>
-          </linearGradient></defs>
-          <circle class="ring-bg" cx="34" cy="34" r="30"/>
-          <circle class="ring-fg" cx="34" cy="34" r="30" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"/>
-        </svg>
-      </div>
       <div class="pbg-fab-inner">
         ${ICONS.gift}
       </div>
