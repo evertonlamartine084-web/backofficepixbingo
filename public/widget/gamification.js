@@ -144,7 +144,7 @@
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
     #pbg-widget-fab {
-      position: fixed !important; bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px)) !important; right: 24px !important; width: 68px !important; height: 68px !important;
+      position: fixed !important; bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px)) !important; right: 24px !important; width: 54px !important; height: 54px !important;
       border-radius: 50% !important; background: transparent !important;
       border: none !important; cursor: pointer !important; z-index: 2147483647 !important;
       display: flex !important; align-items: center !important; justify-content: center !important;
@@ -156,27 +156,22 @@
       pointer-events: auto !important;
       transform: none !important;
       margin: 0 !important; padding: 0 !important;
-      min-width: 68px !important; min-height: 68px !important;
-      overflow: visible !important;
+      min-width: 54px !important; min-height: 54px !important;
+      overflow: hidden !important;
       left: auto !important; top: auto !important;
     }
     #pbg-widget-fab:hover { transform: scale(1.08) !important; }
 
     .pbg-fab-ring {
-      position: absolute; inset: 0; width: 68px; height: 68px;
+      display: none;
     }
-    .pbg-fab-ring svg { width: 68px; height: 68px; transform: rotate(-90deg); filter: drop-shadow(0 2px 8px rgba(139,92,246,0.5)); }
-    .pbg-fab-ring .ring-bg { fill: none; stroke: rgba(139,92,246,0.2); stroke-width: 4; }
-    .pbg-fab-ring .ring-fg { fill: none; stroke: url(#pbg-fab-grad); stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset 0.8s ease; }
 
     .pbg-fab-inner {
       position: relative; width: 54px; height: 54px; border-radius: 50%;
       background: linear-gradient(135deg, #8b5cf6, #6366f1);
       display: flex; align-items: center; justify-content: center; flex-direction: column;
-      box-shadow: 0 4px 24px rgba(139,92,246,0.5);
-      animation: pbg-pulse 2s infinite;
+      box-shadow: none;
     }
-    @keyframes pbg-pulse { 0%,100%{box-shadow:0 4px 20px rgba(139,92,246,0.4)} 50%{box-shadow:0 4px 28px rgba(139,92,246,0.7)} }
     .pbg-fab-inner svg { width: 24px; height: 24px; color: white; display: block; }
     .pbg-fab-level {
       font-size: 18px; font-weight: 800; color: #fff; line-height: 1;
@@ -319,7 +314,7 @@
       min-width: 14px; height: 14px; border-radius: 7px; display: flex; align-items: center; justify-content: center; padding: 0 3px;
     }
 
-    .pbg-content { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); min-height: 0; }
+    .pbg-content { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: max(24px, calc(16px + env(safe-area-inset-bottom, 16px))); min-height: 0; }
     .pbg-content.pbg-no-pad { padding: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
     .pbg-content::-webkit-scrollbar { width: 4px; }
     .pbg-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
@@ -491,11 +486,12 @@
     @keyframes pbg-pulse-green { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.4)} 50%{box-shadow:0 0 0 6px rgba(16,185,129,0)} }
 
     /* Detail view */
-    .pbg-m-detail { animation: pbg-fade-in 0.2s ease; padding: 12px 0; overflow: hidden; }
+    .pbg-m-detail { animation: pbg-fade-in 0.2s ease; padding: 16px; overflow: hidden; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; }
     .pbg-m-detail-header {
       text-align: center; padding: 20px; position: relative;
       background: linear-gradient(180deg, rgba(139,92,246,0.12) 0%, transparent 100%);
-      border-radius: 14px 14px 0 0; margin: -16px -16px 16px;
+      border-radius: 14px; margin: -16px -16px 16px;
+      display: flex; flex-direction: column; align-items: center;
     }
     .pbg-m-detail-icon { font-size: 48px; margin-bottom: 8px; }
     .pbg-m-detail-name { font-size: 18px; font-weight: 800; color: #fff; }
@@ -1257,13 +1253,15 @@
     .pbg-claim-btn { background: linear-gradient(135deg, #f59e0b, #d97706); border: none; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 8px; }
 
     @media (max-width: 420px) {
-      #pbg-widget-panel { width: 100vw !important; height: 100vh !important; max-height: 100vh !important; border-radius: 0 !important; max-width: 100vw !important; }
+      #pbg-widget-panel { width: 100vw !important; height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; max-width: 100vw !important; }
       #pbg-widget-fab { bottom: 16px !important; right: 16px !important; width: 56px !important; height: 56px !important; min-width: 56px !important; min-height: 56px !important; }
       .pbg-header { border-radius: 0 !important; }
       #pbg-widget-backdrop.open { background: rgba(0,0,0,1) !important; }
+      .pbg-content { padding-bottom: 60px !important; }
     }
     @media (max-width: 768px) {
       #pbg-widget-backdrop.open { background: rgba(0,0,0,0.95) !important; }
+      .pbg-content { padding-bottom: 60px !important; }
     }
   `;
 
@@ -1548,9 +1546,8 @@
 
       return `
         <div class="pbg-m-detail">
-          <button onclick="window.__pbg('closeMission')" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#a1a1aa;font-size:13px;cursor:pointer;font-family:inherit;padding:6px 14px;margin:0 12px 10px;border-radius:8px;display:inline-flex;align-items:center;gap:4px;box-sizing:border-box;max-width:calc(100% - 24px)">← Voltar</button>
-
           <div class="pbg-m-detail-header">
+            <button onclick="window.__pbg('closeMission')" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#a1a1aa;font-size:12px;cursor:pointer;font-family:inherit;padding:5px 12px;border-radius:8px;display:inline-flex;align-items:center;gap:4px;align-self:flex-start">← Voltar</button>
             <div class="pbg-m-detail-icon">${m.icon_url ? `<img src="${m.icon_url}" style="width:56px;height:56px;border-radius:14px" alt="">` : typeIcons[m.type] || inlIcon('target',22)}</div>
             <div class="pbg-m-detail-name">${m.name}</div>
             ${m.description ? `<div class="pbg-m-detail-desc">${m.description}</div>` : ''}
@@ -1617,7 +1614,7 @@
             <button class="pbg-modal-btn" style="margin-top:4px;background:linear-gradient(135deg,#10b981,#059669)" onclick="window.__pbg('claimMission','${m.id}')">${inlIcon('gift',14)} Resgatar Recompensa</button>
           ` : ''}
           ${m.cta_text && m.cta_url && !isCompleted ? `
-            <a href="${m.cta_url}" target="_blank" style="display:block;text-align:center;padding:12px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:12px;color:#a78bfa;font-weight:700;font-size:13px;text-decoration:none;margin-top:8px;transition:all 0.2s">${m.cta_text} →</a>
+            <a href="${m.cta_url}" target="_blank" style="display:block;text-align:center;padding:12px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:12px;color:#a78bfa;font-weight:700;font-size:13px;text-decoration:none;margin-top:8px;margin-bottom:20px;transition:all 0.2s">${m.cta_text} →</a>
           ` : ''}
         </div>
       `;
@@ -3948,8 +3945,6 @@
       <div class="pbg-fab-inner">
         ${ICONS.gift}
       </div>
-      ${coins > 0 ? `<span class="pbg-fab-coins">${inlIcon('coin',10)} ${coins >= 1000 ? (coins/1000).toFixed(1)+'k' : coins}</span>` : ''}
-      ${diamondsVal > 0 ? `<span class="pbg-fab-diamonds">${inlIcon('diamond',10)} ${diamondsVal >= 1000 ? (diamondsVal/1000).toFixed(1)+'k' : diamondsVal}</span>` : ''}
     `;
   }
 
