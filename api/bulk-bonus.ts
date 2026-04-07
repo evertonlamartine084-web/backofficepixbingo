@@ -25,6 +25,12 @@ async function findUuid(baseUrl: string, headers: Record<string, string>, cpf: s
 }
 
 // Check bonus history for a player via /usuarios/transacoes
+// Parse "dd/mm/yyyy HH:mm:ss" to "yyyy-mm-dd"
+function parseBRDate(raw: string): string {
+  const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : raw;
+}
+
 async function countBonusCredits(
   baseUrl: string, headers: Record<string, string>, uuid: string, valor: number, sinceDate: string
 ): Promise<number> {
@@ -38,8 +44,8 @@ async function countBonusCredits(
       if (tipo !== 'BONUS') continue;
       const v = typeof m.valor === 'number' ? m.valor : parseFloat(String(m.valor ?? '0').replace(/\./g, '').replace(',', '.'));
       if (Math.abs(v - valor) > 0.01) continue;
-      // Check date
-      const d = String(m.data_registro || '');
+      // Check date — platform returns dd/mm/yyyy, convert to yyyy-mm-dd for comparison
+      const d = parseBRDate(String(m.data_registro || ''));
       if (d >= sinceDate) count++;
     }
     return count;
