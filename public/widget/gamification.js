@@ -1471,7 +1471,11 @@
         const sectorCenter = winIndex * sliceAngle + sliceAngle / 2;
         const targetAngle = (360 - sectorCenter + 90) % 360;
         const totalRotation = (12 + Math.floor(Math.random() * 4)) * 360 + targetAngle;
-        // Apply casino-style easing: fast start, long spin, slow deceleration
+        // Force browser to paint initial state (0deg) before applying rotation,
+        // otherwise the transition is skipped (browser collapses both states)
+        canvas.style.transition = 'none';
+        canvas.style.transform = 'rotate(0deg)';
+        canvas.getBoundingClientRect(); // force reflow
         canvas.style.transition = 'transform 7s cubic-bezier(0.05, 0.95, 0.20, 1.00)';
         canvas.style.transform = `rotate(${totalRotation}deg)`;
       }
