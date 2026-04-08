@@ -351,7 +351,7 @@
     }
     .pbg-m-section-more:hover { color: #a78bfa; }
     .pbg-m-scroll {
-      display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x mandatory;
+      display: flex; gap: 12px; overflow-x: auto; overflow-y: visible; padding-bottom: 8px; padding-top: 4px; scroll-snap-type: x mandatory;
       -webkit-overflow-scrolling: touch; margin: 0 -16px; padding-left: 16px; padding-right: 16px;
     }
     .pbg-m-scroll::-webkit-scrollbar { height: 3px; }
@@ -1388,18 +1388,23 @@
       }
       updateFab();
       renderContent();
-      // Auto-sync XP from platform transactions (runs in background, refreshes data after)
-      if (PLAYER_CPF && !window.__pbg_xp_synced) {
-        window.__pbg_xp_synced = true;
-        fetch(`${API_URL.replace('/gamification-widget', '/sync-player-xp')}?cpf=${PLAYER_CPF}`)
-          .then(r => r.json())
-          .then(result => {
-            if (result.success && (result.xp_earned > 0 || result.levels_gained > 0)) {
-              // Re-fetch data to show updated XP/level
-              apiCall('data').then(d => { data = d; updateFab(); renderContent(); }).catch(() => {});
-            }
-          })
-          .catch(() => {});
+      // Fast mission sync — uses cached platform credentials (~1-2s)
+      if (PLAYER_CPF && !window.__pbg_syncing_missions) {
+        window.__pbg_syncing_missions = true;
+        apiCall('sync_missions').then(result => {
+          window.__pbg_syncing_missions = false;
+          if (result.success && result.mission_progress && data) {
+            data.mission_progress = result.mission_progress;
+            if (!selectedMission && !selectedTournament && !selectedStoreItem && !selectedLevel) renderContent();
+            // Re-fetch full data to get updated wallet too
+            apiCall('data').then(d => {
+              // Preserve synced mission progress (data response may be stale)
+              if (result.mission_progress) d.mission_progress = result.mission_progress;
+              data = d; updateFab();
+              if (!selectedMission && !selectedTournament && !selectedStoreItem && !selectedLevel) renderContent();
+            }).catch(() => {});
+          }
+        }).catch(() => { window.__pbg_syncing_missions = false; });
       }
       // Auto-check referral qualification (deposit + bet)
       if (PLAYER_CPF && !window.__pbg_ref_checked) {
@@ -1502,6 +1507,20 @@
     return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   }
 
+  function getEndOfDay() {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0).toISOString();
+  }
+  function getEndOfWeek() {
+    const now = new Date();
+    const daysUntilSunday = 7 - now.getDay();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilSunday, 0, 0, 0).toISOString();
+  }
+  function getEndOfMonth() {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0).toISOString();
+  }
+
   function getMissionTimeDisplay(mission) {
     // 1) If mission has end_date, use that
     if (mission.end_date) return getCountdown(mission.end_date);
@@ -1513,6 +1532,10 @@
     }
     // 3) If mission has time_limit_hours but not opted in, show static duration
     if (mission.time_limit_hours) return String(mission.time_limit_hours).padStart(2,'0') + ':00:00';
+    // 4) Recurrence-based countdown
+    if (mission.recurrence === 'daily') return getCountdown(getEndOfDay());
+    if (mission.recurrence === 'weekly') return getCountdown(getEndOfWeek());
+    if (mission.recurrence === 'monthly') return getCountdown(getEndOfMonth());
     return '--:--:--';
   }
 
@@ -1522,6 +1545,9 @@
     if (progress?.opted_in && progress?.started_at && mission.time_limit_hours) {
       return new Date(new Date(progress.started_at).getTime() + mission.time_limit_hours * 3600000).toISOString();
     }
+    if (mission.recurrence === 'daily') return getEndOfDay();
+    if (mission.recurrence === 'weekly') return getEndOfWeek();
+    if (mission.recurrence === 'monthly') return getEndOfMonth();
     return '';
   }
 
@@ -1700,10 +1726,6 @@
             ${m.require_optin && PLAYER_CPF ? `
               <button class="pbg-m-claim-btn" onclick="event.stopPropagation();window.__pbg('missionOptin','${m.id}')">${inlIcon('hand',12)} Participar</button>
             ` : ''}
-            <div class="pbg-m-part-games" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">
-              <img class="pbg-m-part-games-thumb" src="${m.icon_url || defaultImg}" alt="" onerror="this.style.display='none'"/>
-              Jogos Elegíveis
-            </div>
           </div>
         `;
       });
@@ -1725,7 +1747,7 @@
       participating.forEach((m) => {
         const globalIdx = data.missions.indexOf(m);
         const progress = getMissionProgress(m.id);
-        const pct = progress ? Math.min(100, Math.round((progress.progress / progress.target) * 100)) : 0;
+        const pct = progress ? Math.min(100, Math.round((progress.progress / (progress.target || 1)) * 100)) : 0;
         const isClaimed = progress?.claimed;
         const rewardLabel = getMissionRewardLabel(m);
         const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
@@ -1771,10 +1793,6 @@
             ${progress?.completed && m.manual_claim && !isClaimed && PLAYER_CPF ? `
               <button class="pbg-m-claim-btn" onclick="event.stopPropagation();window.__pbg('claimMission','${m.id}')">${inlIcon('gift',12)} Resgatar</button>
             ` : ''}
-            <div class="pbg-m-part-games" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">
-              <img class="pbg-m-part-games-thumb" src="${m.icon_url || defaultImg}" alt="" onerror="this.style.display='none'"/>
-              Jogos Elegíveis
-            </div>
           </div>
         `;
       });
@@ -1835,10 +1853,6 @@
             ${!isClaimed && m.manual_claim && PLAYER_CPF ? `
               <button class="pbg-m-claim-btn" onclick="event.stopPropagation();window.__pbg('claimMission','${m.id}')">${inlIcon('gift',12)} Resgatar</button>
             ` : ''}
-            <div class="pbg-m-part-games" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">
-              <img class="pbg-m-part-games-thumb" src="${m.icon_url || defaultImg}" alt="" onerror="this.style.display='none'"/>
-              Jogos Elegíveis
-            </div>
           </div>
         `;
       });
@@ -1899,10 +1913,6 @@
                 </div>
                 <div class="pbg-m-part-progress-icon">${trophySvg}</div>
               </div>
-            </div>
-            <div class="pbg-m-part-games" onclick="event.stopPropagation();window.__pbg('openMission',${globalIdx})">
-              <img class="pbg-m-part-games-thumb" src="${m.icon_url || defaultImg}" alt="" onerror="this.style.display='none'"/>
-              Jogos Elegíveis
             </div>
           </div>
         `;
@@ -1996,11 +2006,11 @@
             <!-- Countdown -->
             ${cd.total > 0 ? `
               <div style="font-size:9px;color:#52525b;text-align:center;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:4px">Termina em</div>
-              <div class="pbg-t-countdown">
-                <div class="pbg-t-cd-unit"><div class="pbg-t-cd-num">${String(cd.d).padStart(2,'0')}</div><div class="pbg-t-cd-lbl">dias</div></div>
-                <div class="pbg-t-cd-unit"><div class="pbg-t-cd-num">${String(cd.h).padStart(2,'0')}</div><div class="pbg-t-cd-lbl">horas</div></div>
-                <div class="pbg-t-cd-unit"><div class="pbg-t-cd-num">${String(cd.m).padStart(2,'0')}</div><div class="pbg-t-cd-lbl">min</div></div>
-                <div class="pbg-t-cd-unit"><div class="pbg-t-cd-num">${String(cd.s).padStart(2,'0')}</div><div class="pbg-t-cd-lbl">seg</div></div>
+              <div class="pbg-t-countdown pbg-t-live-cd" data-end-date="${t.end_date}">
+                <div class="pbg-t-cd-unit"><div class="pbg-t-cd-num pbg-t-cd-d">${String(cd.d).padStart(2,'0')}</div><div class="pbg-t-cd-lbl">dias</div></div>
+                <div class="pbg-t-cd-unit"><div class="pbg-t-cd-num pbg-t-cd-h">${String(cd.h).padStart(2,'0')}</div><div class="pbg-t-cd-lbl">horas</div></div>
+                <div class="pbg-t-cd-unit"><div class="pbg-t-cd-num pbg-t-cd-m">${String(cd.m).padStart(2,'0')}</div><div class="pbg-t-cd-lbl">min</div></div>
+                <div class="pbg-t-cd-unit"><div class="pbg-t-cd-num pbg-t-cd-s">${String(cd.s).padStart(2,'0')}</div><div class="pbg-t-cd-lbl">seg</div></div>
               </div>
             ` : ''}
 
@@ -3433,7 +3443,7 @@
         </div>
         <div class="pbg-counter-chip">
           ${gemSvg}
-          <div><div class="pbg-counter-val" style="color:#4ade80">${fmt1k(xp)}</div><div class="pbg-counter-lbl">GEMS</div></div>
+          <div><div class="pbg-counter-val" style="color:#4ade80">${fmt1k(data.wallet.gems || 0)}</div><div class="pbg-counter-lbl">GEMS</div></div>
         </div>
         ${arrowSvg}
       `;
@@ -3478,7 +3488,7 @@
           <div class="pbg-wallet-dd-item" id="pbg-dd-gems">
             <div class="pbg-wallet-dd-icon">${gemSvgLg}</div>
             <div class="pbg-wallet-dd-info">
-              <div class="pbg-wallet-dd-val" style="color:#4ade80">${xp.toLocaleString('pt-BR')}</div>
+              <div class="pbg-wallet-dd-val" style="color:#4ade80">${(data.wallet.gems || 0).toLocaleString('pt-BR')}</div>
               <div class="pbg-wallet-dd-lbl">GEMS</div>
             </div>
           </div>
@@ -3511,6 +3521,30 @@
           const m = Math.floor((diff % 3600000) / 60000);
           const s = Math.floor((diff % 60000) / 1000);
           el.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        });
+      }, 1000);
+    }
+
+    // Live countdown timer for tournament detail
+    if (window.__pbg_tournament_timer) { clearInterval(window.__pbg_tournament_timer); window.__pbg_tournament_timer = null; }
+    if (activeTab === 'tournaments') {
+      window.__pbg_tournament_timer = setInterval(() => {
+        document.querySelectorAll('.pbg-t-live-cd[data-end-date]').forEach(el => {
+          const endDate = el.getAttribute('data-end-date');
+          if (!endDate) return;
+          const ms = Math.max(0, new Date(endDate) - Date.now());
+          const d = Math.floor(ms / 86400000);
+          const h = Math.floor((ms % 86400000) / 3600000);
+          const m = Math.floor((ms % 3600000) / 60000);
+          const s = Math.floor((ms % 60000) / 1000);
+          const dEl = el.querySelector('.pbg-t-cd-d');
+          const hEl = el.querySelector('.pbg-t-cd-h');
+          const mEl = el.querySelector('.pbg-t-cd-m');
+          const sEl = el.querySelector('.pbg-t-cd-s');
+          if (dEl) dEl.textContent = String(d).padStart(2, '0');
+          if (hEl) hEl.textContent = String(h).padStart(2, '0');
+          if (mEl) mEl.textContent = String(m).padStart(2, '0');
+          if (sEl) sEl.textContent = String(s).padStart(2, '0');
         });
       }, 1000);
     }
@@ -3684,14 +3718,14 @@
               const ddGems = dd.querySelector('#pbg-dd-gems .pbg-wallet-dd-val');
               if (ddCoins) ddCoins.textContent = (data.wallet.coins || 0).toLocaleString('pt-BR');
               if (ddDiam) ddDiam.textContent = (data.wallet.diamonds || 0).toLocaleString('pt-BR');
-              if (ddGems) ddGems.textContent = (data.wallet.xp || 0).toLocaleString('pt-BR');
+              if (ddGems) ddGems.textContent = (data.wallet.gems || 0).toLocaleString('pt-BR');
             }
           }
         }
         return;
       }
       else if (action === 'toggle') toggle(arg);
-      else if (action === 'tab') { activeTab = arg; selectedStoreItem = null; storeMessage = null; selectedTournament = null; selectedMission = null; selectedMiniGame = null; miniGameResult = null; miniGamePlaying = false; scratchRevealed = []; giftBoxOpened = null; selectedLevel = null; renderContent(); }
+      else if (action === 'tab') { activeTab = arg; selectedStoreItem = null; storeMessage = null; selectedTournament = null; selectedMission = null; selectedMiniGame = null; miniGameResult = null; miniGamePlaying = false; scratchRevealed = []; giftBoxOpened = null; selectedLevel = null; fetchData(); }
       else if (action === 'spin') spinWheel();
       else if (action === 'openTournament') { selectedTournament = arg; renderContent(); }
       else if (action === 'closeTournament') { selectedTournament = null; renderContent(); }
@@ -3724,8 +3758,29 @@
       else if (action === 'missionFilter') { missionTab = arg; renderContent(); }
       else if (action === 'missionOptin') {
         try {
-          await apiCall('mission_optin', { mission_id: arg });
-          await fetchData();
+          // Update UI immediately
+          if (data?.mission_progress) {
+            const existing = data.mission_progress.find(p => p.mission_id === arg);
+            if (existing) { existing.opted_in = true; existing.started_at = new Date().toISOString(); }
+            else { const mis = data.missions?.find(m => m.id === arg); data.mission_progress.push({ mission_id: arg, opted_in: true, started_at: new Date().toISOString(), progress: 0, target: mis?.condition_value || 1, completed: false, claimed: false }); }
+          }
+          selectedMission = null;
+          renderContent();
+          // API call in background — merge opt-in state into fresh data to avoid flicker
+          const optinId = arg;
+          apiCall('mission_optin', { mission_id: optinId }).then(() => {
+            return apiCall('data');
+          }).then(d => {
+            // Ensure opt-in state is preserved in fresh data
+            if (d?.mission_progress) {
+              const p = d.mission_progress.find(x => x.mission_id === optinId);
+              if (p) { p.opted_in = true; }
+              else { const mis = d.missions?.find(m => m.id === optinId); d.mission_progress.push({ mission_id: optinId, opted_in: true, started_at: new Date().toISOString(), progress: 0, target: mis?.condition_value || 1, completed: false, claimed: false }); }
+            }
+            data = d;
+            updateFab();
+            if (!selectedMission && !selectedTournament && !selectedStoreItem && !selectedLevel) renderContent();
+          }).catch(() => {});
         } catch (e) { alert('Erro ao participar'); }
       }
       else if (action === 'claimMission') {
@@ -3863,7 +3918,7 @@
     window.__pbgToggle = (s) => toggle(s);
 
     fetchData();
-    setInterval(fetchData, 120_000);
+    setInterval(() => { if (!selectedMission && !selectedTournament && !selectedStoreItem && !selectedLevel) fetchData(); }, 30_000);
   }
 
   async function checkSegmentAndInit() {
@@ -3956,7 +4011,7 @@
     document.body.style.overflow = isOpen ? 'hidden' : '';
     document.body.style.touchAction = isOpen ? 'none' : '';
     document.documentElement.style.overflow = isOpen ? 'hidden' : '';
-    if (isOpen && !data) fetchData();
+    if (isOpen) fetchData();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
