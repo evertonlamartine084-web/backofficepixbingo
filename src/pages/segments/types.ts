@@ -1,5 +1,6 @@
 import {
   TrendingUp, DollarSign, Star, CreditCard, Gamepad2, Target, Layers, ShoppingBag, RotateCw, Calendar,
+  Activity, Brain, AlertTriangle, Heart, Dice5,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -102,6 +103,25 @@ export const RULE_FIELDS: RuleFieldDef[] = [
   { value: 'total_spins', label: 'Total de Giros', icon: RotateCw, category: 'Gamificacao', type: 'number' },
   { value: 'last_activity', label: 'Ultima Atividade', icon: Calendar, category: 'Comportamento', type: 'days' },
   { value: 'registration_date', label: 'Data de Cadastro', icon: Calendar, category: 'Comportamento', type: 'days' },
+  // Métricas computadas
+  { value: 'favorite_game', label: 'Jogo Favorito', icon: Dice5, category: 'Métricas', type: 'text' },
+  { value: 'favorite_game_category', label: 'Categoria Favorita', icon: Dice5, category: 'Métricas', type: 'text' },
+  { value: 'total_bet_7d', label: 'Apostas 7 dias (R$)', icon: Gamepad2, category: 'Métricas', type: 'number' },
+  { value: 'total_bet_30d', label: 'Apostas 30 dias (R$)', icon: Gamepad2, category: 'Métricas', type: 'number' },
+  { value: 'bet_count_7d', label: 'Qtd Apostas 7 dias', icon: Gamepad2, category: 'Métricas', type: 'number' },
+  { value: 'bet_count_30d', label: 'Qtd Apostas 30 dias', icon: Gamepad2, category: 'Métricas', type: 'number' },
+  { value: 'avg_bet_value', label: 'Aposta Média (R$)', icon: DollarSign, category: 'Métricas', type: 'number' },
+  { value: 'total_deposit_7d', label: 'Depósitos 7 dias (R$)', icon: CreditCard, category: 'Métricas', type: 'number' },
+  { value: 'total_deposit_30d', label: 'Depósitos 30 dias (R$)', icon: CreditCard, category: 'Métricas', type: 'number' },
+  { value: 'deposit_count_7d', label: 'Qtd Depósitos 7 dias', icon: CreditCard, category: 'Métricas', type: 'number' },
+  { value: 'deposit_count_30d', label: 'Qtd Depósitos 30 dias', icon: CreditCard, category: 'Métricas', type: 'number' },
+  { value: 'days_since_last_bet', label: 'Dias sem Apostar', icon: Calendar, category: 'Métricas', type: 'number' },
+  { value: 'days_since_last_deposit', label: 'Dias sem Depositar', icon: Calendar, category: 'Métricas', type: 'number' },
+  { value: 'days_since_last_login', label: 'Dias sem Login', icon: Calendar, category: 'Métricas', type: 'number' },
+  { value: 'active_days_7d', label: 'Dias Ativos (7d)', icon: Activity, category: 'Métricas', type: 'number' },
+  { value: 'active_days_30d', label: 'Dias Ativos (30d)', icon: Activity, category: 'Métricas', type: 'number' },
+  { value: 'engagement_score', label: 'Score Engajamento (0-100)', icon: Heart, category: 'Métricas', type: 'number' },
+  { value: 'churn_risk', label: 'Risco de Churn (0-100)', icon: AlertTriangle, category: 'Métricas', type: 'number' },
 ];
 
 export const OPERATORS_NUMBER = [
@@ -116,6 +136,12 @@ export const OPERATORS_NUMBER = [
 export const OPERATORS_DAYS = [
   { value: 'within', label: 'nos ultimos' },
   { value: 'not_within', label: 'nao ativo ha mais de' },
+];
+
+export const OPERATORS_TEXT = [
+  { value: 'eq', label: 'igual a' },
+  { value: 'neq', label: 'diferente de' },
+  { value: 'contains', label: 'contém' },
 ];
 
 export const SEGMENT_COLORS = [

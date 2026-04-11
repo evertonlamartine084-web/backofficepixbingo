@@ -3,7 +3,7 @@ import type { SetStateAction } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RULE_FIELDS, OPERATORS_NUMBER, OPERATORS_DAYS, generateId } from './types';
+import { RULE_FIELDS, OPERATORS_NUMBER, OPERATORS_DAYS, OPERATORS_TEXT, generateId } from './types';
 import type { SegmentRule } from './types';
 
 interface SegmentRuleBuilderProps {
@@ -44,7 +44,7 @@ export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }:
       <div className="space-y-2">
         {rules.map((rule, idx) => {
           const fieldDef = RULE_FIELDS.find(f => f.value === rule.field);
-          const operators = fieldDef?.type === 'days' ? OPERATORS_DAYS : OPERATORS_NUMBER;
+          const operators = fieldDef?.type === 'days' ? OPERATORS_DAYS : fieldDef?.type === 'text' ? OPERATORS_TEXT : OPERATORS_NUMBER;
           const FieldIcon = fieldDef?.icon || Filter;
 
           return (
@@ -58,7 +58,7 @@ export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }:
 
               <Select value={rule.field} onValueChange={v => {
                 const newField = RULE_FIELDS.find(f => f.value === v);
-                const defaultOp = newField?.type === 'days' ? 'within' : 'gte';
+                const defaultOp = newField?.type === 'days' ? 'within' : newField?.type === 'text' ? 'eq' : 'gte';
                 updateRule(rule.id, { field: v, operator: defaultOp, value: '' });
               }}>
                 <SelectTrigger className="h-8 w-44 text-xs bg-background border-border">
@@ -88,11 +88,11 @@ export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }:
               </Select>
 
               <Input
-                type="number"
+                type={fieldDef?.type === 'text' ? 'text' : 'number'}
                 value={rule.value}
                 onChange={e => updateRule(rule.id, { value: e.target.value })}
-                placeholder={fieldDef?.type === 'days' ? 'dias' : '0'}
-                className="h-8 w-24 text-xs bg-background border-border font-mono"
+                placeholder={fieldDef?.type === 'days' ? 'dias' : fieldDef?.type === 'text' ? 'nome...' : '0'}
+                className={`h-8 text-xs bg-background border-border font-mono ${fieldDef?.type === 'text' ? 'w-40' : 'w-24'}`}
               />
 
               {fieldDef?.type === 'days' && <span className="text-xs text-muted-foreground">dias</span>}

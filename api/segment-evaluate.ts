@@ -149,6 +149,25 @@ async function evaluateRule(supabase: SupabaseClient, rule: SegmentRule): Promis
     total_spins: { table: 'player_spins', column: 'total_spins' },
     last_activity: { table: 'player_activity_log', column: 'created_at' },
     registration_date: { table: 'player_wallets', column: 'created_at' },
+    // Computed metrics fields
+    favorite_game: { table: 'player_computed_metrics', column: 'favorite_game' },
+    favorite_game_category: { table: 'player_computed_metrics', column: 'favorite_game_category' },
+    total_bet_7d: { table: 'player_computed_metrics', column: 'total_bet_7d' },
+    total_bet_30d: { table: 'player_computed_metrics', column: 'total_bet_30d' },
+    bet_count_7d: { table: 'player_computed_metrics', column: 'bet_count_7d' },
+    bet_count_30d: { table: 'player_computed_metrics', column: 'bet_count_30d' },
+    avg_bet_value: { table: 'player_computed_metrics', column: 'avg_bet_value' },
+    total_deposit_7d: { table: 'player_computed_metrics', column: 'total_deposit_7d' },
+    total_deposit_30d: { table: 'player_computed_metrics', column: 'total_deposit_30d' },
+    deposit_count_7d: { table: 'player_computed_metrics', column: 'deposit_count_7d' },
+    deposit_count_30d: { table: 'player_computed_metrics', column: 'deposit_count_30d' },
+    days_since_last_bet: { table: 'player_computed_metrics', column: 'days_since_last_bet' },
+    days_since_last_deposit: { table: 'player_computed_metrics', column: 'days_since_last_deposit' },
+    days_since_last_login: { table: 'player_computed_metrics', column: 'days_since_last_login' },
+    active_days_7d: { table: 'player_computed_metrics', column: 'active_days_7d' },
+    active_days_30d: { table: 'player_computed_metrics', column: 'active_days_30d' },
+    engagement_score: { table: 'player_computed_metrics', column: 'engagement_score' },
+    churn_risk: { table: 'player_computed_metrics', column: 'churn_risk' },
   };
 
   const mapping = fieldMap[field];
@@ -158,6 +177,34 @@ async function evaluateRule(supabase: SupabaseClient, rule: SegmentRule): Promis
   if (mapping.table === 'player_wallets' && !['last_activity', 'registration_date'].includes(field)) {
     let query = supabase.from('player_wallets').select('cpf');
     query = applyOperator(query, mapping.column, operator, value);
+    const { data } = await query.limit(50000);
+    if (data) (data as CpfRow[]).forEach((r) => cpfs.add(r.cpf));
+    return cpfs;
+  }
+
+  // Computed metrics — numeric fields (direct query)
+  const numericMetricFields = [
+    'total_bet_7d', 'total_bet_30d', 'bet_count_7d', 'bet_count_30d', 'avg_bet_value',
+    'total_deposit_7d', 'total_deposit_30d', 'deposit_count_7d', 'deposit_count_30d',
+    'days_since_last_bet', 'days_since_last_deposit', 'days_since_last_login',
+    'active_days_7d', 'active_days_30d', 'engagement_score', 'churn_risk',
+  ];
+  if (mapping.table === 'player_computed_metrics' && numericMetricFields.includes(field)) {
+    let query = supabase.from('player_computed_metrics').select('cpf');
+    query = applyOperator(query, mapping.column, operator, value);
+    const { data } = await query.limit(50000);
+    if (data) (data as CpfRow[]).forEach((r) => cpfs.add(r.cpf));
+    return cpfs;
+  }
+
+  // Computed metrics — text fields (favorite_game, favorite_game_category)
+  if (field === 'favorite_game' || field === 'favorite_game_category') {
+    const strVal = String(value);
+    let query = supabase.from('player_computed_metrics').select('cpf');
+    if (operator === 'eq') query = query.eq(mapping.column, strVal);
+    else if (operator === 'neq') query = query.neq(mapping.column, strVal);
+    else if (operator === 'contains' || operator === 'like') query = query.ilike(mapping.column, `%${strVal}%`);
+    else query = query.eq(mapping.column, strVal);
     const { data } = await query.limit(50000);
     if (data) (data as CpfRow[]).forEach((r) => cpfs.add(r.cpf));
     return cpfs;

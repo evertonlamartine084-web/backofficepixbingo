@@ -28,6 +28,7 @@ const navItems = [
   { to: '/segments', icon: ListFilter, label: 'Segmentos' },
   { to: '/campaigns', icon: Megaphone, label: 'Campanhas' },
   { to: '/cashback', icon: RotateCcw, label: 'Cashback' },
+  { to: '/automations', icon: Zap, label: 'Automações' },
 ];
 
 const assetsItems = [
