@@ -5,7 +5,7 @@ import { platformLogin, buildPlatformHeaders, buildDataTableParams } from '../_p
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabase = any;
 
-export const config = { runtime: 'edge', maxDuration: 300 };
+export const config = { runtime: 'edge', maxDuration: 60 };
 
 // --- BR date/currency helpers ---
 
@@ -70,15 +70,32 @@ export default async function handler(req: Request) {
   if (!supabaseUrl || !supabaseKey) return json({ error: 'Config missing' }, 500);
   const supabase = createClient(supabaseUrl, supabaseKey);
 
+  // Pagination: ?offset=0&limit=50 (default)
+  const url = new URL(req.url);
+  const offset = parseInt(url.searchParams.get('offset') || '0');
+  const PAGE_SIZE = parseInt(url.searchParams.get('limit') || '50');
+  const lifecycleOnly = url.searchParams.get('lifecycle') === '1';
+
   try {
-    // 1. Get all active players (those with wallets)
+    // Lifecycle-only mode: just recalculate stages from existing metrics
+    if (lifecycleOnly) {
+      const lifecycleUpdated = await updateLifecycleStages(supabase as AnySupabase);
+      return json({ message: 'Lifecycle updated', lifecycle_updated: lifecycleUpdated });
+    }
+
+    // 1. Get page of players
     const { data: wallets, error: walletsErr } = await supabase
       .from('player_wallets')
       .select('cpf')
-      .limit(10000);
+      .order('cpf')
+      .range(offset, offset + PAGE_SIZE - 1);
 
     if (walletsErr) throw walletsErr;
-    if (!wallets || wallets.length === 0) return json({ message: 'No players found', processed: 0 });
+    if (!wallets || wallets.length === 0) {
+      // No more players — run lifecycle update on final page
+      const lifecycleUpdated = await updateLifecycleStages(supabase as AnySupabase);
+      return json({ message: 'All done', processed: 0, offset, done: true, lifecycle_updated: lifecycleUpdated });
+    }
 
     // 2. Login to platform
     const { data: platformConfig } = await supabase
@@ -98,22 +115,14 @@ export default async function handler(req: Request) {
     const headers = buildPlatformHeaders(login.cookies, siteUrl);
     const now = new Date();
 
-    // 3. Process players in batches
-    const BATCH_SIZE = 20;
+    // 3. Process this page sequentially (5 at a time to avoid overloading)
+    const CONCURRENCY = 5;
     let processed = 0;
     let errors = 0;
     const allMetrics: PlayerMetrics[] = [];
 
-    for (let i = 0; i < wallets.length; i += BATCH_SIZE) {
-      const batch = wallets.slice(i, i + BATCH_SIZE);
-
-      // Re-login every 100 players to avoid session expiry
-      if (i > 0 && i % 100 === 0) {
-        const relogin = await platformLogin(siteUrl, platformConfig.username, platformConfig.password, platformConfig.login_url);
-        if (relogin.success) {
-          headers['Cookie'] = relogin.cookies;
-        }
-      }
+    for (let i = 0; i < wallets.length; i += CONCURRENCY) {
+      const batch = wallets.slice(i, i + CONCURRENCY);
 
       const promises = batch.map(async ({ cpf }) => {
         try {
@@ -128,22 +137,27 @@ export default async function handler(req: Request) {
       });
 
       await Promise.all(promises);
-
-      // Upsert batch to database
-      if (allMetrics.length >= BATCH_SIZE) {
-        await upsertMetrics(supabase as AnySupabase, allMetrics.splice(0));
-      }
     }
 
-    // Upsert remaining
+    // Upsert all
     if (allMetrics.length > 0) {
-      await upsertMetrics(supabase as AnySupabase, allMetrics.splice(0));
+      await upsertMetrics(supabase as AnySupabase, allMetrics);
     }
 
-    // 4. Update lifecycle stages based on computed metrics
-    const lifecycleUpdated = await updateLifecycleStages(supabase as AnySupabase);
+    const nextOffset = offset + wallets.length;
+    const done = wallets.length < PAGE_SIZE;
 
-    return json({ message: 'Metrics computed', processed, errors, total: wallets.length, lifecycle_updated: lifecycleUpdated });
+    // If done, run lifecycle
+    let lifecycleUpdated = 0;
+    if (done) {
+      lifecycleUpdated = await updateLifecycleStages(supabase as AnySupabase);
+    }
+
+    return json({
+      message: done ? 'All done' : 'Page processed',
+      processed, errors, offset, nextOffset, done,
+      ...(done ? { lifecycle_updated: lifecycleUpdated } : {}),
+    });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : 'Erro ao computar métricas' }, 500);
   }
