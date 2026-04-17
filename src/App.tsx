@@ -40,6 +40,13 @@ const StoreDeliveries = lazy(() => import("@/pages/gamification/StoreDeliveries"
 const Referrals = lazy(() => import("@/pages/gamification/Referrals"));
 const Partidas = lazy(() => import("@/pages/Partidas"));
 const HealthCheck = lazy(() => import("@/pages/admin/HealthCheck"));
+const Journeys = lazy(() => import("@/pages/Journeys"));
+const JourneyBuilder = lazy(() => import("@/pages/JourneyBuilder"));
+const SkinEditor = lazy(() => import("@/pages/gamification/SkinEditor"));
+const Formulas = lazy(() => import("@/pages/admin/Formulas"));
+const QuizManager = lazy(() => import("@/pages/gamification/QuizManager"));
+const MatchXManager = lazy(() => import("@/pages/gamification/MatchXManager"));
+const PrizeDropManager = lazy(() => import("@/pages/gamification/PrizeDropManager"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -94,6 +101,13 @@ const App = () => (
               <Route path="/gamification/player-analytics" element={<PlayerAnalytics />} />
               <Route path="/gamification/store-deliveries" element={<StoreDeliveries />} />
               <Route path="/gamification/referrals" element={<Referrals />} />
+              <Route path="/gamification/skin-editor" element={<SkinEditor />} />
+              <Route path="/gamification/quiz-manager" element={<QuizManager />} />
+              <Route path="/gamification/match-x-manager" element={<MatchXManager />} />
+              <Route path="/gamification/prize-drop-manager" element={<PrizeDropManager />} />
+              <Route path="/journeys" element={<Journeys />} />
+              <Route path="/journeys/:id" element={<JourneyBuilder />} />
+              <Route path="/admin/formulas" element={<Formulas />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -11,8 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://nehmmvtpagncmldivnxn.supabase.co';
-const WIDGET_SCRIPT_URL = `${SUPABASE_URL}/functions/v1/gamification-widget`;
+const WIDGET_SCRIPT_URL = 'https://backofficepixbingobr.vercel.app/api/gamification-widget';
 
 interface WidgetSections {
   missions: boolean;

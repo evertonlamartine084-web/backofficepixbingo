@@ -72,8 +72,10 @@ const REWARD_TYPES = [
   { value: 'bonus', label: 'Bônus (R$)' },
   { value: 'coins', label: 'Moedas' },
   { value: 'xp', label: 'XP' },
+  { value: 'diamonds', label: 'Diamantes' },
   { value: 'spins', label: 'Giros na Roleta' },
   { value: 'free_bet', label: 'Free Bet (R$)' },
+  { value: 'cartelas', label: 'Cartelas' },
 ];
 
 const RECURRENCE_OPTIONS = [
@@ -183,8 +185,30 @@ export default function Missions() {
 
   const duplicateMutation = useMutation({
     mutationFn: async (m: Mission) => {
-      const { id, created_at, updated_at, ...rest } = m;
-      const { error } = await supabase.from('missions').insert({ ...rest, name: `${m.name} (cópia)` });
+      const copy: Record<string, unknown> = {
+        name: `${m.name} (cópia)`,
+        description: m.description,
+        icon_url: m.icon_url,
+        type: m.type,
+        condition_type: m.condition_type,
+        condition_value: m.condition_value,
+        reward_type: m.reward_type,
+        reward_value: m.reward_value,
+        segment_id: m.segment_id,
+        status: m.status,
+        priority: m.priority,
+        require_optin: m.require_optin,
+        time_limit_hours: m.time_limit_hours,
+        start_date: m.start_date,
+        end_date: m.end_date,
+        recurrence: m.recurrence,
+        cta_text: m.cta_text,
+        cta_url: m.cta_url,
+        manual_claim: m.manual_claim,
+        active: m.active,
+      };
+      if ((m as Record<string, unknown>).condition_mode) copy.condition_mode = (m as Record<string, unknown>).condition_mode;
+      const { error } = await supabase.from('missions').insert(copy);
       if (error) throw error;
     },
     onSuccess: (_d, m) => {
@@ -303,6 +327,7 @@ export default function Missions() {
                             )}
                             <div className="min-w-0">
                               <p className="font-semibold text-sm text-foreground truncate">{m.name}</p>
+                              <p className="text-[10px] font-mono text-muted-foreground/60 truncate">{m.id}</p>
                               {m.description && <p className="text-xs text-muted-foreground truncate">{m.description}</p>}
                             </div>
                           </div>
@@ -374,6 +399,7 @@ export default function Missions() {
         <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editId ? 'Editar Missão' : 'Nova Missão'}</DialogTitle>
+            {editId && <p className="text-[10px] font-mono text-muted-foreground/60 select-all">{editId}</p>}
           </DialogHeader>
           <div className="space-y-4">
             {/* Basic */}

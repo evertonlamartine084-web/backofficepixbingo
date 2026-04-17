@@ -131,3 +131,149 @@ export interface DashboardStats {
   avg_time_ms: number;
   rate_limit_alerts: number;
 }
+
+// --- Customer Journey Engine ---
+
+export type JourneyStatus = 'rascunho' | 'ativa' | 'pausada' | 'encerrada';
+export type JourneyEntryEvent = 'deposit' | 'bet' | 'login' | 'level_up' | 'achievement_unlock' | 'registration' | 'segment_enter' | 'manual';
+export type JourneyStepType = 'action' | 'delay' | 'condition_split';
+export type JourneyEnrollmentStatus = 'active' | 'completed' | 'exited' | 'paused';
+
+export interface Journey {
+  id: string;
+  name: string;
+  description: string | null;
+  status: JourneyStatus;
+  entry_event: JourneyEntryEvent;
+  entry_conditions: Array<{ field: string; operator: string; value: string }>;
+  entry_match_type: string;
+  segment_id: string | null;
+  max_entries_per_player: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JourneyStep {
+  id: string;
+  journey_id: string;
+  step_order: number;
+  step_type: JourneyStepType;
+  delay_minutes: number;
+  action_type: string | null;
+  action_config: Record<string, unknown>;
+  conditions: Array<{ field: string; operator: string; value: string }>;
+  condition_yes_next: number | null;
+  condition_no_next: number | null;
+  created_at: string;
+}
+
+export interface JourneyEnrollment {
+  id: string;
+  journey_id: string;
+  cpf: string;
+  current_step_order: number;
+  status: JourneyEnrollmentStatus;
+  entered_at: string;
+  step_entered_at: string;
+  completed_at: string | null;
+}
+
+// --- Dynamic Formulas ---
+
+export type FormulaCategory = 'cashback' | 'bonus' | 'xp' | 'reward' | 'custom';
+
+export interface Formula {
+  id: string;
+  name: string;
+  description: string | null;
+  category: FormulaCategory;
+  formula_ast: Record<string, unknown>;
+  variables_used: string[];
+  test_input: Record<string, number>;
+  test_output: number | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// --- Mini Game Skins ---
+
+export interface SkinData {
+  colors: {
+    primary: string;
+    secondary: string;
+    background: string;
+    accent: string;
+    text: string;
+    text_secondary: string;
+    success: string;
+    card_bg: string;
+  };
+  images: {
+    background_url: string;
+    logo_url: string;
+    prize_icon_url: string;
+    scratch_overlay_url: string;
+  };
+  fonts: {
+    primary: string;
+    secondary: string;
+  };
+  border_radius: string;
+  animation_speed: string;
+  custom_css: string;
+}
+
+export interface MiniGameSkin {
+  id: string;
+  name: string;
+  description: string | null;
+  game_type: string;
+  is_template: boolean;
+  skin_data: SkinData;
+  preview_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// --- Quiz & Match X ---
+
+export interface QuizQuestion {
+  id: string;
+  game_id: string;
+  question: string;
+  options: Array<{ text: string; is_correct: boolean }>;
+  time_limit_seconds: number;
+  points: number;
+  explanation: string | null;
+  sort_order: number;
+  active: boolean;
+  created_at: string;
+}
+
+export interface MatchXItem {
+  id: string;
+  game_id: string;
+  label: string;
+  image_url: string | null;
+  pair_group: number;
+  sort_order: number;
+  active: boolean;
+  created_at: string;
+}
+
+export interface PlayerMiniGameResult {
+  id: string;
+  cpf: string;
+  game_id: string;
+  game_type: string;
+  score: number;
+  correct_answers: number;
+  pairs_found: number;
+  prizes_caught: number;
+  time_taken_ms: number;
+  reward_type: string | null;
+  reward_value: number;
+  played_at: string;
+}

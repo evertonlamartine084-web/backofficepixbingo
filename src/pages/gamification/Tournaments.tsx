@@ -235,6 +235,7 @@ export default function Tournaments() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-foreground truncate">{t.name}</h3>
+                      <p className="text-[10px] font-mono text-muted-foreground/60 truncate">{t.id}</p>
                       {t.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{t.description}</p>}
                     </div>
                     <Badge className={`${st.color} text-[10px] ml-2 shrink-0`}>{st.label}</Badge>
@@ -318,6 +319,7 @@ export default function Tournaments() {
         <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editId ? 'Editar Torneio' : 'Novo Torneio'}</DialogTitle>
+            {editId && <p className="text-[10px] font-mono text-muted-foreground/60 select-all">{editId}</p>}
           </DialogHeader>
           <div className="space-y-4">
             <div>

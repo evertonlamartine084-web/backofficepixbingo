@@ -6,6 +6,7 @@ import {
   MessageSquare, Package, User, RotateCcw, ScrollText,
   Award, Target, Swords, RotateCw, Star, ShoppingBag,
   Bell, Inbox, Trophy, Gift, Dices, BarChart3, UserPlus, HeartPulse,
+  Route, Palette, Calculator,
 } from 'lucide-react';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,6 +30,7 @@ const navItems = [
   { to: '/campaigns', icon: Megaphone, label: 'Campanhas' },
   { to: '/cashback', icon: RotateCcw, label: 'Cashback' },
   { to: '/automations', icon: Zap, label: 'Automações' },
+  { to: '/journeys', icon: Route, label: 'Jornadas CJ' },
 ];
 
 const assetsItems = [
@@ -50,6 +52,7 @@ const gamificationItems = [
   { to: '/assets/push', icon: Bell, label: 'Push Notifications' },
   { to: '/assets/inbox', icon: Inbox, label: 'Inbox' },
   { to: '/gamification/player-analytics', icon: BarChart3, label: 'Analytics Jogador' },
+  { to: '/gamification/skin-editor', icon: Palette, label: 'Editor de Skins' },
   { to: '/gamification/widget', icon: Code2, label: 'Widget Embed' },
 ];
 
@@ -57,6 +60,7 @@ const adminItems = [
   { to: '/admin/manage-users', icon: ShieldCheck, label: 'Gestão de Usuários' },
   { to: '/admin/audit', icon: ScrollText, label: 'Log de Auditoria' },
   { to: '/admin/platform', icon: Settings, label: 'Config Plataforma' },
+  { to: '/admin/formulas', icon: Calculator, label: 'Fórmulas' },
   { to: '/admin/health', icon: HeartPulse, label: 'Health Check' },
 ];
 

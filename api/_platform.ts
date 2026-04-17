@@ -3,6 +3,8 @@
  * Extracted from duplicated logic across pixbingo-proxy, sync-player-xp, and gamification-widget.
  */
 
+import { SupabaseClient } from '@supabase/supabase-js';
+
 // --- Types ---
 
 export interface PlatformLoginResult {
@@ -277,4 +279,82 @@ export async function searchPlayerByCpf(
   }
 
   return { uuid: null, debug: debugInfo };
+}
+
+// --- Cached platform login ---
+
+const COOKIE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Login with cookie caching. Checks platform_config.cached_cookies first.
+ * Falls back to full login and saves cookies for next call.
+ */
+export async function cachedPlatformLogin(
+  supabase: SupabaseClient,
+  config: { id?: string; site_url: string; username: string; password: string; login_url?: string | null; cached_cookies?: string | null; cookies_expires_at?: string | null },
+): Promise<PlatformLoginResult> {
+  const baseUrl = (config.site_url || '').replace(/\/+$/, '');
+
+  // Check cached cookies
+  if (config.cached_cookies && config.cookies_expires_at) {
+    const expiresAt = new Date(config.cookies_expires_at).getTime();
+    if (expiresAt > Date.now()) {
+      // Validate cached cookies with a lightweight request
+      try {
+        const testRes = await fetch(`${baseUrl}/usuarios/listar?draw=1&start=0&length=1`, {
+          headers: { 'Cookie': config.cached_cookies, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (testRes.ok) {
+          const text = await testRes.text();
+          if (!text.includes('name="usuario"') && !text.includes('name="senha"') && !text.includes('<form')) {
+            return { cookies: config.cached_cookies, success: true };
+          }
+        }
+      } catch { /* cache invalid, do full login */ }
+    }
+  }
+
+  // Full login
+  const result = await platformLogin(baseUrl, config.username, config.password, config.login_url);
+
+  // Save cookies to cache
+  if (result.success && config.id) {
+    const expiresAt = new Date(Date.now() + COOKIE_TTL_MS).toISOString();
+    await supabase.from('platform_config').update({
+      cached_cookies: result.cookies,
+      cookies_expires_at: expiresAt,
+    } as Record<string, unknown>).eq('id', config.id);
+  }
+
+  return result;
+}
+
+// --- Cached player UUID lookup ---
+
+/**
+ * Get player UUID, checking player_wallets.platform_uuid cache first.
+ * Falls back to platform search and saves UUID for next call.
+ */
+export async function cachedSearchPlayerByCpf(
+  supabase: SupabaseClient,
+  baseUrl: string,
+  headers: Record<string, string>,
+  cpf: string,
+): Promise<string | null> {
+  // Check cached UUID in player_wallets
+  const { data: wallet } = await supabase.from('player_wallets')
+    .select('platform_uuid').eq('cpf', cpf).maybeSingle();
+  if (wallet?.platform_uuid) return wallet.platform_uuid;
+
+  // Full search
+  const result = await searchPlayerByCpf(baseUrl, headers, cpf);
+  if (!result.uuid) return null;
+
+  // Cache UUID
+  await supabase.from('player_wallets')
+    .update({ platform_uuid: result.uuid } as Record<string, unknown>)
+    .eq('cpf', cpf);
+
+  return result.uuid;
 }

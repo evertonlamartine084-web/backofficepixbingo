@@ -149,7 +149,7 @@ export async function processReferralRewards(supabase: SupabaseClient, referralI
 
 export async function syncPlayerXpInline(cpf: string, supabase: SupabaseClient): Promise<void> {
   // Dynamically import to avoid circular ref issues
-  const { platformLogin: login, searchPlayerByCpf: searchPlayer } = await import('../_platform.js');
+  const { cachedPlatformLogin, cachedSearchPlayerByCpf, buildPlatformHeaders } = await import('../_platform.js');
 
   try {
     const { data: xpConfigs } = await supabase.from('xp_config').select('*');
@@ -166,22 +166,18 @@ export async function syncPlayerXpInline(cpf: string, supabase: SupabaseClient):
     if (!platformConfig) return;
 
     const siteUrl = (platformConfig.site_url || 'https://pixbingobr.concurso.club').replace(/\/+$/, '');
-    const loginResult = await login(siteUrl, platformConfig.username, platformConfig.password, platformConfig.login_url);
+    const loginResult = await cachedPlatformLogin(supabase, platformConfig);
     if (!loginResult.success) return;
 
-    const hdrs: Record<string, string> = {
-      'Accept': 'application/json, text/javascript, */*',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Cookie': loginResult.cookies, 'Referer': siteUrl,
-    };
+    const hdrs = buildPlatformHeaders(loginResult.cookies, siteUrl);
 
-    const searchResult = await searchPlayer(siteUrl, hdrs, cpf);
-    if (!searchResult.uuid) return;
+    const playerUuid = await cachedSearchPlayerByCpf(supabase, siteUrl, hdrs, cpf);
+    if (!playerUuid) return;
 
     let movimentacoes: TransactionRow[] = [];
     let historico: TransactionRow[] = [];
     try {
-      const txRes = await fetch(`${siteUrl}/usuarios/transacoes?id=${searchResult.uuid}`, {
+      const txRes = await fetch(`${siteUrl}/usuarios/transacoes?id=${playerUuid}`, {
         headers: hdrs, signal: AbortSignal.timeout(15000),
       });
       const txData = JSON.parse(await txRes.text());
@@ -260,7 +256,7 @@ export async function syncPlayerXpInline(cpf: string, supabase: SupabaseClient):
 
     const { data: levels } = await supabase.from('levels').select('*').order('level');
     let newLevel = wallet.level || 0;
-    let bonusCoins = 0, bonusDiamonds = 0;
+    let bonusCoins = 0, bonusDiamonds = 0, bonusGems = 0;
 
     if (levels?.length) {
       for (const lvl of levels) {
@@ -268,6 +264,7 @@ export async function syncPlayerXpInline(cpf: string, supabase: SupabaseClient):
           newLevel = lvl.level;
           bonusCoins += lvl.reward_coins || 0;
           bonusDiamonds += lvl.reward_diamonds || 0;
+          bonusGems += lvl.reward_gems || 0;
           try {
             await supabase.from('level_rewards_log').insert({
               cpf, from_level: wallet.level || 0, to_level: lvl.level,
@@ -288,6 +285,10 @@ export async function syncPlayerXpInline(cpf: string, supabase: SupabaseClient):
       walletUpdate.diamonds = (wallet.diamonds || 0) + bonusDiamonds;
       walletUpdate.total_diamonds_earned = (wallet.total_diamonds_earned || 0) + bonusDiamonds;
     }
+    if (bonusGems > 0) {
+      walletUpdate.gems = (wallet.gems || 0) + bonusGems;
+      walletUpdate.total_gems_earned = (wallet.total_gems_earned || 0) + bonusGems;
+    }
 
     await supabase.from('player_wallets').update(walletUpdate).eq('cpf', cpf);
 
@@ -297,5 +298,132 @@ export async function syncPlayerXpInline(cpf: string, supabase: SupabaseClient):
     if (depXp > 0) {
       try { await supabase.from('xp_history').insert({ cpf, action: 'deposito', amount: totalDeposits, xp_earned: depXp, description: `R$${totalDeposits.toFixed(2)} depositado = ${depXp} XP` } as Record<string, unknown>); } catch { /* ignore */ }
     }
+
+    // --- Inline mission progress sync (reuses already-fetched transactions) ---
+    try {
+      await syncMissionsFromTransactions(cpf, supabase, movimentacoes, historico, siteUrl, hdrs, playerUuid, platformConfig.password);
+    } catch { /* ignore */ }
   } catch { /* ignore */ }
+}
+
+export async function syncMissionsFromTransactions(
+  cpf: string, supabase: SupabaseClient,
+  movimentacoes: TransactionRow[], historico: TransactionRow[],
+  siteUrl: string, hdrs: Record<string, string>, playerUuid: string, platformPassword: string,
+): Promise<void> {
+  const { data: missions } = await supabase.from('missions')
+    .select('id, name, condition_type, condition_value, recurrence, reward_type, reward_value, manual_claim, start_date, end_date, require_optin, segment_id')
+    .in('status', ['ATIVO']);
+  if (!missions?.length) return;
+
+  const { data: progressEntries } = await supabase.from('player_mission_progress')
+    .select('id, mission_id, progress, target, completed, claimed, opted_in, started_at, reset_at')
+    .eq('cpf', cpf).eq('opted_in', true).eq('completed', false);
+  if (!progressEntries?.length) return;
+
+  // Check segments
+  const { data: playerSegs } = await supabase.from('segment_items').select('segment_id').eq('cpf', cpf);
+  const segSet = new Set((playerSegs || []).map((s: Record<string, unknown>) => s.segment_id));
+
+  const missionMap = new Map(missions.map(m => [m.id, m]));
+
+  const parseBrVal = (v: string | number | null | undefined): number => {
+    if (typeof v === 'number') return Math.abs(v);
+    if (!v) return 0;
+    const s = String(v).trim();
+    if (s.includes(',')) return Math.abs(Number(s.replace(/\./g, '').replace(',', '.'))) || 0;
+    return Math.abs(Number(s)) || 0;
+  };
+  const parseBrDate = (s: string): number => {
+    if (!s) return 0;
+    const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})\s*(\d{2}):(\d{2}):(\d{2})/);
+    if (m) return new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:${m[6]}`).getTime();
+    return new Date(s).getTime();
+  };
+
+  const allNorm = [
+    ...movimentacoes.map((m: unknown) => { const r = m as Record<string, unknown>; return { tipo: (String(r.tipo || '')).toUpperCase(), valor: r.valor as string | number, data_registro: r.data_registro as string, jogo: String(r.jogo || '').toLowerCase() }; }),
+    ...historico.map((h: unknown) => { const r = h as Record<string, unknown>; return { tipo: (String(r.operacao || r.tipo || '')).toUpperCase(), valor: r.valor as string | number, data_registro: r.data_registro as string, jogo: String(r.jogo || '').toLowerCase() }; }),
+  ];
+
+  for (const entry of progressEntries) {
+    const mission = missionMap.get(entry.mission_id);
+    if (!mission) continue;
+    if (mission.segment_id && !segSet.has(mission.segment_id)) continue;
+
+    const refDate = (entry.reset_at as string) || (entry.started_at as string);
+    const optedInAt = refDate ? new Date(refDate).getTime() : 0;
+    let startTs: number, endTs: number;
+    const now = Date.now();
+    if (mission.recurrence === 'daily') {
+      const d = new Date(); d.setHours(0, 0, 0, 0);
+      startTs = Math.max(d.getTime(), optedInAt); endTs = now;
+    } else if (mission.recurrence === 'weekly') {
+      const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); d.setHours(0, 0, 0, 0);
+      startTs = Math.max(d.getTime(), optedInAt); endTs = now;
+    } else if (mission.recurrence === 'monthly') {
+      const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0);
+      startTs = Math.max(d.getTime(), optedInAt); endTs = now;
+    } else {
+      startTs = mission.start_date ? new Date(mission.start_date).getTime() : 0;
+      startTs = Math.max(startTs, optedInAt);
+      endTs = mission.end_date ? new Date(mission.end_date).getTime() : now;
+    }
+
+    // Filter transactions by time range
+    const filtered = allNorm.filter(tx => {
+      const ts = parseBrDate(tx.data_registro || '');
+      return ts >= startTs && ts <= endTs;
+    });
+
+    // Calculate progress based on condition_type
+    let rawProgress = 0;
+    const ct = mission.condition_type;
+    if (ct === 'deposit') {
+      for (const tx of filtered) { if (tx.tipo.includes('DEPOSITO') || tx.tipo.includes('DEPOSIT') || tx.tipo.includes('PIX_IN')) rawProgress += parseBrVal(tx.valor); }
+    } else if (ct === 'bet') {
+      for (const tx of filtered) { if (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET')) rawProgress += parseBrVal(tx.valor); }
+    } else if (ct === 'play_keno') {
+      for (const tx of filtered) { const isKeno = tx.jogo.includes('keno') || tx.jogo.includes('bingo'); if (isKeno && (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET'))) rawProgress += parseBrVal(tx.valor); }
+    } else if (ct === 'play_cassino') {
+      for (const tx of filtered) { const isKeno = tx.jogo.includes('keno') || tx.jogo.includes('bingo'); if (!isKeno && tx.jogo.length > 0 && (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET'))) rawProgress += parseBrVal(tx.valor); }
+    } else {
+      continue; // internal tracking only
+    }
+
+    const progress = Math.round(rawProgress * 100) / 100;
+    const target = Number(mission.condition_value) || 1;
+    const completed = progress >= target;
+
+    await supabase.from('player_mission_progress')
+      .update({ progress, target, completed, ...(completed ? { completed_at: new Date().toISOString() } : {}) } as Record<string, unknown>)
+      .eq('id', entry.id);
+
+    // Auto-reward on completion
+    if (completed && !mission.manual_claim && mission.reward_value > 0) {
+      const rType = mission.reward_type || 'bonus';
+      const rVal = Number(mission.reward_value);
+      if (rType === 'coins' || rType === 'xp' || rType === 'diamonds' || rType === 'gems') {
+        const { data: w } = await supabase.from('player_wallets').select(rType).eq('cpf', cpf).maybeSingle();
+        if (w) await supabase.from('player_wallets').update({ [rType]: ((w as unknown as Record<string, number>)[rType] || 0) + rVal } as Record<string, unknown>).eq('cpf', cpf);
+      } else if (rType === 'bonus' || rType === 'free_bet') {
+        try {
+          await creditBonusOnPlatform(siteUrl, hdrs, playerUuid, rVal, platformPassword);
+        } catch { /* ignore */ }
+        await supabase.from('player_rewards_pending').insert({
+          cpf, reward_type: rType, reward_value: rVal, source: mission.name,
+          description: `Missão completada: ${mission.name}`, claimed_at: new Date().toISOString(),
+        } as Record<string, unknown>);
+      }
+      await supabase.from('player_mission_progress').update({
+        claimed: true, claimed_at: new Date().toISOString(),
+      } as Record<string, unknown>).eq('id', entry.id);
+      try {
+        await supabase.from('player_activity_log').insert({
+          cpf, type: 'mission_complete', amount: rVal, source: mission.name,
+          description: `Missão completada: ${mission.name} — ${rType} ${rVal}`,
+        } as Record<string, unknown>);
+      } catch { /* ignore */ }
+    }
+  }
 }

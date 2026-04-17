@@ -1,4 +1,4 @@
-import { HandlerContext } from './types.js';
+import { HandlerContext, platformLogin, buildPlatformHeaders, searchPlayerByCpf, creditBonusOnPlatform } from './types.js';
 
 export async function handleMissionOptin(ctx: HandlerContext): Promise<Response> {
   const { supabase, url, playerCpf, corsHeaders } = ctx;
@@ -65,13 +65,50 @@ export async function handleMissionClaim(ctx: HandlerContext): Promise<Response>
   }
 
   // Award reward
+  let rewardDelivered = false;
+  let rewardNote = '';
   if (mission.reward_type === 'coins' && mission.reward_value > 0) {
     const { data: w } = await supabase.from('player_wallets').select('coins').eq('cpf', playerCpf).maybeSingle();
     await supabase.from('player_wallets').update({ coins: (w?.coins || 0) + mission.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
+    rewardDelivered = true;
   } else if (mission.reward_type === 'xp' && mission.reward_value > 0) {
     const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
     await supabase.from('player_wallets').update({ xp: (w?.xp || 0) + mission.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
+    rewardDelivered = true;
+  } else if (mission.reward_type === 'diamonds' && mission.reward_value > 0) {
+    const { data: w } = await supabase.from('player_wallets').select('diamonds').eq('cpf', playerCpf).maybeSingle();
+    await supabase.from('player_wallets').update({ diamonds: (w?.diamonds || 0) + mission.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
+    rewardDelivered = true;
   } else if ((mission.reward_type === 'bonus' || mission.reward_type === 'free_bet') && mission.reward_value > 0) {
+    // Credit bonus directly on platform
+    try {
+      const { data: config } = await supabase.from('platform_config')
+        .select('*').eq('active', true).order('created_at', { ascending: false }).limit(1).single();
+      if (config) {
+        const loginDomain = (config.site_url || '').replace(/\/+$/, '');
+        const loginResult = await platformLogin(loginDomain, config.username, config.password, config.login_url);
+        if (loginResult.success) {
+          const headers = buildPlatformHeaders(loginResult.cookies, loginDomain);
+          const playerSearch = await searchPlayerByCpf(loginDomain, headers, playerCpf);
+          if (playerSearch.uuid) {
+            const creditResult = await creditBonusOnPlatform(loginDomain, headers, playerSearch.uuid, mission.reward_value, config.password);
+            if (creditResult.success) {
+              rewardDelivered = true;
+              rewardNote = `Creditado R$${mission.reward_value.toFixed(2)} na plataforma`;
+            } else {
+              rewardNote = `Erro ao creditar: ${creditResult.msg}`;
+            }
+          } else {
+            rewardNote = 'UUID do jogador não encontrado';
+          }
+        } else {
+          rewardNote = 'Falha no login da plataforma';
+        }
+      }
+    } catch (e: unknown) {
+      rewardNote = `Erro: ${e instanceof Error ? e.message : 'Erro'}`;
+    }
+    // Also save to pending for tracking
     try {
       await supabase.from('player_rewards_pending').insert({
         cpf: playerCpf,
@@ -79,6 +116,7 @@ export async function handleMissionClaim(ctx: HandlerContext): Promise<Response>
         reward_value: mission.reward_value,
         source: mission.name,
         description: `Missão: ${mission.name}`,
+        claimed_at: rewardDelivered ? new Date().toISOString() : null,
       } as Record<string, unknown>);
     } catch { /* ignore */ }
   }
@@ -210,7 +248,7 @@ export async function handleSyncProgress(ctx: HandlerContext): Promise<Response>
         if (shouldReset) {
           await supabase.from('player_mission_progress').update({
             progress: 0, completed: false, claimed: false,
-            completed_at: null, claimed_at: null, reset_at: now,
+            completed_at: null, claimed_at: null, reset_at: now, started_at: now,
           } as Record<string, unknown>).eq('cpf', playerCpf).eq('mission_id', mission.id);
         } else {
           continue;
@@ -257,6 +295,32 @@ export async function handleSyncProgress(ctx: HandlerContext): Promise<Response>
           } else if (mission.reward_type === 'xp') {
             const { data: w } = await supabase.from('player_wallets').select('xp').eq('cpf', playerCpf).maybeSingle();
             if (w) await supabase.from('player_wallets').update({ xp: (w.xp || 0) + mission.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
+          } else if (mission.reward_type === 'diamonds') {
+            const { data: w } = await supabase.from('player_wallets').select('diamonds').eq('cpf', playerCpf).maybeSingle();
+            if (w) await supabase.from('player_wallets').update({ diamonds: (w.diamonds || 0) + mission.reward_value } as Record<string, unknown>).eq('cpf', playerCpf);
+          } else if (mission.reward_type === 'bonus' || mission.reward_type === 'free_bet') {
+            // Credit directly on platform
+            try {
+              const { data: config } = await supabase.from('platform_config')
+                .select('*').eq('active', true).order('created_at', { ascending: false }).limit(1).single();
+              if (config) {
+                const loginDomain = (config.site_url || '').replace(/\/+$/, '');
+                const loginResult = await platformLogin(loginDomain, config.username, config.password, config.login_url);
+                if (loginResult.success) {
+                  const headers = buildPlatformHeaders(loginResult.cookies, loginDomain);
+                  const playerSearch = await searchPlayerByCpf(loginDomain, headers, playerCpf);
+                  if (playerSearch.uuid) {
+                    await creditBonusOnPlatform(loginDomain, headers, playerSearch.uuid, mission.reward_value, config.password);
+                  }
+                }
+              }
+            } catch { /* ignore */ }
+            await supabase.from('player_rewards_pending').insert({
+              cpf: playerCpf, reward_type: mission.reward_type,
+              reward_value: mission.reward_value, source: mission.name,
+              description: `Missão completada: ${mission.name}`,
+              claimed_at: now,
+            } as Record<string, unknown>);
           } else {
             await supabase.from('player_rewards_pending').insert({
               cpf: playerCpf, reward_type: mission.reward_type,
@@ -394,6 +458,7 @@ export async function handleSyncProgress(ctx: HandlerContext): Promise<Response>
 
         let bonusCoins = 0;
         let bonusDiamonds = 0;
+        let bonusGems = 0;
         newLevel = currentLevel;
         const levelsGained: Record<string, unknown>[] = [];
 
@@ -402,6 +467,7 @@ export async function handleSyncProgress(ctx: HandlerContext): Promise<Response>
             newLevel = lvl.level;
             bonusCoins += lvl.reward_coins || 0;
             bonusDiamonds += lvl.reward_diamonds || 0;
+            bonusGems += lvl.reward_gems || 0;
             levelsGained.push(lvl);
           } else {
             break;
@@ -421,6 +487,10 @@ export async function handleSyncProgress(ctx: HandlerContext): Promise<Response>
         if (bonusDiamonds > 0) {
           walletUpdate.diamonds = (wallet.diamonds || 0) + bonusDiamonds;
           walletUpdate.total_diamonds_earned = (wallet.total_diamonds_earned || 0) + bonusDiamonds;
+        }
+        if (bonusGems > 0) {
+          walletUpdate.gems = (wallet.gems || 0) + bonusGems;
+          walletUpdate.total_gems_earned = (wallet.total_gems_earned || 0) + bonusGems;
         }
 
         const { error: xpUpdateErr } = await supabase.from('player_wallets').update(walletUpdate).eq('cpf', playerCpf);

@@ -484,7 +484,10 @@ export async function syncPlayerXp(cpf: string, supabase: SupabaseClient, debug 
         walletUpdate.diamonds = (wallet.diamonds || 0) + bonusDiamonds;
         walletUpdate.total_diamonds_earned = (wallet.total_diamonds_earned || 0) + bonusDiamonds;
       }
-      // gems stored as xp in some setups, but we keep them separate if column exists
+      if (bonusGems > 0) {
+        walletUpdate.gems = (wallet.gems || 0) + bonusGems;
+        walletUpdate.total_gems_earned = (wallet.total_gems_earned || 0) + bonusGems;
+      }
     }
 
     await supabase.from('player_wallets').update(walletUpdate).eq('cpf', cpf);

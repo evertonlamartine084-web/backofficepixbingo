@@ -172,23 +172,23 @@ function calculateMissionProgress(
       return count;
     }
     case 'play_keno': {
-      let count = 0;
+      let total = 0;
       for (const tx of filteredHist) {
         const jogo = (tx.jogo || '').toLowerCase();
         if ((jogo.includes('keno') || jogo.includes('bingo')) &&
-            (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET'))) count++;
+            (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET'))) total += parseBrCurrency(tx.valor);
       }
-      return count;
+      return total;
     }
     case 'play_cassino': {
-      let count = 0;
+      let total = 0;
       for (const tx of filteredHist) {
         const jogo = (tx.jogo || '').toLowerCase();
         const isKeno = jogo.includes('keno') || jogo.includes('bingo');
         if (!isKeno && jogo.length > 0 &&
-            (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET'))) count++;
+            (tx.tipo.includes('COMPRA') || tx.tipo.includes('APOSTA') || tx.tipo.includes('BET'))) total += parseBrCurrency(tx.valor);
       }
-      return count;
+      return total;
     }
     case 'total_games': {
       let count = 0;
@@ -252,7 +252,7 @@ export default async function handler(req: Request): Promise<Response> {
     // Get active missions
     const { data: missions } = await supabase
       .from('missions')
-      .select('id, name, condition_type, condition_value, start_date, end_date, recurrence')
+      .select('id, name, condition_type, condition_value, start_date, end_date, recurrence, reward_type, reward_value, manual_claim')
       .in('status', ['ATIVO']);
 
     if (!missions || missions.length === 0) {
@@ -266,7 +266,7 @@ export default async function handler(req: Request): Promise<Response> {
     const missionIds = missions.map(m => m.id);
     const { data: progressEntries } = await supabase
       .from('player_mission_progress')
-      .select('id, cpf, mission_id, progress, target, completed, opted_in')
+      .select('id, cpf, mission_id, progress, target, completed, opted_in, started_at, reset_at')
       .in('mission_id', missionIds)
       .eq('opted_in', true)
       .eq('completed', false);
@@ -303,23 +303,28 @@ export default async function handler(req: Request): Promise<Response> {
           const mission = missionMap.get(entry.mission_id);
           if (!mission) continue;
 
+          // Use reset_at if available (mission was reset), otherwise started_at
+          const refDate = (entry.reset_at as string) || (entry.started_at as string);
+          const optedInAt = refDate ? new Date(refDate).getTime() : 0;
           let startTs: number, endTs: number;
           if (mission.recurrence === 'daily') {
             const d = new Date(); d.setHours(0, 0, 0, 0);
-            startTs = d.getTime(); endTs = Date.now();
+            startTs = Math.max(d.getTime(), optedInAt); endTs = Date.now();
           } else if (mission.recurrence === 'weekly') {
             const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); d.setHours(0, 0, 0, 0);
-            startTs = d.getTime(); endTs = Date.now();
+            startTs = Math.max(d.getTime(), optedInAt); endTs = Date.now();
           } else if (mission.recurrence === 'monthly') {
             const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0);
-            startTs = d.getTime(); endTs = Date.now();
+            startTs = Math.max(d.getTime(), optedInAt); endTs = Date.now();
           } else {
             startTs = mission.start_date ? new Date(mission.start_date).getTime() : 0;
+            startTs = Math.max(startTs, optedInAt);
             endTs = mission.end_date ? new Date(mission.end_date).getTime() : Date.now();
           }
 
-          const progress = calculateMissionProgress(movimentacoes, historico, mission.condition_type, startTs, endTs);
-          if (progress === -1) continue;
+          const rawProgress = calculateMissionProgress(movimentacoes, historico, mission.condition_type, startTs, endTs);
+          if (rawProgress === -1) continue;
+          const progress = Math.round(rawProgress * 100) / 100;
 
           const target = Number(mission.condition_value) || 1;
           const completed = progress >= target;
@@ -332,9 +337,59 @@ export default async function handler(req: Request): Promise<Response> {
             .eq('id', entry.id);
 
           totalUpdated++;
-          if (completed) {
+          if (completed && !entry.completed) {
             totalCompleted++;
             log(`CPF ${cpf} — "${mission.name}": CONCLUÍDA (${progress}/${target})`);
+
+            // Auto-reward if not manual_claim
+            if (!mission.manual_claim && mission.reward_value > 0) {
+              try {
+                const rType = mission.reward_type || 'bonus';
+                const rVal = Number(mission.reward_value);
+                if (rType === 'coins' || rType === 'xp' || rType === 'diamonds') {
+                  const { data: w } = await supabase.from('player_wallets').select(rType).eq('cpf', cpf).maybeSingle();
+                  if (w) await supabase.from('player_wallets').update({ [rType]: ((w as unknown as Record<string, number>)[rType] || 0) + rVal } as Record<string, unknown>).eq('cpf', cpf);
+                } else if (rType === 'bonus' || rType === 'free_bet') {
+                  // Credit on platform using existing login session
+                  try {
+                    // Search player by CPF
+                    const searchRes = await fetch(`${baseUrl}/usuarios/lista?search=${cpf}&start=0&length=1`, { headers, signal: AbortSignal.timeout(10000) });
+                    const searchText = await searchRes.text();
+                    let uuid = '';
+                    try {
+                      const searchData = JSON.parse(searchText);
+                      const rows = searchData?.data || searchData?.aaData || [];
+                      if (rows.length > 0) uuid = rows[0]?.uuid || rows[0]?.id || '';
+                    } catch { /* ignore */ }
+                    if (uuid) {
+                      await fetch(`${baseUrl}/usuarios/creditos`, {
+                        method: 'POST',
+                        headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({ uuid, carteira: 'BONUS', valor: String(rVal), senha: config.password }).toString(),
+                        signal: AbortSignal.timeout(15000),
+                      });
+                      log(`CPF ${cpf} — Bônus R$${rVal} creditado na plataforma (uuid: ${uuid})`);
+                    }
+                  } catch { /* ignore platform credit error */ }
+                  await supabase.from('player_rewards_pending').insert({
+                    cpf, reward_type: rType, reward_value: rVal, source: mission.name,
+                    description: `Missão completada: ${mission.name}`, claimed_at: new Date().toISOString(),
+                  } as Record<string, unknown>);
+                }
+                // Mark as claimed
+                await supabase.from('player_mission_progress').update({
+                  claimed: true, claimed_at: new Date().toISOString(),
+                } as Record<string, unknown>).eq('id', entry.id);
+                // Log activity
+                await supabase.from('player_activity_log').insert({
+                  cpf, type: 'mission_complete', amount: rVal, source: mission.name,
+                  description: `Missão completada: ${mission.name} — ${rType} ${rVal}`,
+                } as Record<string, unknown>);
+                log(`CPF ${cpf} — "${mission.name}": RECOMPENSA ${rType} ${rVal} entregue`);
+              } catch (e) {
+                log(`CPF ${cpf} — "${mission.name}": ERRO na recompensa — ${(e as Error).message}`);
+              }
+            }
           }
         }
       } catch (e) {

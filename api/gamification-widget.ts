@@ -79,6 +79,37 @@ export default async function handler(req: Request): Promise<Response> {
         return handleSyncProgress(ctx);
       case 'scrape_platform':
         return handleScrapePlatform(ctx);
+      case 'sync_missions': {
+        if (!playerCpf) return new Response(JSON.stringify({ error: 'CPF obrigatório' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        try {
+          const { cachedPlatformLogin, cachedSearchPlayerByCpf, buildPlatformHeaders } = await import('./_platform.js');
+          const { data: config } = await supabase.from('platform_config').select('*').eq('active', true).limit(1).single();
+          if (!config) return new Response(JSON.stringify({ error: 'No config' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          const siteUrl = (config.site_url || '').replace(/\/+$/, '');
+          const loginResult = await cachedPlatformLogin(supabase, config);
+          if (!loginResult.success) return new Response(JSON.stringify({ error: 'Login failed' }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          const hdrs = buildPlatformHeaders(loginResult.cookies, siteUrl);
+          const playerUuid = await cachedSearchPlayerByCpf(supabase, siteUrl, hdrs, playerCpf);
+          if (!playerUuid) return new Response(JSON.stringify({ error: 'Player not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          // Fetch transactions
+          const txRes = await fetch(`${siteUrl}/usuarios/transacoes?id=${playerUuid}`, { headers: hdrs, signal: AbortSignal.timeout(15000) });
+          const txData = JSON.parse(await txRes.text());
+          const { syncMissionsFromTransactions } = await import('./widget/types.js');
+          await syncMissionsFromTransactions(playerCpf, supabase, txData?.movimentacoes || [], txData?.historico || [], siteUrl, hdrs, playerUuid, config.password);
+          // Return updated progress
+          const { data: progress } = await supabase.from('player_mission_progress').select('*').eq('cpf', playerCpf);
+          return new Response(JSON.stringify({ success: true, mission_progress: progress || [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        } catch (e: unknown) {
+          return new Response(JSON.stringify({ error: e instanceof Error ? e.message : 'Erro' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+      case 'debug_reset_mission': {
+        const mid = url.searchParams.get('mission_id');
+        if (!mid || !playerCpf) return new Response(JSON.stringify({ error: 'mission_id e player obrigatórios' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        const nowIso = new Date().toISOString();
+        const { error } = await supabase.from('player_mission_progress').update({ progress: 0, completed: false, claimed: false, completed_at: null, claimed_at: null, reset_at: nowIso, started_at: nowIso } as Record<string, unknown>).eq('cpf', playerCpf).eq('mission_id', mid);
+        return new Response(JSON.stringify({ success: !error, error: error?.message }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
       default:
         return new Response(JSON.stringify({ error: 'Ação desconhecida' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

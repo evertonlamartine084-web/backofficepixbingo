@@ -237,7 +237,8 @@ export default function Store() {
 
                 {/* Content */}
                 <div className="p-3.5">
-                  <h3 className="font-semibold text-sm text-foreground leading-tight mb-1">{item.name}</h3>
+                  <h3 className="font-semibold text-sm text-foreground leading-tight mb-0.5">{item.name}</h3>
+                  <p className="text-[10px] font-mono text-muted-foreground/60 truncate mb-1">{item.id}</p>
                   <p className="text-xs text-muted-foreground leading-relaxed">{item.description || 'Sem descrição'}</p>
 
                   {/* Meta info */}
@@ -292,7 +293,10 @@ export default function Store() {
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) closeDialog(); else setOpen(true); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editingId ? 'Editar Item' : 'Novo Item da Loja'}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editingId ? 'Editar Item' : 'Novo Item da Loja'}</DialogTitle>
+            {editingId && <p className="text-[10px] font-mono text-muted-foreground/60 select-all">{editingId}</p>}
+          </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label className="text-xs">Nome</Label>

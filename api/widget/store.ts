@@ -68,7 +68,7 @@ export async function handleStoreBuy(ctx: HandlerContext): Promise<Response> {
   const { data: wallet } = await supabase.from('player_wallets').select('*').eq('cpf', playerCpf).maybeSingle();
   const coins = wallet?.coins || 0;
   const diamonds = wallet?.diamonds || 0;
-  const xp = wallet?.xp || 0;
+  const gems = wallet?.gems || 0;
   if (item.price_coins > 0 && coins < item.price_coins) {
     return new Response(JSON.stringify({ error: 'Moedas insuficientes', cost: item.price_coins, balance: coins }), {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -79,17 +79,17 @@ export async function handleStoreBuy(ctx: HandlerContext): Promise<Response> {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-  if (item.price_xp > 0 && xp < item.price_xp) {
-    return new Response(JSON.stringify({ error: 'Gems insuficientes', cost: item.price_xp, balance: xp }), {
+  if (item.price_xp > 0 && gems < item.price_xp) {
+    return new Response(JSON.stringify({ error: 'Gems insuficientes', cost: item.price_xp, balance: gems }), {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  // Deduct coins, diamonds, and gems (xp)
+  // Deduct coins, diamonds, and gems
   const walletUpdate: Record<string, unknown> = {};
   if (item.price_coins > 0) walletUpdate.coins = coins - item.price_coins;
   if (item.price_diamonds > 0) walletUpdate.diamonds = diamonds - item.price_diamonds;
-  if (item.price_xp > 0) walletUpdate.xp = xp - item.price_xp;
+  if (item.price_xp > 0) walletUpdate.gems = gems - item.price_xp;
   if (Object.keys(walletUpdate).length > 0) {
     await supabase.from('player_wallets')
       .update(walletUpdate)

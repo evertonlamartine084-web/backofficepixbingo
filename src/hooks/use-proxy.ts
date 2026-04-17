@@ -41,8 +41,7 @@ export function useProxy() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
     try {
-      if (token) headers['apikey'] = SUPABASE_ANON_KEY;
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/pixbingo-proxy`, {
+      const res = await fetch('/api/pixbingo-proxy', {
         method: 'POST',
         headers,
         body: JSON.stringify({

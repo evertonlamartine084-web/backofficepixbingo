@@ -5,7 +5,8 @@ import { platformLogin, buildPlatformHeaders, fetchJSON, buildDataTableParams, U
 export const config = { runtime: 'edge', maxDuration: 60 };
 
 type Action = 'login' | 'list_users' | 'search_player' | 'player_transactions'
-  | 'credit_bonus' | 'cancel_bonus' | 'list_transactions' | 'financeiro' | 'credit_batch' | 'list_partidas' | 'scrape_page';
+  | 'credit_bonus' | 'cancel_bonus' | 'list_transactions' | 'financeiro' | 'credit_batch' | 'list_partidas' | 'scrape_page'
+  | 'list_vendedores' | 'vendedor_detail' | 'vendedor_indicados';
 
 interface ProxyRequest {
   action: Action;
@@ -34,6 +35,9 @@ interface ProxyRequest {
   busca_agrupamento?: string;
   carteira?: string;
   path?: string;
+  busca_vendedor?: string;
+  busca_login?: string;
+  vendedor_id?: string;
 }
 
 interface FinanceRow {
@@ -619,6 +623,47 @@ export default async function handler(req: Request): Promise<Response> {
           menu_links: [...html.matchAll(/href=['"]([^'"]+)['"]/gi)].map(m => m[1]).filter(h => h.startsWith('/')),
           wallet_matches: walletMatches,
         };
+        break;
+      }
+
+      case 'list_vendedores': {
+        const params = buildDataTableParams({
+          columns: ['id', 'distribuidor', 'vendedor', 'email', 'ativo', 'codigo'],
+          draw: body.draw, start: body.start, length: body.length,
+          extraParams: {
+            ...(body.busca_vendedor ? { busca_vendedor: body.busca_vendedor } : {}),
+            ...(body.busca_login ? { busca_login: body.busca_login } : {}),
+            ...(body.search ? { 'search[value]': body.search } : {}),
+          },
+        });
+        result = await fetchJSON(`${baseUrl}/vendedores/listar?${params}`, headers);
+        break;
+      }
+
+      case 'vendedor_detail': {
+        const vid = body.vendedor_id || '';
+        if (!vid) { result = { error: 'vendedor_id obrigatório' }; break; }
+        const detailRes = await fetch(`${baseUrl}/vendedores/${vid}`, {
+          method: 'GET', headers: { ...headers, Accept: 'text/html,application/xhtml+xml,*/*' }, signal: AbortSignal.timeout(12000),
+        });
+        const html = await detailRes.text();
+        try { result = JSON.parse(html); } catch {
+          const inputs = [...html.matchAll(/<input[^>]*name=['"]([^'"]+)['"][^>]*value=['"]([^'"]*)['"]/gi)]
+            .reduce<Record<string, string>>((acc, m) => { acc[m[1]] = m[2]; return acc; }, {});
+          result = { html_status: detailRes.status, fields: inputs };
+        }
+        break;
+      }
+
+      case 'vendedor_indicados': {
+        const vid = body.vendedor_id || '';
+        if (!vid) { result = { error: 'vendedor_id obrigatório' }; break; }
+        const params = buildDataTableParams({
+          columns: ['id', 'username', 'cpf', 'created_at', 'depositos', 'apostas'],
+          draw: body.draw, start: body.start, length: body.length,
+          orderDir: 'desc',
+        });
+        result = await fetchJSON(`${baseUrl}/vendedores/${vid}/indicados/listar?${params}`, headers);
         break;
       }
 
