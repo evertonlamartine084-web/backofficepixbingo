@@ -433,12 +433,12 @@ export default function Journeys() {
               {/* Segment filter */}
               <div>
                 <Label>Filtrar por Segmento (opcional)</Label>
-                <Select value={form.segment_id} onValueChange={v => setForm(f => ({ ...f, segment_id: v }))}>
+                <Select value={form.segment_id || '__none__'} onValueChange={v => setForm(f => ({ ...f, segment_id: v === '__none__' ? '' : v }))}>
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue placeholder="Todos os jogadores" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos os jogadores</SelectItem>
+                    <SelectItem value="__none__">Todos os jogadores</SelectItem>
                     {segments.map(s => (
                       <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                     ))}
