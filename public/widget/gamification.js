@@ -128,6 +128,7 @@
   let activeTab = 'missions';
   let isSpinning = false;
   let spinResult = null;
+  let wheelRestDeg = 0; // ângulo de descanso da roleta (preserva a posição sorteada nos re-renders)
   let selectedTournament = null;
   let selectedStoreItem = null;
   let storeMessage = null;
@@ -1466,6 +1467,7 @@
         // Pointer is on the RIGHT (3 o'clock = 90° from top), so add 90° offset
         const sectorCenter = winIndex * sliceAngle + sliceAngle / 2;
         const targetAngle = (360 - sectorCenter + 90) % 360;
+        wheelRestDeg = targetAngle; // guarda a posição final pro render não resetar a roleta
         const totalRotation = (12 + Math.floor(Math.random() * 4)) * 360 + targetAngle;
         // Force browser to paint initial state (0deg) before applying rotation,
         // otherwise the transition is skipped (browser collapses both states)
@@ -2342,7 +2344,7 @@
           <div class="pbg-wheel-bulbs ${isSpinning ? 'spin' : ''}" id="pbg-wheel-bulbs">${bulbsHtml}</div>
           <div class="pbg-wheel-ring-inner"></div>
           <div class="pbg-wheel-flap">${flapSvg}</div>
-          <svg viewBox="0 0 ${size} ${size}" class="pbg-wheel-svg" id="pbg-wheel-canvas">${svg}</svg>
+          <svg viewBox="0 0 ${size} ${size}" class="pbg-wheel-svg" id="pbg-wheel-canvas" style="transform:rotate(${wheelRestDeg}deg)">${svg}</svg>
           <div class="pbg-wheel-hub ${btnDisabled ? 'off' : ''}" onclick="${btnDisabled ? '' : "window.__pbg('spin')"}">${hubContent}</div>
         </div>
         ${timerHtml}
@@ -3921,7 +3923,7 @@
     window.__pbgToggle = (s) => toggle(s);
 
     fetchData();
-    setInterval(() => { if (!selectedMission && !selectedTournament && !selectedStoreItem && !selectedLevel) fetchData(); }, 15_000);
+    setInterval(() => { if (!isSpinning && !selectedMission && !selectedTournament && !selectedStoreItem && !selectedLevel) fetchData(); }, 15_000);
   }
 
   async function checkSegmentAndInit() {
