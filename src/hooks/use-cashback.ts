@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, API_URL } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getSavedCredentials } from '@/hooks/use-proxy';
 import { logAudit } from '@/hooks/use-audit';
@@ -266,7 +266,7 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
     setProcessing(true);
     try {
       const authHeaders = await getAuthHeaders();
-      const _res = await fetch('/api/process-cashback', {
+      const _res = await fetch(`${API_URL}/functions/process-cashback`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
@@ -311,7 +311,7 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
     setProcessing(true);
     try {
       const authHeaders = await getAuthHeaders();
-      const _res = await fetch('/api/process-cashback', {
+      const _res = await fetch(`${API_URL}/functions/process-cashback`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
@@ -368,9 +368,9 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
 
     const runIteration = async () => {
       try {
-        const _res = await fetch('/api/process-cashback', {
+        const _res = await fetch(`${API_URL}/functions/process-cashback`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({ rule_id: rule.id, username: creds.username, password: creds.password }),
         });
         const data = await _res.json();
@@ -401,7 +401,7 @@ export function useCashbackProcessing(rules: CashbackRule[]) {
     };
 
     runIteration();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [queryClient]);
 
   // Auto-resume for ATIVA + auto rules on load

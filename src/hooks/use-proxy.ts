@@ -3,8 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 
 const DEFAULT_SITE = 'https://pixbingobr.concurso.club';
 const DEFAULT_LOGIN = 'https://pixbingobr.concurso.club/login';
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+// Backend novo (Railway) — substitui a antiga function /api/pixbingo-proxy da Vercel
+const API_URL = ((import.meta as { env?: Record<string, string> }).env?.VITE_API_URL)
+  || 'https://pixbingo-gamification-backend-production.up.railway.app';
+const PROXY_URL = `${API_URL}/functions/pixbingo-proxy`;
 
 /** Get current Supabase session token for API auth */
 async function getAuthToken(): Promise<string | null> {
@@ -41,7 +43,7 @@ export function useProxy() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
     try {
-      const res = await fetch('/api/pixbingo-proxy', {
+      const res = await fetch(PROXY_URL, {
         method: 'POST',
         headers,
         body: JSON.stringify({

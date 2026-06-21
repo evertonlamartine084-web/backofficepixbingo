@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, API_URL } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getSavedCredentials } from '@/hooks/use-proxy';
 import { logAudit } from '@/hooks/use-audit';
@@ -122,9 +122,9 @@ export function useCampaigns() {
     queryFn: async () => {
       const creds = getSavedCredentials();
       if (!creds.username || !creds.password) return [];
-      const res = await fetch('/api/pixbingo-proxy', {
+      const res = await fetch(`${API_URL}/functions/pixbingo-proxy`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           action: 'list_partidas',
           site_url: 'https://pixbingobr.concurso.club',
@@ -294,7 +294,7 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
     const runIteration = async () => {
       try {
         const authHeaders = await getAuthHeaders();
-        const _res = await fetch('/api/process-campaign', {
+        const _res = await fetch(`${API_URL}/functions/process-campaign`, {
           method: 'POST',
           headers: authHeaders,
           body: JSON.stringify({ campaign_id: campaign.id, username: creds.username, password: creds.password }),
@@ -344,7 +344,7 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
     };
 
     runIteration();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const processCampaign = async (campaign: Campaign, onDone?: () => void) => {
@@ -367,7 +367,7 @@ export function useCampaignProcessing(campaigns: Campaign[]) {
       let remaining = 1;
       while (remaining > 0) {
         const authHeaders = await getAuthHeaders();
-        const _res = await fetch('/api/process-campaign', {
+        const _res = await fetch(`${API_URL}/functions/process-campaign`, {
           method: 'POST',
           headers: authHeaders,
           body: JSON.stringify({ campaign_id: campaign.id, username: creds.username, password: creds.password }),
