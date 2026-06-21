@@ -116,7 +116,7 @@ export default function Popups() {
     end_date: undefined as Date | undefined,
   });
 
-  const baseUrl = `https://backofficepixbingobr.vercel.app/api`;
+  const baseUrl = `https://pixbingo-gamification-backend-production.up.railway.app/api`;
   const endpointUrl = `${baseUrl}/popup-check?cpf=INSERIR_CPF`;
   const eventEndpointUrl = `${baseUrl}/popup-event`;
 
@@ -146,7 +146,7 @@ export default function Popups() {
     return div.innerHTML;
   }
 
-  var BASE = 'https://backofficepixbingobr.vercel.app/api';
+  var BASE = 'https://pixbingo-gamification-backend-production.up.railway.app/api';
   var CHECK_URL = BASE + '/popup-check';
   var EVENT_URL = BASE + '/popup-event';
 
