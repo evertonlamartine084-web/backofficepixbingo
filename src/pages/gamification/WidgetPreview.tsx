@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
-const WIDGET_SCRIPT_URL = 'https://backofficepixbingobr.vercel.app/api/gamification-widget';
+const WIDGET_SCRIPT_URL = 'https://pixbingo-gamification-backend-production.up.railway.app/api/gamification-widget';
 
 interface WidgetSections {
   missions: boolean;

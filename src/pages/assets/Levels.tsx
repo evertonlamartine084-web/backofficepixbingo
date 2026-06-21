@@ -36,7 +36,7 @@ const supabaseUntyped = supabase as unknown as {
 
 const TIER_ORDER = ['Iniciante', 'Bronze', 'Prata', 'Ouro', 'Titanio', 'Platina', 'Rubi', 'Diamante', 'Black', 'Elite', 'Lendario', 'Supremo'];
 
-const WIDGET_BASE = 'https://backofficepixbingobr.vercel.app';
+const WIDGET_BASE = 'https://backoffice-production-6058.up.railway.app';
 
 function resolveIcon(url: string) {
   if (!url) return '';

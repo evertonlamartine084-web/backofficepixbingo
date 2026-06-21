@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
-const VERCEL_URL = 'https://backofficepixbingobr.vercel.app';
+const VERCEL_URL = 'https://pixbingo-gamification-backend-production.up.railway.app';
 
 interface PlatformConfigData {
   id: string;
