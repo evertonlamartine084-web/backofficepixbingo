@@ -1395,14 +1395,10 @@
           window.__pbg_syncing_missions = false;
           if (result.success && result.mission_progress && data) {
             data.mission_progress = result.mission_progress;
+            // sync_missions já retorna a carteira sincronizada (XP/nível) — atualiza no mesmo ciclo, sem re-fetch
+            if (result.wallet) data.wallet = result.wallet;
+            updateFab();
             if (!selectedMission && !selectedTournament && !selectedStoreItem && !selectedLevel) renderContent();
-            // Re-fetch full data to get updated wallet too
-            apiCall('data').then(d => {
-              // Preserve synced mission progress (data response may be stale)
-              if (result.mission_progress) d.mission_progress = result.mission_progress;
-              data = d; updateFab();
-              if (!selectedMission && !selectedTournament && !selectedStoreItem && !selectedLevel) renderContent();
-            }).catch(() => {});
           }
         }).catch(() => { window.__pbg_syncing_missions = false; });
       }
@@ -3922,7 +3918,7 @@
     window.__pbgToggle = (s) => toggle(s);
 
     fetchData();
-    setInterval(() => { if (!selectedMission && !selectedTournament && !selectedStoreItem && !selectedLevel) fetchData(); }, 30_000);
+    setInterval(() => { if (!selectedMission && !selectedTournament && !selectedStoreItem && !selectedLevel) fetchData(); }, 15_000);
   }
 
   async function checkSegmentAndInit() {

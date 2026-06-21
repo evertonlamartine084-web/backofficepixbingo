@@ -378,6 +378,18 @@ export default function Tournaments() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label>Status</Label>
+              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
+                <SelectTrigger className="bg-secondary border-border mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="RASCUNHO">Rascunho</SelectItem>
+                  <SelectItem value="ATIVO">Ativo</SelectItem>
+                  <SelectItem value="PAUSADO">Pausado</SelectItem>
+                  <SelectItem value="ENCERRADO">Encerrado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Opt-in & Points */}
             <div className="border-t border-border pt-4 space-y-4">
