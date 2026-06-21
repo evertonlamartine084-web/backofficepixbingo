@@ -2841,29 +2841,32 @@
       const purchasedLeft = att?.purchased_attempts || 0;
       const totalAvailable = freeLeft + purchasedLeft;
       const maxReached = maxAtt > 0 && attToday >= maxAtt;
-      const isPurchaseOnly = freeAtt <= 0 && game.attempt_cost_coins <= 0;
-
-      // Hide purchase-only games when player has no purchased attempts
-      if (isPurchaseOnly && purchasedLeft <= 0) return;
+      const isPurchaseOnly = freeAtt <= 0 && (game.attempt_cost_coins || 0) <= 0;
+      // Jogo "purchase-only" sem tentativas compradas: mostra bloqueado com CTA pra loja
+      // (antes era escondido, deixando a aba vazia).
+      const locked = isPurchaseOnly && purchasedLeft <= 0;
 
       const isChest = game.type === 'gift_box';
       const customImg = game.config?.chest_image;
       const imgSrc = isChest ? (customImg || CHEST_IMG) : '';
 
       html += `
-        <div class="pbg-mg-card ${maxReached ? 'greyed' : ''}" onclick="window.__pbg('openMiniGame','${game.id}')">
+        <div class="pbg-mg-card ${maxReached ? 'greyed' : ''}" onclick="window.__pbg('${locked ? 'tab' : 'openMiniGame'}','${locked ? 'store' : game.id}')">
           ${isChest
             ? `<img class="pbg-mg-card-img" src="${imgSrc}" alt="${game.name}" draggable="false" loading="lazy" />`
             : `<div class="pbg-mg-icon">${game.type === 'scratch_card' ? inlIcon('card',36) : game.type === 'prize_drop' ? inlIcon('target',36) : inlIcon('gamepad',36)}</div>`
           }
           <div class="pbg-mg-name">${game.name}</div>
-          <div class="pbg-mg-type">${game.description || typeLabels[game.type] || game.type}</div>
+          <div class="pbg-mg-type">${locked ? 'Compre na loja para jogar' : (game.description || typeLabels[game.type] || game.type)}</div>
           <div class="pbg-mg-actions">
-            ${freeLeft > 0 ? `<button class="pbg-mg-btn-free" onclick="event.stopPropagation();window.__pbg('openMiniGame','${game.id}')">GRÁTIS</button>` : ''}
+            ${locked
+              ? `<button class="pbg-mg-btn-open" onclick="event.stopPropagation();window.__pbg('tab','store')">${inlIcon('cart',12)}<span>COMPRAR NA LOJA</span></button>`
+              : `${freeLeft > 0 ? `<button class="pbg-mg-btn-free" onclick="event.stopPropagation();window.__pbg('openMiniGame','${game.id}')">GRÁTIS</button>` : ''}
             <button class="pbg-mg-btn-open" onclick="event.stopPropagation();window.__pbg('openMiniGame','${game.id}')">
               ${OPEN_ICON_SVG}
               <span>ABRIR (${totalAvailable})</span>
-            </button>
+            </button>`
+          }
           </div>
         </div>
       `;
