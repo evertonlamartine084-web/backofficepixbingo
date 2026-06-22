@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, API_URL } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Users } from 'lucide-react';
 import { ApiCredentialsBar } from '@/components/ApiCredentialsBar';
@@ -291,8 +291,8 @@ export default function Segments() {
 
   const evaluateSegmentRules = async (segmentId: string, rules: SegmentRule[], matchType: string) => {
     const token = await getAuthToken();
-    const baseUrl = window.location.origin;
-    const res = await fetch(`${baseUrl}/api/segment-evaluate?action=evaluate`, {
+    const baseUrl = API_URL;
+    const res = await fetch(`${baseUrl}/functions/segment-evaluate?action=evaluate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({ segment_id: segmentId, rules, match_type: matchType }),
@@ -309,8 +309,8 @@ export default function Segments() {
     setPreviewLoading(true);
     try {
       const token = await getAuthToken();
-      const baseUrl = window.location.origin;
-      const res = await fetch(`${baseUrl}/api/segment-evaluate?action=preview`, {
+      const baseUrl = API_URL;
+      const res = await fetch(`${baseUrl}/functions/segment-evaluate?action=preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ rules, match_type: matchType }),
