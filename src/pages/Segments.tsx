@@ -17,6 +17,14 @@ import type {
 } from './segments/types';
 import { ALL_USERS_ID } from './segments/types';
 
+/** Extrai a mensagem de um erro, seja Error nativo ou objeto { message } do adapter. */
+function errMsg(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message);
+  if (typeof e === 'string') return e;
+  return 'Erro';
+}
+
 export default function Segments() {
   const qc = useQueryClient();
   const { callProxy } = useProxy();
@@ -224,7 +232,7 @@ export default function Segments() {
       toast.success('Segmento criado!');
       logAudit({ action: 'CRIAR', resource_type: 'segmento', resource_name: newName });
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Erro'),
+    onError: (e: unknown) => toast.error(errMsg(e)),
   });
 
   const deleteMut = useMutation({
@@ -244,9 +252,19 @@ export default function Segments() {
       logAudit({ action: 'EXCLUIR', resource_type: 'segmento', resource_id: id, resource_name: seg?.name });
     },
     onError: (e: unknown) => {
-      const msg = e instanceof Error ? e.message : 'Erro';
-      if (/chave estrangeira|foreign key/i.test(msg)) {
-        toast.error('Nao foi possivel excluir: o segmento esta em uso por uma campanha, widget, missao ou outro recurso. Remova o vinculo primeiro.');
+      const msg = errMsg(e);
+      if (/chave estrangeira|foreign key|viola/i.test(msg)) {
+        // Tenta identificar o recurso vinculado pelo nome da constraint do Postgres
+        const map: Record<string, string> = {
+          campaigns: 'uma campanha', missions: 'uma missao', mini_games: 'um mini-game',
+          daily_wheel_prizes: 'um premio da roleta', popups: 'um popup', tournaments: 'um torneio',
+          push_notifications: 'uma notificacao', inbox_messages: 'uma mensagem do inbox',
+          referral_config: 'a config de indicacao', achievements: 'uma conquista',
+          platform_config: 'o widget', segment_items: 'os jogadores do segmento',
+        };
+        const hit = Object.keys(map).find(k => msg.includes(k));
+        const alvo = hit ? map[hit] : 'outro recurso';
+        toast.error(`Nao foi possivel excluir: o segmento esta em uso por ${alvo}. Remova o vinculo primeiro.`);
       } else {
         toast.error(msg);
       }
@@ -271,7 +289,7 @@ export default function Segments() {
       const seg = segments?.find((s: SegmentRow) => s.id === selectedSegment);
       logAudit({ action: 'EDITAR', resource_type: 'segmento', resource_id: selectedSegment || undefined, resource_name: seg?.name, details: { cpfs_added: count } });
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Erro'),
+    onError: (e: unknown) => toast.error(errMsg(e)),
   });
 
   const removeCpfMut = useMutation({
@@ -285,7 +303,7 @@ export default function Segments() {
       qc.invalidateQueries({ queryKey: ['segments'] });
       toast.success('CPF removido');
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Erro'),
+    onError: (e: unknown) => toast.error(errMsg(e)),
   });
 
   // ── Helpers ──
@@ -331,7 +349,7 @@ export default function Segments() {
       setPreviewCount(data.count);
       setPreviewSample(data.sample || []);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro');
+      toast.error(errMsg(err));
     } finally { setPreviewLoading(false); }
   };
 
@@ -349,7 +367,7 @@ export default function Segments() {
       qc.invalidateQueries({ queryKey: ['segment_items', selectedSegment] });
       qc.invalidateQueries({ queryKey: ['segment_items_count', selectedSegment] });
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro');
+      toast.error(errMsg(err));
     } finally { setEvaluating(false); }
   };
 
@@ -377,7 +395,7 @@ export default function Segments() {
       toast.success('Regras atualizadas e segmento reavaliado!');
     } catch (err: unknown) {
       setEvaluating(false);
-      toast.error(err instanceof Error ? err.message : 'Erro');
+      toast.error(errMsg(err));
     }
   };
 
@@ -412,7 +430,7 @@ export default function Segments() {
       logAudit({ action: 'CREDITAR', resource_type: 'batch', resource_name: seg?.name, details: { segment_id: selectedSegment, amount: creditAmount, total: allItems.length, credited: result?.credited || 0, errors: result?.errors || 0 } });
       qc.invalidateQueries({ queryKey: ['batches'] });
     } catch (err: unknown) {
-      if (!creditCancelRef.current) toast.error(err instanceof Error ? err.message : 'Erro na creditacao em massa');
+      if (!creditCancelRef.current) toast.error(errMsg(err) || 'Erro na creditacao em massa');
     } finally { setCreditLoading(false); }
   };
 
