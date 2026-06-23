@@ -229,6 +229,10 @@ export default function Segments() {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
+      // Remove os CPFs primeiro: a FK segment_items->segments nao tem ON DELETE CASCADE
+      // no backend, entao excluir o segmento direto viola a restricao.
+      const { error: itemsErr } = await supabase.from('segment_items').delete().eq('segment_id', id);
+      if (itemsErr) throw itemsErr;
       const { error } = await supabase.from('segments').delete().eq('id', id);
       if (error) throw error;
     },
@@ -239,7 +243,14 @@ export default function Segments() {
       toast.success('Segmento excluido!');
       logAudit({ action: 'EXCLUIR', resource_type: 'segmento', resource_id: id, resource_name: seg?.name });
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Erro'),
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : 'Erro';
+      if (/chave estrangeira|foreign key/i.test(msg)) {
+        toast.error('Nao foi possivel excluir: o segmento esta em uso por uma campanha, widget, missao ou outro recurso. Remova o vinculo primeiro.');
+      } else {
+        toast.error(msg);
+      }
+    },
   });
 
   const addCpfsMut = useMutation({
