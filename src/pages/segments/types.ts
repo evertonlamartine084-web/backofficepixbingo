@@ -155,6 +155,18 @@ export const OPERATORS_MEMBERSHIP = [
   { value: 'neq', label: 'não completou' },
 ];
 
+// "é um de / não é um de" — seleciona vários valores (value = lista separada por vírgula).
+export const OPERATORS_MULTI = [
+  { value: 'in', label: 'é um de' },
+  { value: 'not_in', label: 'não é um de' },
+];
+
+// "definido / não definido" — campo preenchido ou vazio (não usa valor).
+export const OPERATORS_DEFINED = [
+  { value: 'defined', label: 'definido' },
+  { value: 'not_defined', label: 'não definido' },
+];
+
 export const SEGMENT_COLORS = [
   '#6d28d9', '#2563eb', '#059669', '#d97706', '#dc2626',
   '#ec4899', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316',

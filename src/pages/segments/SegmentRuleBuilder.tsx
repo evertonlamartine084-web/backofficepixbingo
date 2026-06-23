@@ -1,15 +1,57 @@
-import { Plus, X, Filter } from 'lucide-react';
+import { Plus, X, Filter, ChevronDown } from 'lucide-react';
 import type { SetStateAction } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RULE_FIELDS, OPERATORS_NUMBER, OPERATORS_DAYS, OPERATORS_TEXT, OPERATORS_MEMBERSHIP, generateId } from './types';
-import type { SegmentRule } from './types';
+import { RULE_FIELDS, OPERATORS_NUMBER, OPERATORS_DAYS, OPERATORS_TEXT, OPERATORS_MEMBERSHIP, OPERATORS_MULTI, OPERATORS_DEFINED, generateId } from './types';
+import type { SegmentRule, RuleFieldDef } from './types';
 
 interface LevelRow { level: number; name: string }
 interface MissionRow { id: string; name: string }
+type Opt = { value: string; label: string };
+
+/** Operadores disponíveis por campo (compõe os conjuntos conforme o tipo). */
+function getOperators(fieldDef: RuleFieldDef | undefined, hasOptions: boolean): Opt[] {
+  if (!fieldDef) return OPERATORS_NUMBER;
+  if (fieldDef.type === 'days') return OPERATORS_DAYS;
+  if (fieldDef.type === 'mission') return [...OPERATORS_MEMBERSHIP, ...OPERATORS_MULTI];
+  if (fieldDef.type === 'text') return [...OPERATORS_TEXT, ...OPERATORS_MULTI, ...OPERATORS_DEFINED];
+  return hasOptions ? [...OPERATORS_NUMBER, ...OPERATORS_MULTI] : OPERATORS_NUMBER; // number
+}
+
+/** Multi-seleção (checkboxes) pro operador "é um de / não é um de". value = lista por vírgula. */
+function MultiSelectValue({ options, value, onChange }: { options: Opt[]; value: string; onChange: (v: string) => void }) {
+  const selected = value ? value.split(',').filter(Boolean) : [];
+  const toggle = (v: string) => {
+    const next = selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v];
+    onChange(next.join(','));
+  };
+  const label = selected.length === 0 ? 'selecione...'
+    : selected.length === 1 ? (options.find(o => o.value === selected[0])?.label ?? selected[0])
+    : `${selected.length} selecionados`;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="h-8 w-44 justify-between text-xs bg-background border-border font-normal">
+          <span className="truncate">{label}</span>
+          <ChevronDown className="w-3.5 h-3.5 opacity-50 flex-shrink-0" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-1 max-h-72 overflow-auto" align="start">
+        {options.map(o => (
+          <label key={o.value} className="flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-secondary rounded cursor-pointer">
+            <Checkbox checked={selected.includes(o.value)} onCheckedChange={() => toggle(o.value)} />
+            <span className="truncate">{o.label}</span>
+          </label>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 interface SegmentRuleBuilderProps {
   rules: SegmentRule[];
@@ -73,9 +115,11 @@ export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }:
       <div className="space-y-2">
         {rules.map((rule, idx) => {
           const fieldDef = RULE_FIELDS.find(f => f.value === rule.field);
-          const operators = fieldDef?.type === 'mission' ? OPERATORS_MEMBERSHIP : fieldDef?.type === 'days' ? OPERATORS_DAYS : fieldDef?.type === 'text' ? OPERATORS_TEXT : OPERATORS_NUMBER;
           const FieldIcon = fieldDef?.icon || Filter;
           const valueOptions = fieldDef?.options ?? dynamicOptions[rule.field];
+          const operators = getOperators(fieldDef, !!(valueOptions && valueOptions.length));
+          const isMulti = rule.operator === 'in' || rule.operator === 'not_in';
+          const isDefined = rule.operator === 'defined' || rule.operator === 'not_defined';
 
           return (
             <div key={rule.id} className="flex items-center gap-2 p-3 rounded-lg bg-secondary/50 border border-border group">
@@ -117,7 +161,19 @@ export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }:
                 </SelectContent>
               </Select>
 
-              {valueOptions && valueOptions.length > 0 ? (
+              {isDefined ? (
+                <span className="text-xs text-muted-foreground italic w-44 px-2">(sem valor)</span>
+              ) : isMulti && valueOptions && valueOptions.length > 0 ? (
+                <MultiSelectValue options={valueOptions} value={String(rule.value)} onChange={v => updateRule(rule.id, { value: v })} />
+              ) : isMulti ? (
+                <Input
+                  type="text"
+                  value={rule.value}
+                  onChange={e => updateRule(rule.id, { value: e.target.value })}
+                  placeholder="valor1, valor2, ..."
+                  className="h-8 text-xs bg-background border-border font-mono w-44"
+                />
+              ) : valueOptions && valueOptions.length > 0 ? (
                 <Select value={String(rule.value)} onValueChange={v => updateRule(rule.id, { value: v })}>
                   <SelectTrigger className="h-8 w-44 text-xs bg-background border-border">
                     <SelectValue placeholder="selecione..." />
