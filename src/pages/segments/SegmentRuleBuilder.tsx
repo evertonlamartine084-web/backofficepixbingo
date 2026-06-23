@@ -1,10 +1,14 @@
 import { Plus, X, Filter } from 'lucide-react';
 import type { SetStateAction } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RULE_FIELDS, OPERATORS_NUMBER, OPERATORS_DAYS, OPERATORS_TEXT, generateId } from './types';
 import type { SegmentRule } from './types';
+
+interface LevelRow { level: number; name: string }
 
 interface SegmentRuleBuilderProps {
   rules: SegmentRule[];
@@ -21,6 +25,20 @@ export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }:
   };
 
   const categories = [...new Set(RULE_FIELDS.map(f => f.category))];
+
+  // Níveis vêm do banco (são dinâmicos) → dropdown no campo "Nivel" com nome do nível.
+  const { data: levels } = useQuery({
+    queryKey: ['levels_for_rules'],
+    queryFn: async () => {
+      const { data } = await supabase.from('levels').select('level, name').order('level', { ascending: true });
+      return (data || []) as LevelRow[];
+    },
+    staleTime: 30 * 60 * 1000,
+  });
+  // Opções dinâmicas por campo (carregadas do banco). Estáticas ficam em RULE_FIELDS.options.
+  const dynamicOptions: Record<string, { value: string; label: string }[]> = {
+    level: (levels || []).map(l => ({ value: String(l.level), label: `${l.level} — ${l.name}` })),
+  };
 
   return (
     <div className="space-y-3">
@@ -46,6 +64,7 @@ export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }:
           const fieldDef = RULE_FIELDS.find(f => f.value === rule.field);
           const operators = fieldDef?.type === 'days' ? OPERATORS_DAYS : fieldDef?.type === 'text' ? OPERATORS_TEXT : OPERATORS_NUMBER;
           const FieldIcon = fieldDef?.icon || Filter;
+          const valueOptions = fieldDef?.options ?? dynamicOptions[rule.field];
 
           return (
             <div key={rule.id} className="flex items-center gap-2 p-3 rounded-lg bg-secondary/50 border border-border group">
@@ -87,13 +106,13 @@ export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }:
                 </SelectContent>
               </Select>
 
-              {fieldDef?.options ? (
+              {valueOptions && valueOptions.length > 0 ? (
                 <Select value={String(rule.value)} onValueChange={v => updateRule(rule.id, { value: v })}>
-                  <SelectTrigger className="h-8 w-40 text-xs bg-background border-border">
+                  <SelectTrigger className="h-8 w-44 text-xs bg-background border-border">
                     <SelectValue placeholder="selecione..." />
                   </SelectTrigger>
-                  <SelectContent>
-                    {fieldDef.options.map(opt => (
+                  <SelectContent className="max-h-72">
+                    {valueOptions.map(opt => (
                       <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
                     ))}
                   </SelectContent>
