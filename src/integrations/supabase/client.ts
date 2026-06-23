@@ -93,10 +93,14 @@ class Query<T = any> implements PromiseLike<{ data: any; error: any; count: numb
     let url = `${API_URL}/data/${this.table}${this.qs()}`;
     if (this.method === 'upsert') url += `${url.includes('?') ? '&' : '?'}upsert=1`;
     try {
+      const hasBody = method === 'POST' || method === 'PATCH';
+      // Só enviar Content-Type quando há corpo: o Fastify do backend rejeita
+      // (400 FST_ERR_CTP_EMPTY_JSON_BODY) requisições sem body com content-type json,
+      // o que quebrava todos os DELETE (apagar segmento, remover CPF, etc.).
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: (method === 'POST' || method === 'PATCH') ? JSON.stringify(this.body ?? {}) : undefined,
+        headers: { ...(hasBody ? { 'Content-Type': 'application/json' } : {}), ...authHeaders() },
+        body: hasBody ? JSON.stringify(this.body ?? {}) : undefined,
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) return { data: null, error: json.error || { message: `HTTP ${res.status}` }, count: null };
