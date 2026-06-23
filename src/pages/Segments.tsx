@@ -128,7 +128,11 @@ export default function Segments() {
         }));
       } finally { setAllUsersLoading(false); }
     },
-    staleTime: 10 * 60 * 1000,
+    // A base inteira (~94k) é cara de montar. Mantemos em cache por 30min (staleTime) e
+    // só descartamos da memória após 60min sem uso (gcTime) — assim re-entrar no "All Users"
+    // não recarrega tudo de novo. (O backend ainda cacheia as páginas no Redis por 10min.)
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
 
   // Pagination
