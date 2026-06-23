@@ -5,10 +5,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RULE_FIELDS, OPERATORS_NUMBER, OPERATORS_DAYS, OPERATORS_TEXT, generateId } from './types';
+import { RULE_FIELDS, OPERATORS_NUMBER, OPERATORS_DAYS, OPERATORS_TEXT, OPERATORS_MEMBERSHIP, generateId } from './types';
 import type { SegmentRule } from './types';
 
 interface LevelRow { level: number; name: string }
+interface MissionRow { id: string; name: string }
 
 interface SegmentRuleBuilderProps {
   rules: SegmentRule[];
@@ -35,9 +36,19 @@ export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }:
     },
     staleTime: 30 * 60 * 1000,
   });
+  // Missões (id + nome) → dropdown no campo "Completou a Missao".
+  const { data: missions } = useQuery({
+    queryKey: ['missions_for_rules'],
+    queryFn: async () => {
+      const { data } = await supabase.from('missions').select('id, name').order('created_at', { ascending: false });
+      return (data || []) as MissionRow[];
+    },
+    staleTime: 30 * 60 * 1000,
+  });
   // Opções dinâmicas por campo (carregadas do banco). Estáticas ficam em RULE_FIELDS.options.
   const dynamicOptions: Record<string, { value: string; label: string }[]> = {
     level: (levels || []).map(l => ({ value: String(l.level), label: `${l.level} — ${l.name}` })),
+    mission_completed: (missions || []).map(m => ({ value: m.id, label: m.name })),
   };
 
   return (
@@ -62,7 +73,7 @@ export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }:
       <div className="space-y-2">
         {rules.map((rule, idx) => {
           const fieldDef = RULE_FIELDS.find(f => f.value === rule.field);
-          const operators = fieldDef?.type === 'days' ? OPERATORS_DAYS : fieldDef?.type === 'text' ? OPERATORS_TEXT : OPERATORS_NUMBER;
+          const operators = fieldDef?.type === 'mission' ? OPERATORS_MEMBERSHIP : fieldDef?.type === 'days' ? OPERATORS_DAYS : fieldDef?.type === 'text' ? OPERATORS_TEXT : OPERATORS_NUMBER;
           const FieldIcon = fieldDef?.icon || Filter;
           const valueOptions = fieldDef?.options ?? dynamicOptions[rule.field];
 
@@ -77,7 +88,7 @@ export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }:
 
               <Select value={rule.field} onValueChange={v => {
                 const newField = RULE_FIELDS.find(f => f.value === v);
-                const defaultOp = newField?.type === 'days' ? 'within' : newField?.type === 'text' ? 'eq' : 'gte';
+                const defaultOp = newField?.type === 'days' ? 'within' : (newField?.type === 'text' || newField?.type === 'mission') ? 'eq' : 'gte';
                 updateRule(rule.id, { field: v, operator: defaultOp, value: '' });
               }}>
                 <SelectTrigger className="h-8 w-44 text-xs bg-background border-border">

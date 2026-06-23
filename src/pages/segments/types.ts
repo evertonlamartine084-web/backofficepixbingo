@@ -99,6 +99,7 @@ export const RULE_FIELDS: RuleFieldDef[] = [
   { value: 'total_deposits', label: 'Total Depositado (R$)', icon: CreditCard, category: 'Financeiro', type: 'number' },
   { value: 'total_bets', label: 'Total Apostado (R$)', icon: Gamepad2, category: 'Financeiro', type: 'number' },
   { value: 'missions_completed', label: 'Missoes Completas', icon: Target, category: 'Gamificacao', type: 'number' },
+  { value: 'mission_completed', label: 'Completou a Missao', icon: Target, category: 'Gamificacao', type: 'mission' },
   { value: 'achievements_completed', label: 'Conquistas Desbloqueadas', icon: Star, category: 'Gamificacao', type: 'number' },
   { value: 'tournaments_joined', label: 'Torneios Participados', icon: Layers, category: 'Gamificacao', type: 'number' },
   { value: 'store_purchases_count', label: 'Compras na Loja', icon: ShoppingBag, category: 'Gamificacao', type: 'number' },
@@ -147,6 +148,11 @@ export const OPERATORS_TEXT = [
   { value: 'eq', label: 'igual a' },
   { value: 'neq', label: 'diferente de' },
   { value: 'contains', label: 'contém' },
+];
+
+export const OPERATORS_MEMBERSHIP = [
+  { value: 'eq', label: 'completou' },
+  { value: 'neq', label: 'não completou' },
 ];
 
 export const SEGMENT_COLORS = [
