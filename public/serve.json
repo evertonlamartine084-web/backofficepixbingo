@@ -1,18 +1,14 @@
 {
   "redirects": [
     {
-      "source": "/widget/gamification.js",
-      "destination": "https://pixbingo-gamification-backend-production.up.railway.app/widget/gamification.js",
+      "source": "/widget/levels/:file",
+      "destination": "https://pixbingo-gamification-backend-production.up.railway.app/widget/levels/:file",
       "type": 301
-    }
-  ],
-  "headers": [
+    },
     {
-      "source": "widget/**",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" },
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
-      ]
+      "source": "/widget/:file",
+      "destination": "https://pixbingo-gamification-backend-production.up.railway.app/widget/:file",
+      "type": 301
     }
   ]
 }
