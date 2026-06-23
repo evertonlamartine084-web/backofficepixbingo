@@ -237,8 +237,22 @@ export default function Segments() {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
-      // Remove os CPFs primeiro: a FK segment_items->segments nao tem ON DELETE CASCADE
-      // no backend, entao excluir o segmento direto viola a restricao.
+      // IMPORTANTE: checa se o segmento esta EM USO antes de apagar qualquer coisa.
+      // A FK segment_items->segments nao tem CASCADE, entao precisamos apagar os itens
+      // antes do segmento; mas se o segmento estiver referenciado por outra tabela
+      // (widget/campanha/torneio/etc), o delete dele falha NA FK — e se ja tivessemos
+      // apagado os itens, perderiamos os CPFs e o segmento ficaria vazio. Por isso a
+      // verificacao vem PRIMEIRO; so apagamos se nao houver vinculo.
+      const refTables = ['campaigns', 'missions', 'mini_games', 'daily_wheel_prizes', 'popups', 'push_notifications', 'inbox_messages', 'referral_config', 'achievements', 'tournaments'];
+      for (const tb of refTables) {
+        const { data, error } = await supabase.from(tb).select('id').eq('segment_id', id).limit(1);
+        if (error) throw error;
+        if (data && data.length) throw new Error(`em uso por ${tb}`);
+      }
+      const { data: pc } = await supabase.from('platform_config').select('id').eq('widget_segment_id', id).limit(1);
+      if (pc && pc.length) throw new Error('em uso por platform_config');
+
+      // Sem vinculos → seguro apagar os itens e depois o segmento.
       const { error: itemsErr } = await supabase.from('segment_items').delete().eq('segment_id', id);
       if (itemsErr) throw itemsErr;
       const { error } = await supabase.from('segments').delete().eq('id', id);
@@ -253,7 +267,7 @@ export default function Segments() {
     },
     onError: (e: unknown) => {
       const msg = errMsg(e);
-      if (/chave estrangeira|foreign key|viola/i.test(msg)) {
+      if (/chave estrangeira|foreign key|viola|em uso/i.test(msg)) {
         // Tenta identificar o recurso vinculado pelo nome da constraint do Postgres
         const map: Record<string, string> = {
           campaigns: 'uma campanha', missions: 'uma missao', mini_games: 'um mini-game',
