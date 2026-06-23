@@ -87,13 +87,26 @@ export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }:
                 </SelectContent>
               </Select>
 
-              <Input
-                type={fieldDef?.type === 'text' ? 'text' : 'number'}
-                value={rule.value}
-                onChange={e => updateRule(rule.id, { value: e.target.value })}
-                placeholder={fieldDef?.type === 'days' ? 'dias' : fieldDef?.type === 'text' ? 'nome...' : '0'}
-                className={`h-8 text-xs bg-background border-border font-mono ${fieldDef?.type === 'text' ? 'w-40' : 'w-24'}`}
-              />
+              {fieldDef?.options ? (
+                <Select value={String(rule.value)} onValueChange={v => updateRule(rule.id, { value: v })}>
+                  <SelectTrigger className="h-8 w-40 text-xs bg-background border-border">
+                    <SelectValue placeholder="selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fieldDef.options.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  type={fieldDef?.type === 'text' ? 'text' : 'number'}
+                  value={rule.value}
+                  onChange={e => updateRule(rule.id, { value: e.target.value })}
+                  placeholder={fieldDef?.type === 'days' ? 'dias' : fieldDef?.type === 'text' ? 'nome...' : '0'}
+                  className={`h-8 text-xs bg-background border-border font-mono ${fieldDef?.type === 'text' ? 'w-40' : 'w-24'}`}
+                />
+              )}
 
               {fieldDef?.type === 'days' && <span className="text-xs text-muted-foreground">dias</span>}
 

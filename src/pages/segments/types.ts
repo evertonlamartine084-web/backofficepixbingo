@@ -84,6 +84,8 @@ export interface RuleFieldDef {
   icon: LucideIcon;
   category: string;
   type: string;
+  /** Para campos de texto com valores fixos → renderiza dropdown em vez de input livre. */
+  options?: { value: string; label: string }[];
 }
 
 export const ALL_USERS_ID = '__all_users__';
@@ -105,7 +107,10 @@ export const RULE_FIELDS: RuleFieldDef[] = [
   { value: 'registration_date', label: 'Data de Cadastro', icon: Calendar, category: 'Comportamento', type: 'days' },
   // Métricas computadas
   { value: 'favorite_game', label: 'Jogo Favorito', icon: Dice5, category: 'Métricas', type: 'text' },
-  { value: 'favorite_game_category', label: 'Categoria Favorita', icon: Dice5, category: 'Métricas', type: 'text' },
+  { value: 'favorite_game_category', label: 'Categoria Favorita', icon: Dice5, category: 'Métricas', type: 'text', options: [
+    { value: 'keno', label: 'Keno / Bingo' },
+    { value: 'cassino', label: 'Cassino' },
+  ] },
   { value: 'total_bet_7d', label: 'Apostas 7 dias (R$)', icon: Gamepad2, category: 'Métricas', type: 'number' },
   { value: 'total_bet_30d', label: 'Apostas 30 dias (R$)', icon: Gamepad2, category: 'Métricas', type: 'number' },
   { value: 'bet_count_7d', label: 'Qtd Apostas 7 dias', icon: Gamepad2, category: 'Métricas', type: 'number' },
