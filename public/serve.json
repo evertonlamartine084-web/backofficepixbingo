@@ -1,4 +1,11 @@
 {
+  "redirects": [
+    {
+      "source": "/widget/gamification.js",
+      "destination": "https://pixbingo-gamification-backend-production.up.railway.app/widget/gamification.js",
+      "type": 301
+    }
+  ],
   "headers": [
     {
       "source": "widget/**",

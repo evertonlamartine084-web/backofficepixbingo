@@ -1368,6 +1368,40 @@
     return res.json();
   };
 
+  // --- Anti-flicker: só re-renderiza quando os dados mudam de fato ---
+  // O poll (15s) + o sync_missions chamavam renderContent toda vez, recriando as
+  // imagens dos banners (torneios) = piscada recorrente. Comparamos uma assinatura
+  // dos dados relevantes e pulamos o render quando nada mudou.
+  let __pbg_lastSig = null;
+  function __pbg_dataSig() {
+    if (!data) return '';
+    // Monta a assinatura SÓ com escalares: o objeto `data` tem referências circulares
+    // (embeds), então JSON.stringify do objeto inteiro lançava exceção e o fallback
+    // retornava um valor sempre diferente → re-render eterno (flicker). Aqui nada quebra
+    // e a assinatura é estável: o poll só re-renderiza quando algo visível muda.
+    const parts = [];
+    try {
+      const w = data.wallet || {};
+      parts.push('w', w.xp, w.level, w.coins, w.gems, w.diamonds, w.balance, w.bonus_balance);
+      for (const m of (data.mission_progress || [])) parts.push('m', m.mission_id, m.progress, m.completed, m.claimed, m.opted_in);
+      for (const e of (data.tournament_entries || [])) parts.push('e', e.tournament_id, e.opted_in);
+      for (const t of (data.tournaments || [])) parts.push('t', t.id, t.status, t.end_date);
+      for (const r of (data.rewards_pending || [])) parts.push('r', r.id, !!r.claimed_at);
+      for (const a of (data.player_achievements || [])) parts.push('a', a.achievement_id, a.claimed);
+      const lb = data.leaderboards || {};
+      for (const k of Object.keys(lb)) { parts.push('lb', k); for (const row of (lb[k] || [])) parts.push(row.cpf || row.player_cpf, row.score ?? row.points ?? row.value); }
+      const ws = data._widget_sections;
+      if (ws) parts.push('ws', Array.isArray(ws) ? ws.join(',') : Object.keys(ws).filter(x => ws[x]).join(','));
+    } catch (e) { /* assinatura parcial estável — sem Date.now() */ }
+    return parts.join('|');
+  }
+  function __pbg_maybeRender() {
+    const sig = __pbg_dataSig();
+    if (sig === __pbg_lastSig) return; // nada mudou → não recria os banners (sem flicker)
+    __pbg_lastSig = sig;
+    renderContent();
+  }
+
   async function fetchData() {
     try {
       // Send ref code along with data request so API can auto-register
@@ -1388,7 +1422,13 @@
         __pbr_captured_ref = '';
       }
       updateFab();
-      renderContent();
+      // O endpoint `data` e o `sync_missions` retornam conjuntos de mission_progress
+      // diferentes (data às vezes vem sem missões já reclamadas). Se a gente renderizar
+      // com o `data` e logo depois com o `sync`, o conteúdo oscila a cada poll = flicker.
+      // Por isso: quando um sync vai rodar, deixamos o sync (estado autoritativo) renderizar;
+      // só renderizamos aqui quando NÃO há sync (ex.: deslogado / sem CPF).
+      const __willSync = PLAYER_CPF && !window.__pbg_syncing_missions;
+      if (!__willSync) __pbg_maybeRender();
       // Fast mission sync — uses cached platform credentials (~1-2s)
       if (PLAYER_CPF && !window.__pbg_syncing_missions) {
         window.__pbg_syncing_missions = true;
@@ -1399,7 +1439,7 @@
             // sync_missions já retorna a carteira sincronizada (XP/nível) — atualiza no mesmo ciclo, sem re-fetch
             if (result.wallet) data.wallet = result.wallet;
             updateFab();
-            if (!selectedMission && !selectedTournament && !selectedStoreItem && !selectedLevel) renderContent();
+            if (!selectedMission && !selectedTournament && !selectedStoreItem && !selectedLevel) __pbg_maybeRender();
           }
         }).catch(() => { window.__pbg_syncing_missions = false; });
       }
@@ -1688,7 +1728,7 @@
         const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
         const timerSvg = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.681 7.526C12.681 10.39 10.37 12.711 7.52 12.711C4.669 12.711 2.358 10.39 2.358 7.526C2.358 4.663 4.669 2.341 7.52 2.341C10.37 2.341 12.681 4.663 12.681 7.526ZM14.089 7.526C14.089 11.17 11.148 14.125 7.52 14.125C3.892 14.125 0.95 11.17 0.95 7.526C0.95 3.882 3.892 0.927 7.52 0.927C11.148 0.927 14.089 3.882 14.089 7.526ZM8.223 4.227C8.223 3.836 7.908 3.52 7.52 3.52C7.131 3.52 6.816 3.836 6.816 4.227V7.526C6.816 7.749 6.92 7.958 7.097 8.092L8.974 9.506C9.285 9.74 9.726 9.677 9.96 9.364C10.193 9.052 10.13 8.609 9.819 8.374L8.223 7.173V4.227Z" fill="#A1A1AA"/></svg>';
         const timeDisplay = getMissionTimeDisplay(m);
-        const iconBase = 'https://backoffice-production-6058.up.railway.app/widget';
+        const iconBase = 'https://pixbingo-gamification-backend-production.up.railway.app/widget';
         const chestSvg = `<img src="${iconBase}/chest-icon.svg" width="28" height="30" alt="" style="display:block"/>`;
         const boltSvg = `<img src="${iconBase}/bolt-icon.svg" width="21" height="25" alt="" style="display:block"/>`;
         const trophySvg = `<img src="${iconBase}/trophy-icon.svg" width="28" height="25" alt="" style="display:block"/>`;
@@ -1755,7 +1795,7 @@
         const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
         const timerSvg = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.681 7.526C12.681 10.39 10.37 12.711 7.52 12.711C4.669 12.711 2.358 10.39 2.358 7.526C2.358 4.663 4.669 2.341 7.52 2.341C10.37 2.341 12.681 4.663 12.681 7.526ZM14.089 7.526C14.089 11.17 11.148 14.125 7.52 14.125C3.892 14.125 0.95 11.17 0.95 7.526C0.95 3.882 3.892 0.927 7.52 0.927C11.148 0.927 14.089 3.882 14.089 7.526ZM8.223 4.227C8.223 3.836 7.908 3.52 7.52 3.52C7.131 3.52 6.816 3.836 6.816 4.227V7.526C6.816 7.749 6.92 7.958 7.097 8.092L8.974 9.506C9.285 9.74 9.726 9.677 9.96 9.364C10.193 9.052 10.13 8.609 9.819 8.374L8.223 7.173V4.227Z" fill="#A1A1AA"/></svg>';
         const timeDisplay = getMissionTimeDisplay(m);
-        const iconBase = 'https://backoffice-production-6058.up.railway.app/widget';
+        const iconBase = 'https://pixbingo-gamification-backend-production.up.railway.app/widget';
         const chestSvg = `<img src="${iconBase}/chest-icon.svg" width="28" height="30" alt="" style="display:block"/>`;
         const boltSvg = `<img src="${iconBase}/bolt-icon.svg" width="21" height="25" alt="" style="display:block"/>`;
         const trophySvg = `<img src="${iconBase}/trophy-icon.svg" width="28" height="25" alt="" style="display:block"/>`;
@@ -1819,7 +1859,7 @@
         const isClaimed = progress?.claimed;
         const rewardLabel = getMissionRewardLabel(m);
         const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
-        const iconBase = 'https://backoffice-production-6058.up.railway.app/widget';
+        const iconBase = 'https://pixbingo-gamification-backend-production.up.railway.app/widget';
         const chestSvg = `<img src="${iconBase}/chest-icon.svg" width="28" height="30" alt="" style="display:block"/>`;
         const boltSvg = `<img src="${iconBase}/bolt-icon.svg" width="21" height="25" alt="" style="display:block"/>`;
         const trophySvg = `<img src="${iconBase}/trophy-icon.svg" width="28" height="25" alt="" style="display:block"/>`;
@@ -1879,7 +1919,7 @@
         const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
         const timerSvg = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.681 7.526C12.681 10.39 10.37 12.711 7.52 12.711C4.669 12.711 2.358 10.39 2.358 7.526C2.358 4.663 4.669 2.341 7.52 2.341C10.37 2.341 12.681 4.663 12.681 7.526ZM14.089 7.526C14.089 11.17 11.148 14.125 7.52 14.125C3.892 14.125 0.95 11.17 0.95 7.526C0.95 3.882 3.892 0.927 7.52 0.927C11.148 0.927 14.089 3.882 14.089 7.526ZM8.223 4.227C8.223 3.836 7.908 3.52 7.52 3.52C7.131 3.52 6.816 3.836 6.816 4.227V7.526C6.816 7.749 6.92 7.958 7.097 8.092L8.974 9.506C9.285 9.74 9.726 9.677 9.96 9.364C10.193 9.052 10.13 8.609 9.819 8.374L8.223 7.173V4.227Z" fill="#A1A1AA"/></svg>';
         const timeDisplay = getMissionTimeDisplay(m);
-        const iconBase = 'https://backoffice-production-6058.up.railway.app/widget';
+        const iconBase = 'https://pixbingo-gamification-backend-production.up.railway.app/widget';
         const chestSvg = `<img src="${iconBase}/chest-icon.svg" width="28" height="30" alt="" style="display:block"/>`;
         const boltSvg = `<img src="${iconBase}/bolt-icon.svg" width="21" height="25" alt="" style="display:block"/>`;
         const trophySvg = `<img src="${iconBase}/trophy-icon.svg" width="28" height="25" alt="" style="display:block"/>`;
@@ -2133,6 +2173,7 @@
       const cd = getCountdown(t.end_date);
       const top3 = prizes.slice(0, 3);
       const realIdx = allT.indexOf(t);
+      const cardJoined = (data.tournament_entries || []).some(e => e.tournament_id === t.id);
 
       return `
         <div class="pbg-t-card" onclick="window.__pbg('openTournament',${realIdx})">
@@ -2154,7 +2195,7 @@
                 <div class="pbg-t-pool-lbl">PRÊMIO TOTAL</div>
                 <div class="pbg-t-pool-val">${fmt(pool)}</div>
               </div>
-              ${cd.total > 0 ? `<button class="pbg-t-part-btn" onclick="event.stopPropagation();window.__pbg('openTournament',${realIdx})">PARTICIPAR →</button>` : `<span style="font-size:9px;color:#71717a;font-weight:600">ENCERRADO</span>`}
+              ${cd.total > 0 ? (cardJoined ? `<button class="pbg-t-part-btn" style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.4)" onclick="event.stopPropagation();window.__pbg('openTournament',${realIdx})">INSCRITO ✓</button>` : `<button class="pbg-t-part-btn" onclick="event.stopPropagation();window.__pbg('openTournament',${realIdx})">PARTICIPAR →</button>`) : `<span style="font-size:9px;color:#71717a;font-weight:600">ENCERRADO</span>`}
             </div>
           </div>
         </div>
@@ -2192,7 +2233,7 @@
                 <div><div class="pbg-t-hero-cd-num">${String(heroCd.m).padStart(2,'0')}</div><div class="pbg-t-hero-cd-lbl">MINS</div></div>
                 <div><div class="pbg-t-hero-cd-num">${String(heroCd.s).padStart(2,'0')}</div><div class="pbg-t-hero-cd-lbl">SEGS</div></div>
               </div>
-              <button class="pbg-t-hero-btn" onclick="event.stopPropagation();window.__pbg('openTournament',${heroIdx})">PARTICIPAR →</button>
+              <button class="pbg-t-hero-btn" onclick="event.stopPropagation();window.__pbg('openTournament',${heroIdx})">${(data.tournament_entries || []).some(e => hero && e.tournament_id === hero.id) ? 'INSCRITO ✓' : 'PARTICIPAR →'}</button>
             </div>
           </div>
         </div>
@@ -3508,8 +3549,30 @@
     if (!el) return;
     if (!data) { el.innerHTML = '<div style="display:flex;justify-content:center;padding:40px"><div style="width:24px;height:24px;border:2px solid #8b5cf6;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite"></div></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>'; return; }
 
+    // Corrige a aba ativa ANTES de renderizar o conteúdo: o default é 'missions', mas se
+    // a aba de missões estiver desligada (widget_sections), o conteúdo renderizaria missões
+    // (vazio) enquanto o nav mostra Torneios — dessincronizado, e com o anti-flicker nunca
+    // se corrigia. Aqui garantimos que activeTab é uma aba realmente visível antes do render.
+    if (data?._widget_sections) {
+      const ws = data._widget_sections;
+      const visibleTabs = [];
+      if (ws.missions !== false) visibleTabs.push('missions');
+      if (ws.achievements !== false) visibleTabs.push('achievements');
+      if (ws.tournaments !== false) visibleTabs.push('tournaments');
+      if (ws.wheel !== false) visibleTabs.push('wheel');
+      if (ws.mini_games !== false) visibleTabs.push('games');
+      if (ws.store !== false) visibleTabs.push('store');
+      if (ws.referrals !== false && data?.referral_config) visibleTabs.push('referral');
+      if (ws.levels !== false) visibleTabs.push('levels');
+      visibleTabs.push('history');
+      if (!visibleTabs.includes(activeTab)) activeTab = visibleTabs[0] || 'missions';
+    }
+
     const renderers = { missions: renderMissions, achievements: renderAchievements, tournaments: renderTournaments, wheel: renderWheel, games: renderMiniGames, store: renderStore, referral: renderReferral, levels: renderLevels, history: renderHistory };
     el.innerHTML = (renderers[activeTab] || renderMissions)();
+    // Baseline da assinatura: todo render (direto ou via maybeRender) registra o estado
+    // atual, pra que o próximo poll só re-renderize se os dados realmente mudarem (sem flicker).
+    try { __pbg_lastSig = __pbg_dataSig(); } catch (e) {}
     el.classList.toggle('pbg-no-pad', activeTab === 'wheel');
     el.scrollTop = 0;
 
@@ -3730,7 +3793,7 @@
         return;
       }
       else if (action === 'toggle') toggle(arg);
-      else if (action === 'tab') { activeTab = arg; selectedStoreItem = null; storeMessage = null; selectedTournament = null; selectedMission = null; selectedMiniGame = null; miniGameResult = null; miniGamePlaying = false; scratchRevealed = []; giftBoxOpened = null; selectedLevel = null; fetchData(); }
+      else if (action === 'tab') { activeTab = arg; selectedStoreItem = null; storeMessage = null; selectedTournament = null; selectedMission = null; selectedMiniGame = null; miniGameResult = null; miniGamePlaying = false; scratchRevealed = []; giftBoxOpened = null; selectedLevel = null; renderContent(); fetchData(); }
       else if (action === 'spin') spinWheel();
       else if (action === 'openTournament') { selectedTournament = arg; renderContent(); }
       else if (action === 'closeTournament') { selectedTournament = null; renderContent(); }
