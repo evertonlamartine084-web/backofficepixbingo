@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RULE_FIELDS, OPERATORS_NUMBER, OPERATORS_DAYS, OPERATORS_TEXT, OPERATORS_MEMBERSHIP, OPERATORS_MULTI, OPERATORS_DEFINED, generateId } from './types';
+import { RULE_FIELDS, OPERATORS_NUMBER, OPERATORS_DAYS, OPERATORS_TEXT, OPERATORS_MEMBERSHIP, OPERATORS_MULTI, OPERATORS_DEFINED, OPERATORS_YESNO, generateId } from './types';
 import type { SegmentRule, RuleFieldDef } from './types';
 
 interface LevelRow { level: number; name: string }
@@ -18,6 +18,7 @@ type Opt = { value: string; label: string };
 function getOperators(fieldDef: RuleFieldDef | undefined, hasOptions: boolean): Opt[] {
   if (!fieldDef) return OPERATORS_NUMBER;
   if (fieldDef.type === 'days') return OPERATORS_DAYS;
+  if (fieldDef.type === 'yesno') return OPERATORS_YESNO;
   if (fieldDef.type === 'mission') return [...OPERATORS_MEMBERSHIP, ...OPERATORS_MULTI];
   if (fieldDef.type === 'text') return [...OPERATORS_TEXT, ...OPERATORS_MULTI, ...OPERATORS_DEFINED];
   return hasOptions ? [...OPERATORS_NUMBER, ...OPERATORS_MULTI] : OPERATORS_NUMBER; // number
@@ -119,7 +120,7 @@ export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }:
           const valueOptions = fieldDef?.options ?? dynamicOptions[rule.field];
           const operators = getOperators(fieldDef, !!(valueOptions && valueOptions.length));
           const isMulti = rule.operator === 'in' || rule.operator === 'not_in';
-          const isDefined = rule.operator === 'defined' || rule.operator === 'not_defined';
+          const isDefined = rule.operator === 'defined' || rule.operator === 'not_defined' || fieldDef?.type === 'yesno';
 
           return (
             <div key={rule.id} className="flex items-center gap-2 p-3 rounded-lg bg-secondary/50 border border-border group">
@@ -132,7 +133,7 @@ export function SegmentRuleBuilder({ rules, setRules, matchType, setMatchType }:
 
               <Select value={rule.field} onValueChange={v => {
                 const newField = RULE_FIELDS.find(f => f.value === v);
-                const defaultOp = newField?.type === 'days' ? 'within' : (newField?.type === 'text' || newField?.type === 'mission') ? 'eq' : 'gte';
+                const defaultOp = newField?.type === 'days' ? 'within' : (newField?.type === 'text' || newField?.type === 'mission' || newField?.type === 'yesno') ? 'eq' : 'gte';
                 updateRule(rule.id, { field: v, operator: defaultOp, value: '' });
               }}>
                 <SelectTrigger className="h-8 w-44 text-xs bg-background border-border">

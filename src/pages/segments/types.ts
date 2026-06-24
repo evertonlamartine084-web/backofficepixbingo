@@ -97,6 +97,8 @@ export const RULE_FIELDS: RuleFieldDef[] = [
   { value: 'total_coins_earned', label: 'Total Coins Ganhos', icon: DollarSign, category: 'Carteira', type: 'number' },
   { value: 'total_xp_earned', label: 'Total XP Ganho', icon: Star, category: 'Carteira', type: 'number' },
   { value: 'total_deposits', label: 'Total Depositado (R$)', icon: CreditCard, category: 'Financeiro', type: 'number' },
+  { value: 'total_saques', label: 'Total Sacado (R$)', icon: CreditCard, category: 'Financeiro', type: 'number' },
+  { value: 'fez_ftd', label: 'Fez 1o Deposito (FTD)', icon: CreditCard, category: 'Financeiro', type: 'yesno' },
   { value: 'total_bets', label: 'Total Apostado (R$)', icon: Gamepad2, category: 'Financeiro', type: 'number' },
   { value: 'missions_completed', label: 'Missoes Completas', icon: Target, category: 'Gamificacao', type: 'number' },
   { value: 'mission_completed', label: 'Completou a Missao', icon: Target, category: 'Gamificacao', type: 'mission' },
@@ -165,6 +167,12 @@ export const OPERATORS_MULTI = [
 export const OPERATORS_DEFINED = [
   { value: 'defined', label: 'definido' },
   { value: 'not_defined', label: 'não definido' },
+];
+
+// Sim / Não (não usa valor) — pra campos booleanos (ex.: fez FTD).
+export const OPERATORS_YESNO = [
+  { value: 'eq', label: 'sim' },
+  { value: 'neq', label: 'não' },
 ];
 
 export const SEGMENT_COLORS = [
