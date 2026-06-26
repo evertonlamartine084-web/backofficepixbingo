@@ -651,9 +651,9 @@
     .pbg-t-hero-img { width: 100%; height: 180px; object-fit: cover; display: block; }
     .pbg-t-hero-grad { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(12,10,26,0.95) 0%, rgba(12,10,26,0.4) 40%, transparent 70%); }
     .pbg-t-hero-body { position: absolute; bottom: 0; left: 0; right: 0; padding: 10px 12px; display: flex; align-items: flex-end; gap: 8px; z-index: 1; flex-wrap: wrap; }
-    .pbg-t-hero-info { flex: 1; min-width: 0; }
-    .pbg-t-hero-name { font-size: 14px; font-weight: 800; color: #fff; text-transform: uppercase; margin: 0 0 2px; }
-    .pbg-t-hero-prize { font-size: 12px; color: #a1a1aa; }
+    .pbg-t-hero-info { flex: 1 1 170px; min-width: 170px; }
+    .pbg-t-hero-name { font-size: 14px; font-weight: 800; color: #fff; text-transform: uppercase; margin: 0 0 2px; white-space: nowrap; }
+    .pbg-t-hero-prize { font-size: 12px; color: #a1a1aa; white-space: nowrap; }
     .pbg-t-hero-prize span { color: #22d3ee; font-weight: 700; }
     .pbg-t-hero-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .pbg-t-hero-cd { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.5); border-radius: 8px; padding: 6px 10px; }
