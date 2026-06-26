@@ -689,7 +689,7 @@
     .pbg-t-card {
       background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
       border-radius: 14px; overflow: hidden; cursor: pointer; flex-shrink: 0;
-      width: 180px; transition: border-color 0.2s, transform 0.15s;
+      width: 200px; transition: border-color 0.2s, transform 0.15s;
     }
     .pbg-t-card:hover { border-color: rgba(139,92,246,0.3); transform: translateY(-2px); }
     .pbg-t-banner {
@@ -723,13 +723,13 @@
     .pbg-t-top3-item { display: flex; align-items: center; gap: 2px; }
     .pbg-t-card-footer { display: flex; align-items: center; gap: 6px; }
     .pbg-t-pool-badge {
-      flex: 1; padding: 6px; border-radius: 6px; text-align: center;
+      flex: 1 1 auto; min-width: 0; padding: 6px; border-radius: 6px; text-align: center;
       background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
     }
     .pbg-t-pool-lbl { font-size: 7px; color: #71717a; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
     .pbg-t-pool-val { font-size: 11px; font-weight: 800; color: #22d3ee; margin-top: 1px; white-space: nowrap; }
     .pbg-t-part-btn {
-      padding: 6px 12px; border: none; border-radius: 6px; font-size: 10px; font-weight: 800;
+      flex-shrink: 0; padding: 6px 12px; border: none; border-radius: 6px; font-size: 10px; font-weight: 800;
       font-family: inherit; cursor: pointer; text-transform: uppercase;
       background: linear-gradient(135deg, #f97316, #ea580c); color: #fff;
       display: flex; align-items: center; gap: 3px; white-space: nowrap;
