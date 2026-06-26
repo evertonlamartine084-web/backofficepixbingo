@@ -659,7 +659,7 @@
     .pbg-t-hero-cd { display: flex; align-items: center; gap: 9px; background: rgba(0,0,0,0.5); border-radius: 8px; padding: 7px 12px; }
     .pbg-t-hero-cd > div { text-align: center; }
     .pbg-t-hero-cd-num { font-size: 16px; font-weight: 800; color: #fff; min-width: 22px; text-align: center; }
-    .pbg-t-hero-cd-lbl { font-size: 8px; color: #71717a; text-transform: uppercase; }
+    .pbg-t-hero-cd-lbl { font-size: 8px; color: #d4d4d8; text-transform: uppercase; }
     .pbg-t-hero-cd-sep { color: #52525b; font-weight: 800; font-size: 16px; }
     .pbg-t-hero-btn {
       padding: 8px 16px; border: none; border-radius: 8px; font-size: 11px; font-weight: 800;
