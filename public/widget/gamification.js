@@ -710,7 +710,7 @@
       background: rgba(0,0,0,0.6); font-size: 9px; font-weight: 700; color: #fff; align-self: flex-end;
     }
     .pbg-t-status {
-      display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
+      display: inline-flex; align-self: flex-start; align-items: center; gap: 4px; padding: 3px 8px;
       border-radius: 6px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
     }
     .pbg-t-status-live { background: rgba(16,185,129,0.2); color: #34d399; }
@@ -2041,10 +2041,10 @@
           <button onclick="window.__pbg('closeTournament')" style="background:none;border:none;color:#a1a1aa;font-size:13px;cursor:pointer;font-family:inherit;padding:0;margin-bottom:10px">← Voltar</button>
 
           <!-- Banner -->
-          <div class="pbg-t-banner" style="height:${t.image_url ? '100px' : '40px'};border-radius:14px 14px 0 0;cursor:default${t.image_url ? '' : ';background:linear-gradient(135deg,rgba(139,92,246,0.3),rgba(6,182,212,0.15))'}">
+          <div class="pbg-t-banner" style="height:100px;border-radius:14px 14px 0 0;cursor:default">
             ${t.image_url ? `<img src="${t.image_url}" alt="">` : ''}
             <div class="pbg-t-banner-overlay"></div>
-            <div class="pbg-t-banner-content" style="${t.image_url ? '' : 'justify-content:center'}">
+            <div class="pbg-t-banner-content">
               <div class="pbg-t-status ${cd.total > 0 ? 'pbg-t-status-live' : 'pbg-t-status-ended'}">${cd.total > 0 ? '● AO VIVO' : '● ENCERRADO'}</div>
             </div>
           </div>
