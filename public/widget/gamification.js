@@ -1335,6 +1335,15 @@
   };
 
   const fmt = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Prêmios podem ser por faixa de posições { rankFrom, rankTo } (legado: { rank }).
+  // Cada posição da faixa recebe o mesmo valor, então o pool soma value * nº de posições.
+  const pbgPrizeSlots = (p) => Math.max(1, Number(p.rankTo || p.rankFrom || p.rank || 1) - Number(p.rankFrom || p.rank || 1) + 1);
+  const pbgPool = (arr) => (arr || []).reduce((s, p) => s + Number(p.value || 0) * pbgPrizeSlots(p), 0);
+  const pbgRankLabel = (p, i) => {
+    const from = Number(p.rankFrom || p.rank || (i + 1));
+    const to = Number(p.rankTo || p.rankFrom || p.rank || from);
+    return from === to ? `${from}º lugar` : `${from}º–${to}º lugar`;
+  };
   const maskCpf = (cpf) => cpf ? cpf.slice(0,3) + '***' + cpf.slice(-2) : '???';
   const formatDate = (d) => { if (!d) return ''; const dt = new Date(d); return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`; };
   const timeAgo = (d) => { const mins = Math.floor((Date.now() - new Date(d).getTime()) / 60000); if (mins < 60) return `${mins}min`; const hrs = Math.floor(mins/60); if (hrs < 24) return `${hrs}h`; return `${Math.floor(hrs/24)}d`; };
@@ -2018,7 +2027,7 @@
       const t = data.tournaments[selectedTournament];
       if (!t) { selectedTournament = null; return renderTournaments(); }
       const prizes = t.prizes || [];
-      const pool = prizes.reduce((s,p) => s + Number(p.value||0), 0);
+      const pool = pbgPool(prizes);
       const cd = getCountdown(t.end_date);
       const lb = data.leaderboards?.[t.id] || [];
       const myEntry = (data.tournament_entries||[]).find(e => e.tournament_id === t.id);
@@ -2121,8 +2130,11 @@
               <div class="pbg-section-title">${inlIcon('medal',14)} Premiação</div>
               <div style="background:rgba(255,255,255,0.02);border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,0.04)">
                 ${prizes.map((p,i) => {
-                  const medals = [inlIcon('gold',18),inlIcon('silver',18),inlIcon('bronze',18)]; const medal = i < 3 ? medals[i] : `${p.rank||i+1}º`;
-                  return `<div class="pbg-prize-row"><span class="pbg-prize-rank">${medal}</span><span class="pbg-prize-desc">${p.description||`${p.rank||i+1}º lugar`}</span><span class="pbg-prize-val">${fmt(p.value)}</span></div>`;
+                  const medals = [inlIcon('gold',18),inlIcon('silver',18),inlIcon('bronze',18)];
+                  const rf = Number(p.rankFrom||p.rank||i+1);
+                  const rt = Number(p.rankTo||p.rankFrom||p.rank||rf);
+                  const medal = (rf === rt && rf <= 3) ? medals[rf-1] : `${rf}º`;
+                  return `<div class="pbg-prize-row"><span class="pbg-prize-rank">${medal}</span><span class="pbg-prize-desc">${p.description||pbgRankLabel(p,i)}</span><span class="pbg-prize-val">${fmt(p.value)}</span></div>`;
                 }).join('')}
                 <div class="pbg-prize-total"><span style="color:#fff;font-weight:700;font-size:13px">${inlIcon('money',14)} Pool Total</span><span style="color:#34d399;font-weight:800;font-size:15px;font-family:'JetBrains Mono',monospace">${fmt(pool)}</span></div>
               </div>
@@ -2155,7 +2167,7 @@
     const hero = active[0];
     const heroIdx = hero ? allT.indexOf(hero) : -1;
     const heroCd = hero ? getCountdown(hero.end_date) : null;
-    const heroPool = hero ? (hero.prizes||[]).reduce((s,p) => s + Number(p.value||0), 0) : 0;
+    const heroPool = hero ? pbgPool(hero.prizes||[]) : 0;
 
     // Type label
     const typeLabel = (t) => {
@@ -2168,7 +2180,7 @@
     // Render card
     const renderCard = (t, idx) => {
       const prizes = t.prizes || [];
-      const pool = prizes.reduce((s,p) => s + Number(p.value||0), 0);
+      const pool = pbgPool(prizes);
       const lb = data.leaderboards?.[t.id] || [];
       const cd = getCountdown(t.end_date);
       const top3 = prizes.slice(0, 3);
