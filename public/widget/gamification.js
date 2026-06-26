@@ -719,6 +719,9 @@
     .pbg-t-body { padding: 10px; }
     .pbg-t-title { font-size: 12px; font-weight: 800; color: #fff; margin: 0 0 6px; text-transform: uppercase; text-align: center; }
     .pbg-t-desc { font-size: 11px; color: #71717a; margin: 0 0 10px; line-height: 1.4; }
+    .pbg-t-rules { font-size: 12px; color: #d4d4d8; line-height: 1.6; margin-top: 4px; word-break: break-word; }
+    .pbg-t-rules * { max-width: 100%; }
+    .pbg-t-rules a { color: #22d3ee; }
     .pbg-t-top3 { display: flex; justify-content: center; gap: 6px; font-size: 9px; color: #a1a1aa; margin-bottom: 8px; flex-wrap: wrap; }
     .pbg-t-top3-item { display: flex; align-items: center; gap: 2px; }
     .pbg-t-card-footer { display: flex; align-items: center; gap: 6px; }
@@ -2138,6 +2141,13 @@
                 }).join('')}
                 <div class="pbg-prize-total"><span style="color:#fff;font-weight:700;font-size:13px">${inlIcon('money',14)} Pool Total</span><span style="color:#34d399;font-weight:800;font-size:15px;font-family:'JetBrains Mono',monospace">${fmt(pool)}</span></div>
               </div>
+            </div>
+          ` : ''}
+
+          ${t.rules_html ? `
+            <div style="margin-top:14px">
+              <div class="pbg-section-title">${inlIcon('clipboard',14)} Regras</div>
+              <div class="pbg-t-rules">${t.rules_html}</div>
             </div>
           ` : ''}
         </div>
