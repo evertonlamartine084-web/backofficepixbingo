@@ -776,7 +776,7 @@
     /* Prize table */
     .pbg-prize-row { display: flex; align-items: center; padding: 10px 14px; gap: 10px; }
     .pbg-prize-row:nth-child(even) { background: rgba(255,255,255,0.02); }
-    .pbg-prize-rank { width: 28px; font-size: 16px; text-align: center; }
+    .pbg-prize-rank { width: 38px; font-size: 13px; font-weight: 800; color: #e4e4e7; text-align: center; white-space: nowrap; }
     .pbg-prize-desc { flex: 1; font-size: 12px; color: #d4d4d8; }
     .pbg-prize-val { font-size: 13px; font-weight: 700; color: #34d399; font-family: 'JetBrains Mono', monospace; }
     .pbg-prize-total { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(16,185,129,0.06)); border-top: 1px solid rgba(255,255,255,0.06); }
