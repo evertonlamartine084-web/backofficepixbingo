@@ -693,7 +693,7 @@
     }
     .pbg-t-card:hover { border-color: rgba(139,92,246,0.3); transform: translateY(-2px); }
     .pbg-t-banner {
-      position: relative; height: 110px; background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(6,182,212,0.15));
+      position: relative; height: 110px; overflow: hidden; background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(6,182,212,0.15));
     }
     .pbg-t-banner img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
     .pbg-t-banner-overlay { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(12,10,26,0.6) 0%, transparent 50%); }
