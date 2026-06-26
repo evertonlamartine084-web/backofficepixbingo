@@ -3839,11 +3839,34 @@
         renderContent();
       }
       else if (action === 'joinTournament') {
-        try {
-          const result = await apiCall('tournament_join', { tournament_id: arg });
-          if (result.error) alert(result.error);
-          else { await fetchData(); }
-        } catch (e) { alert('Erro ao inscrever'); }
+        const joinId = arg;
+        // Atualização otimista: marca como inscrito imediatamente (sem esperar o servidor).
+        if (data) {
+          data.tournament_entries = data.tournament_entries || [];
+          if (!data.tournament_entries.some(e => e.tournament_id === joinId)) {
+            data.tournament_entries.push({ tournament_id: joinId, cpf: PLAYER_CPF, opted_in: true, score: 0, rank: null });
+          }
+        }
+        renderContent();
+        // Chamada em background; reverte se der erro, faz merge no refresh p/ evitar flicker.
+        apiCall('tournament_join', { tournament_id: joinId }).then((result) => {
+          if (result && result.error) {
+            if (data && data.tournament_entries) data.tournament_entries = data.tournament_entries.filter(e => e.tournament_id !== joinId);
+            renderContent();
+            alert(result.error);
+            return null;
+          }
+          return apiCall('data');
+        }).then(d => {
+          if (d) {
+            d.tournament_entries = d.tournament_entries || [];
+            if (!d.tournament_entries.some(e => e.tournament_id === joinId)) {
+              d.tournament_entries.push({ tournament_id: joinId, cpf: PLAYER_CPF, opted_in: true, score: 0, rank: null });
+            }
+            data = d;
+            renderContent();
+          }
+        }).catch(() => {});
       }
       else if (action === 'missionFilter') { missionTab = arg; renderContent(); }
       else if (action === 'missionOptin') {
