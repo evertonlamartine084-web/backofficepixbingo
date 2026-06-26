@@ -548,7 +548,7 @@
     .pbg-condition { font-size: 11px; color: #a1a1aa; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
     .pbg-progress-track { height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-top: 6px; }
     .pbg-progress-fill { height: 100%; background: linear-gradient(90deg, #8b5cf6, #6366f1); border-radius: 3px; transition: width 0.3s; }
-    .pbg-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #a1a1aa; margin-bottom: 10px; padding-left: 2px; }
+    .pbg-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #d4d4d8; margin-bottom: 10px; padding-left: 2px; }
     .pbg-segment-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 5px; font-size: 9px; font-weight: 600; background: rgba(139,92,246,0.12); color: #a78bfa; }
 
     /* ---- Levels Tab ---- */
@@ -718,7 +718,7 @@
     .pbg-t-status-ended { background: rgba(113,113,122,0.2); color: #a1a1aa; }
     .pbg-t-body { padding: 10px; }
     .pbg-t-title { font-size: 12px; font-weight: 800; color: #fff; margin: 0 0 6px; text-transform: uppercase; text-align: center; }
-    .pbg-t-desc { font-size: 11px; color: #a1a1aa; margin: 0 0 10px; line-height: 1.4; }
+    .pbg-t-desc { font-size: 11px; color: #d4d4d8; margin: 0 0 10px; line-height: 1.4; }
     .pbg-t-rules { font-size: 12px; color: #d4d4d8; line-height: 1.6; margin-top: 4px; word-break: break-word; }
     .pbg-t-rules * { max-width: 100%; }
     .pbg-t-rules a { color: #22d3ee; }
@@ -744,7 +744,7 @@
       flex: 1; background: rgba(255,255,255,0.04); border-radius: 8px;
       padding: 8px; text-align: center; min-width: 0;
     }
-    .pbg-t-stat-label { font-size: 9px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    .pbg-t-stat-label { font-size: 9px; color: #d4d4d8; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
     .pbg-t-stat-val { font-size: 14px; font-weight: 800; color: #fff; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pbg-t-countdown {
       display: flex; gap: 6px; justify-content: center; margin: 10px 0;
@@ -755,7 +755,7 @@
       padding: 6px 10px; text-align: center; min-width: 48px;
     }
     .pbg-t-cd-num { font-size: 20px; font-weight: 800; color: #fff; font-family: 'JetBrains Mono', monospace; line-height: 1; }
-    .pbg-t-cd-lbl { font-size: 8px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+    .pbg-t-cd-lbl { font-size: 8px; color: #d4d4d8; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
     /* Podium */
     .pbg-podium { display: flex; align-items: flex-end; justify-content: center; gap: 6px; margin: 12px 0 8px; }
     .pbg-podium-col { display: flex; flex-direction: column; align-items: center; text-align: center; }
@@ -2059,7 +2059,7 @@
 
             <!-- Countdown -->
             ${cd.total > 0 ? `
-              <div style="font-size:9px;color:#a1a1aa;text-align:center;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:4px">Termina em</div>
+              <div style="font-size:9px;color:#d4d4d8;text-align:center;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:4px">Termina em</div>
               <div class="pbg-t-countdown pbg-t-live-cd" data-end-date="${t.end_date}">
                 <div class="pbg-t-cd-unit"><div class="pbg-t-cd-num pbg-t-cd-d">${String(cd.d).padStart(2,'0')}</div><div class="pbg-t-cd-lbl">dias</div></div>
                 <div class="pbg-t-cd-unit"><div class="pbg-t-cd-num pbg-t-cd-h">${String(cd.h).padStart(2,'0')}</div><div class="pbg-t-cd-lbl">horas</div></div>
