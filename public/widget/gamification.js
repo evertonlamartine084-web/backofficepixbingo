@@ -653,7 +653,7 @@
     .pbg-t-hero-body { position: absolute; bottom: 0; left: 0; right: 0; padding: 10px 12px; display: flex; align-items: flex-end; gap: 8px; z-index: 1; flex-wrap: wrap; }
     .pbg-t-hero-info { flex: 1 1 170px; min-width: 170px; }
     .pbg-t-hero-name { font-size: 14px; font-weight: 800; color: #fff; text-transform: uppercase; margin: 0 0 2px; white-space: nowrap; }
-    .pbg-t-hero-prize { font-size: 12px; color: #a1a1aa; white-space: nowrap; }
+    .pbg-t-hero-prize { font-size: 12px; color: #d4d4d8; white-space: nowrap; }
     .pbg-t-hero-prize span { color: #22d3ee; font-weight: 700; }
     .pbg-t-hero-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .pbg-t-hero-cd { display: flex; align-items: center; gap: 9px; background: rgba(0,0,0,0.5); border-radius: 8px; padding: 7px 12px; }
