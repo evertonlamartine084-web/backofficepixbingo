@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, API_URL } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, Loader2, Trophy, Swords, Play, Square, Clock, Users, UserCheck } from 'lucide-react';
+import { Plus, Trash2, Edit2, Loader2, Trophy, Swords, Play, Square, Clock, Users, UserCheck, CheckCircle2, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,8 +11,11 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { formatDateTime } from '@/lib/formatters';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { formatDateTime, formatBRL, formatCPF } from '@/lib/formatters';
 import { logAudit } from '@/hooks/use-audit';
 
 const METRICS = [
@@ -31,6 +34,7 @@ const GAMES = [
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   RASCUNHO: { label: 'Rascunho', color: 'bg-secondary text-muted-foreground' },
   ATIVO: { label: 'Ativo', color: 'bg-emerald-500/15 text-emerald-400' },
+  AGUARDANDO_PAGAMENTO: { label: 'Aguardando pagamento', color: 'bg-amber-500/15 text-amber-400' },
   ENCERRADO: { label: 'Encerrado', color: 'bg-red-500/15 text-red-400' },
 };
 
@@ -67,10 +71,72 @@ interface Tournament {
   segment_id: string | null;
   require_optin: boolean;
   points_per: string;
+  payout_mode?: string;
   created_at: string;
 }
 
 interface Prize { rank: number; value: number; description: string; type?: string }
+
+interface PayoutItem {
+  reward_id: string;
+  cpf: string;
+  reward_type: string;
+  value: number;
+  description: string;
+  rank: number | null;
+  score: number;
+  total_bet: number;
+  total_won: number;
+}
+
+interface PayoutParticipant {
+  cpf: string;
+  rank: number | null;
+  score: number;
+  total_bet: number;
+  total_won: number;
+  ggr: number;
+}
+
+interface PayoutMetrics {
+  turnover: number;
+  ggr: number;
+  prize_cost: number;
+  roi: number | null;
+  participants: number;
+}
+
+interface PayoutData {
+  tournament: { id: string; name: string; status: string; payout_mode: string };
+  items: PayoutItem[];
+  participants: PayoutParticipant[];
+  metrics: PayoutMetrics;
+}
+
+interface AnalyzeParticipant {
+  cpf: string;
+  username: string | null;
+  representante: string | null;
+  rank: number | null;
+  score: number;
+  total_bet: number;
+  total_won: number;
+  ggr: number;
+}
+
+interface AnalyzeData {
+  tournament: { id: string; name: string; status: string; payout_mode: string; start_date: string; end_date: string };
+  participants: AnalyzeParticipant[];
+  representantes: string[];
+  metrics: { turnover: number; total_won: number; ggr: number; rtp: number | null; participants: number };
+}
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+  return headers;
+}
 
 const emptyForm = {
   name: '', description: '', image_url: '', start_date: '', end_date: '',
@@ -79,6 +145,7 @@ const emptyForm = {
   segment_id: '',
   require_optin: false,
   points_per: '1_real',
+  payout_mode: 'AUTO',
 };
 
 export default function Tournaments() {
@@ -86,6 +153,8 @@ export default function Tournaments() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [payoutTournament, setPayoutTournament] = useState<Tournament | null>(null);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
   const { data: segments = [] } = useQuery({
     queryKey: ['segments'],
@@ -125,6 +194,7 @@ export default function Tournaments() {
         segment_id: form.segment_id || null,
         require_optin: form.require_optin,
         points_per: form.points_per,
+        payout_mode: form.payout_mode,
       };
       if (editId) {
         const { error } = await supabase.from('tournaments').update(payload as Record<string, unknown>).eq('id', editId);
@@ -167,6 +237,63 @@ export default function Tournaments() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const isPayoutReview = payoutTournament?.status === 'AGUARDANDO_PAGAMENTO';
+
+  const { data: payoutData, isLoading: payoutLoading } = useQuery({
+    queryKey: ['tournament-payout', payoutTournament?.id],
+    enabled: !!payoutTournament,
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/functions/tournament-payout`, {
+        method: 'POST',
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({ action: 'list', tournament_id: payoutTournament!.id }),
+      });
+      if (!res.ok) throw new Error('Erro ao carregar dados do torneio');
+      const data = await res.json() as PayoutData;
+      setCheckedIds(new Set((data.items || []).map(i => i.reward_id)));
+      return data;
+    },
+  });
+
+  const payMutation = useMutation({
+    mutationFn: async () => {
+      if (!payoutTournament) throw new Error('Torneio inválido');
+      const allIds = (payoutData?.items || []).map(i => i.reward_id);
+      const approved_ids = allIds.filter(id => checkedIds.has(id));
+      const rejected_ids = allIds.filter(id => !checkedIds.has(id));
+      const res = await fetch(`${API_URL}/functions/tournament-payout`, {
+        method: 'POST',
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({ action: 'pay', tournament_id: payoutTournament.id, approved_ids, rejected_ids }),
+      });
+      const data = await res.json() as { success: boolean; paid: number; rejected: number; closed: boolean };
+      if (!res.ok || !data.success) throw new Error('Erro ao processar pagamento');
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['tournaments'] });
+      toast.success(`${data.paid} pagos, ${data.rejected} rejeitados`);
+      logAudit({ action: 'PAGAR', resource_type: 'torneio', resource_id: payoutTournament?.id, resource_name: payoutTournament?.name });
+      setPayoutTournament(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggleChecked = (id: string) => {
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const confirmPay = () => {
+    const approvedCount = (payoutData?.items || []).filter(i => checkedIds.has(i.reward_id)).length;
+    if (window.confirm(`Confirmar pagamento de ${approvedCount} prêmios?`)) {
+      payMutation.mutate();
+    }
+  };
+
   const closeDialog = () => { setOpen(false); setEditId(null); setForm(emptyForm); };
 
   const openEdit = (t: Tournament) => {
@@ -178,6 +305,7 @@ export default function Tournaments() {
       metric: t.metric, game_filter: t.game_filter, min_bet: String(t.min_bet || 0),
       status: t.status, prizes: prizes.length > 0 ? prizes : emptyForm.prizes, segment_id: t.segment_id || '',
       require_optin: t.require_optin || false, points_per: t.points_per || '1_real',
+      payout_mode: t.payout_mode || 'AUTO',
     });
     setOpen(true);
   };
@@ -217,6 +345,13 @@ export default function Tournaments() {
         </Button>
       </div>
 
+      <Tabs defaultValue="torneios" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="torneios">Torneios</TabsTrigger>
+          <TabsTrigger value="analise">Análise</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="torneios" className="space-y-6 mt-0">
       {isLoading ? (
         <div className="flex justify-center p-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : tournaments.length === 0 ? (
@@ -300,6 +435,16 @@ export default function Tournaments() {
                         <Square className="w-3 h-3 mr-1" /> Encerrar
                       </Button>
                     )}
+                    {t.status === 'AGUARDANDO_PAGAMENTO' && (
+                      <Button size="sm" className="flex-1 gradient-success border-0 text-success-foreground" onClick={() => setPayoutTournament(t)}>
+                        <CheckCircle2 className="w-3 h-3 mr-1" /> Revisar e aprovar
+                      </Button>
+                    )}
+                    {t.status === 'ENCERRADO' && (
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => setPayoutTournament(t)}>
+                        <BarChart3 className="w-3 h-3 mr-1" /> Métricas
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)}>
                       <Edit2 className="w-3.5 h-3.5" />
                     </Button>
@@ -313,6 +458,12 @@ export default function Tournaments() {
           })}
         </div>
       )}
+        </TabsContent>
+
+        <TabsContent value="analise" className="mt-0">
+          <TournamentAnalysis tournaments={tournaments} />
+        </TabsContent>
+      </Tabs>
 
       {/* Create/Edit Dialog */}
       <Dialog open={open} onOpenChange={(v) => { if (!v) closeDialog(); else setOpen(true); }}>
@@ -378,17 +529,29 @@ export default function Tournaments() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
-                <SelectTrigger className="bg-secondary border-border mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="RASCUNHO">Rascunho</SelectItem>
-                  <SelectItem value="ATIVO">Ativo</SelectItem>
-                  <SelectItem value="PAUSADO">Pausado</SelectItem>
-                  <SelectItem value="ENCERRADO">Encerrado</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Status</Label>
+                <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger className="bg-secondary border-border mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="RASCUNHO">Rascunho</SelectItem>
+                    <SelectItem value="ATIVO">Ativo</SelectItem>
+                    <SelectItem value="PAUSADO">Pausado</SelectItem>
+                    <SelectItem value="ENCERRADO">Encerrado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Pagamento do prêmio</Label>
+                <Select value={form.payout_mode} onValueChange={v => setForm(f => ({ ...f, payout_mode: v }))}>
+                  <SelectTrigger className="bg-secondary border-border mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AUTO">Automático ao encerrar</SelectItem>
+                    <SelectItem value="MANUAL">Manual (revisar e aprovar)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Opt-in & Points */}
@@ -452,6 +615,291 @@ export default function Tournaments() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Payout / Metrics Dialog */}
+      <Dialog open={!!payoutTournament} onOpenChange={(v) => { if (!v) setPayoutTournament(null); }}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {isPayoutReview ? <CheckCircle2 className="w-5 h-5 text-emerald-400" /> : <BarChart3 className="w-5 h-5 text-cyan-400" />}
+              {isPayoutReview ? 'Revisar e aprovar' : 'Métricas'} — {payoutTournament?.name}
+            </DialogTitle>
+          </DialogHeader>
+
+          {payoutLoading ? (
+            <div className="flex justify-center p-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+          ) : !payoutData ? (
+            <div className="p-8 text-center text-sm text-muted-foreground">Nenhum dado disponível</div>
+          ) : (
+            <div className="space-y-4">
+              {/* Metrics */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                <div className="bg-secondary/50 rounded-lg p-2">
+                  <p className="text-muted-foreground">Turnover</p>
+                  <p className="font-semibold text-foreground">{formatBRL(payoutData.metrics.turnover)}</p>
+                </div>
+                <div className="bg-secondary/50 rounded-lg p-2">
+                  <p className="text-muted-foreground">GGR</p>
+                  <p className="font-semibold text-foreground">{formatBRL(payoutData.metrics.ggr)}</p>
+                </div>
+                <div className="bg-secondary/50 rounded-lg p-2">
+                  <p className="text-muted-foreground">Custo do prêmio</p>
+                  <p className="font-semibold text-foreground">{formatBRL(payoutData.metrics.prize_cost)}</p>
+                </div>
+                <div className="bg-secondary/50 rounded-lg p-2">
+                  <p className="text-muted-foreground">ROI</p>
+                  <p className="font-semibold text-foreground">{payoutData.metrics.roi !== null ? `${(payoutData.metrics.roi * 100).toFixed(1)}%` : '—'}</p>
+                </div>
+                <div className="bg-secondary/50 rounded-lg p-2">
+                  <p className="text-muted-foreground">Participantes</p>
+                  <p className="font-semibold text-foreground">{payoutData.metrics.participants}</p>
+                </div>
+              </div>
+
+              {isPayoutReview ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10"></TableHead>
+                      <TableHead>Posição</TableHead>
+                      <TableHead>CPF</TableHead>
+                      <TableHead>Prêmio</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Turnover</TableHead>
+                      <TableHead>GGR</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payoutData.items.length === 0 ? (
+                      <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhum prêmio pendente</TableCell></TableRow>
+                    ) : payoutData.items.map(item => (
+                      <TableRow key={item.reward_id}>
+                        <TableCell>
+                          <Checkbox checked={checkedIds.has(item.reward_id)} onCheckedChange={() => toggleChecked(item.reward_id)} />
+                        </TableCell>
+                        <TableCell>{item.rank ?? '—'}</TableCell>
+                        <TableCell className="font-mono">{formatCPF(item.cpf)}</TableCell>
+                        <TableCell className="font-mono text-emerald-400">{formatBRL(item.value)}</TableCell>
+                        <TableCell>{item.reward_type}</TableCell>
+                        <TableCell className="font-mono">{formatBRL(item.total_bet)}</TableCell>
+                        <TableCell className="font-mono">{formatBRL(item.total_bet - item.total_won)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Posição</TableHead>
+                      <TableHead>CPF</TableHead>
+                      <TableHead>Turnover</TableHead>
+                      <TableHead>GGR</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payoutData.participants.length === 0 ? (
+                      <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Nenhum participante</TableCell></TableRow>
+                    ) : payoutData.participants.map((p, i) => (
+                      <TableRow key={`${p.cpf}-${i}`}>
+                        <TableCell>{p.rank ?? '—'}</TableCell>
+                        <TableCell className="font-mono">{formatCPF(p.cpf)}</TableCell>
+                        <TableCell className="font-mono">{formatBRL(p.total_bet)}</TableCell>
+                        <TableCell className="font-mono">{formatBRL(p.ggr)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Fechar</Button></DialogClose>
+            {isPayoutReview && (
+              <Button onClick={confirmPay} disabled={payMutation.isPending || payoutLoading} className="gradient-success border-0 text-success-foreground">
+                {payMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                <CheckCircle2 className="w-4 h-4 mr-2" /> Aprovar e pagar
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function TournamentAnalysis({ tournaments }: { tournaments: Tournament[] }) {
+  const [tournamentId, setTournamentId] = useState<string>('');
+  const [dateStart, setDateStart] = useState('');
+  const [dateEnd, setDateEnd] = useState('');
+  const [rep, setRep] = useState('_all');
+  const [sortBy, setSortBy] = useState<'total_bet' | 'ggr'>('total_bet');
+
+  // O filtro de datas afeta APENAS quais torneios aparecem no seletor abaixo
+  // (mostra torneios cujo período intersecta o intervalo). NÃO recalcula as
+  // métricas/ranking — esses dados vêm do endpoint 'analyze' do torneio escolhido.
+  const filteredTournaments = useMemo(() => {
+    if (!dateStart && !dateEnd) return tournaments;
+    const fStart = dateStart ? new Date(dateStart).getTime() : -Infinity;
+    const fEnd = dateEnd ? new Date(`${dateEnd}T23:59:59`).getTime() : Infinity;
+    return tournaments.filter(t => {
+      const tStart = new Date(t.start_date).getTime();
+      const tEnd = new Date(t.end_date).getTime();
+      return tStart <= fEnd && tEnd >= fStart; // interseção dos períodos
+    });
+  }, [tournaments, dateStart, dateEnd]);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['tournament-analyze', tournamentId],
+    enabled: !!tournamentId,
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/functions/tournament-payout`, {
+        method: 'POST',
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({ action: 'analyze', tournament_id: tournamentId }),
+      });
+      if (!res.ok) throw new Error('Erro ao carregar análise do torneio');
+      return await res.json() as AnalyzeData;
+    },
+  });
+
+  const representantes = data?.representantes ?? [];
+
+  // Aplica filtro de representante (client-side) e depois ordena.
+  const participants = useMemo(() => {
+    let list = data?.participants ?? [];
+    if (rep !== '_all') list = list.filter(p => (p.representante ?? '') === rep);
+    return [...list].sort((a, b) => sortBy === 'ggr' ? b.ggr - a.ggr : b.total_bet - a.total_bet);
+  }, [data, rep, sortBy]);
+
+  const visible = participants.slice(0, 100);
+  const metrics = data?.metrics;
+
+  return (
+    <div className="space-y-4">
+      {/* Seletor de torneio + filtro de datas */}
+      <div className="glass-card p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+        <div className="lg:col-span-2">
+          <Label>Torneio</Label>
+          <Select value={tournamentId} onValueChange={setTournamentId}>
+            <SelectTrigger className="bg-secondary border-border mt-1"><SelectValue placeholder="Selecione um torneio" /></SelectTrigger>
+            <SelectContent>
+              {filteredTournaments.length === 0 ? (
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">Nenhum torneio no período</div>
+              ) : filteredTournaments.map(t => (
+                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Data início</Label>
+          <Input type="date" value={dateStart} onChange={e => setDateStart(e.target.value)} className="bg-secondary border-border mt-1" />
+        </div>
+        <div>
+          <Label>Data fim</Label>
+          <Input type="date" value={dateEnd} onChange={e => setDateEnd(e.target.value)} className="bg-secondary border-border mt-1" />
+        </div>
+      </div>
+
+      {!tournamentId ? (
+        <div className="glass-card p-12 text-center">
+          <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">Selecione um torneio para ver a análise</p>
+        </div>
+      ) : isLoading ? (
+        <div className="flex justify-center p-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+      ) : !metrics ? (
+        <div className="glass-card p-8 text-center text-sm text-muted-foreground">Nenhum dado disponível</div>
+      ) : (
+        <div className="space-y-4">
+          {/* Cards de resumo */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+            <div className="bg-secondary/50 rounded-lg p-3">
+              <p className="text-muted-foreground">Turnover total</p>
+              <p className="font-semibold text-foreground text-sm">{formatBRL(metrics.turnover)}</p>
+            </div>
+            <div className="bg-secondary/50 rounded-lg p-3">
+              <p className="text-muted-foreground">GGR total</p>
+              <p className="font-semibold text-foreground text-sm">{formatBRL(metrics.ggr)}</p>
+            </div>
+            <div className="bg-secondary/50 rounded-lg p-3">
+              <p className="text-muted-foreground">Prêmios pagos aos jogadores</p>
+              <p className="font-semibold text-foreground text-sm">{formatBRL(metrics.total_won)}</p>
+            </div>
+            <div className="bg-secondary/50 rounded-lg p-3">
+              <p className="text-muted-foreground">RTP</p>
+              <p className="font-semibold text-foreground text-sm">{metrics.rtp != null ? `${metrics.rtp.toFixed(2)}%` : '—'}</p>
+            </div>
+            <div className="bg-secondary/50 rounded-lg p-3">
+              <p className="text-muted-foreground">Participantes</p>
+              <p className="font-semibold text-foreground text-sm">{metrics.participants}</p>
+            </div>
+          </div>
+
+          {/* Filtros de representante e ordenação */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[200px]">
+              <Label>Representante</Label>
+              <Select value={rep} onValueChange={setRep}>
+                <SelectTrigger className="bg-secondary border-border mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">Todos</SelectItem>
+                  {representantes.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-[200px]">
+              <Label>Ordenar por</Label>
+              <Select value={sortBy} onValueChange={v => setSortBy(v as 'total_bet' | 'ggr')}>
+                <SelectTrigger className="bg-secondary border-border mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="total_bet">Turnover</SelectItem>
+                  <SelectItem value="ggr">GGR</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Ranking */}
+          <div className="glass-card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-amber-400" /> Ranking
+              </h3>
+              <Badge variant="secondary" className="text-[10px]">{participants.length} jogadores</Badge>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">Posição</TableHead>
+                  <TableHead>Jogador</TableHead>
+                  <TableHead>Representante</TableHead>
+                  <TableHead>Turnover</TableHead>
+                  <TableHead>GGR</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visible.length === 0 ? (
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhum participante</TableCell></TableRow>
+                ) : visible.map((p, i) => (
+                  <TableRow key={`${p.cpf}-${i}`}>
+                    <TableCell>{p.rank ?? '—'}</TableCell>
+                    <TableCell className="font-mono">{p.username ?? formatCPF(p.cpf)}</TableCell>
+                    <TableCell>{p.representante ?? '—'}</TableCell>
+                    <TableCell className="font-mono">{formatBRL(p.total_bet)}</TableCell>
+                    <TableCell className="font-mono">{formatBRL(p.ggr)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {participants.length > 100 && (
+              <p className="text-[10px] text-muted-foreground mt-2">Exibindo 100 de {participants.length} jogadores</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

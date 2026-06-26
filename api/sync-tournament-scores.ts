@@ -101,7 +101,7 @@ async function creditBonusOnPlatform(baseUrl: string, headers: Record<string, st
   return { success: ok, msg: (result?.msg || result?.Msg || JSON.stringify(result).slice(0, 200)) as string };
 }
 
-async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string>, cpf: string): Promise<string | null> {
+async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string>, cpf: string): Promise<{ uuid: string; username: string | null } | null> {
   const params = new URLSearchParams({ draw: '1', start: '0', length: '1', busca_cpf: cpf });
   const userCols = ['username', 'celular', 'cpf', 'created_at', 'ultimo_login', 'situacao', 'uuid'];
   userCols.forEach((col, i) => {
@@ -113,10 +113,14 @@ async function searchPlayerByCpf(baseUrl: string, headers: Record<string, string
   params.set('search[value]', ''); params.set('search[regex]', 'false');
   const result = await fetchJSON(`${baseUrl}/usuarios/listar?${params}`, headers) as Record<string, unknown>;
   const aaData = result?.aaData as Record<string, unknown>[] | undefined;
-  return (aaData?.[0]?.uuid as string) || null;
+  const row = aaData?.[0];
+  if (!row?.uuid) return null;
+  return { uuid: row.uuid as string, username: (row.username as string) ?? null };
 }
 
-function calculateScoreBR(transactions: TransactionRecord[], metric: string, pointsPer: string, gameFilter: string, minBet: number): number {
+interface ScoreResult { score: number; totalBet: number; totalWon: number }
+
+function calculateScoreBR(transactions: TransactionRecord[], metric: string, pointsPer: string, gameFilter: string, minBet: number): ScoreResult {
   const divisor = pointsPer === '1_centavo' ? 0.01 : pointsPer === '10_centavos' ? 0.1 : 1;
   const parseValue = (s: string | number): number => {
     if (typeof s === 'number') return Math.abs(s);
@@ -151,7 +155,8 @@ function calculateScoreBR(transactions: TransactionRecord[], metric: string, poi
     case 'ggr': metricValue = totalBet - totalWon; break;
     default: metricValue = totalBet;
   }
-  return Math.max(0, Math.floor(metricValue / divisor));
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  return { score: Math.max(0, Math.floor(metricValue / divisor)), totalBet: round2(totalBet), totalWon: round2(totalWon) };
 }
 
 export default async function handler(req: Request): Promise<Response> {
@@ -215,16 +220,17 @@ export default async function handler(req: Request): Promise<Response> {
 
       if (!entries || entries.length === 0) continue;
 
-      const uuidCache = new Map<string, string | null>();
+      const uuidCache = new Map<string, { uuid: string; username: string | null } | null>();
 
       for (const entry of entries) {
         try {
-          let playerUuid = uuidCache.get(entry.cpf);
-          if (playerUuid === undefined) {
-            playerUuid = await searchPlayerByCpf(baseUrl, headers, entry.cpf);
-            uuidCache.set(entry.cpf, playerUuid);
+          let player = uuidCache.get(entry.cpf);
+          if (player === undefined) {
+            player = await searchPlayerByCpf(baseUrl, headers, entry.cpf);
+            uuidCache.set(entry.cpf, player);
           }
-          if (!playerUuid) { totalErrors++; continue; }
+          if (!player) { totalErrors++; continue; }
+          const playerUuid = player.uuid;
 
           const txResult = await fetchJSON(`${baseUrl}/usuarios/transacoes?id=${playerUuid}`, headers) as Record<string, unknown>;
           const movimentacoes: TransactionRecord[] = (txResult?.movimentacoes as TransactionRecord[]) || [];
@@ -251,10 +257,10 @@ export default async function handler(req: Request): Promise<Response> {
             return txTs >= startTs && txTs <= endTs;
           });
 
-          const score = calculateScoreBR(filteredTx, tournament.metric, tournament.points_per || '1_real', tournament.game_filter, Number(tournament.min_bet || 0));
+          const { score, totalBet, totalWon } = calculateScoreBR(filteredTx, tournament.metric, tournament.points_per || '1_real', tournament.game_filter, Number(tournament.min_bet || 0));
 
           await supabase.from('player_tournament_entries')
-            .update({ score, updated_at: new Date().toISOString() }).eq('id', entry.id);
+            .update({ score, total_bet: totalBet, total_won: totalWon, username: player.username, updated_at: new Date().toISOString() } as Record<string, unknown>).eq('id', entry.id);
 
           totalUpdated++;
         } catch (e) {
@@ -279,7 +285,7 @@ export default async function handler(req: Request): Promise<Response> {
     try { body = await req.json() as Record<string, unknown>; } catch { /* ignore */ }
     const forceTournamentId = body?.force_prizes_tournament_id;
 
-    let endedFilter = supabase.from('tournaments').select('id, name, prizes, end_date').lt('end_date', now);
+    let endedFilter = supabase.from('tournaments').select('id, name, prizes, end_date, payout_mode').lt('end_date', now);
     if (forceTournamentId) {
       endedFilter = endedFilter.eq('id', forceTournamentId);
     } else {
@@ -289,7 +295,8 @@ export default async function handler(req: Request): Promise<Response> {
 
     let prizesPaid = 0;
     for (const t of endedTournaments || []) {
-      log(`Torneio "${t.name}" encerrou — distribuindo prêmios`);
+      const isManual = (t as Record<string, unknown>).payout_mode === 'MANUAL';
+      log(`Torneio "${t.name}" encerrou — ${isManual ? 'gerando prêmios pendentes de aprovação' : 'distribuindo prêmios'}`);
       const { data: ranked } = await supabase
         .from('player_tournament_entries').select('id, cpf, score, rank')
         .eq('tournament_id', t.id).order('score', { ascending: false });
@@ -303,15 +310,24 @@ export default async function handler(req: Request): Promise<Response> {
 
         const winner = ranked?.find((_, i) => i + 1 === rank);
         if (!winner) continue;
+        const description = `Prêmio do torneio "${t.name}" — ${prize.description || `${rank}º lugar`}`;
 
         try {
-          if (type === 'bonus' || type === 'free_bet') {
-            const winnerUuid = await searchPlayerByCpf(baseUrl, headers, winner.cpf);
-            if (winnerUuid) await creditBonusOnPlatform(baseUrl, headers, winnerUuid, value, config.password);
+          if (isManual) {
+            // MANUAL: registra como pendente (claimed_at NULL), sem creditar.
             await supabase.from('player_rewards_pending').insert({
               cpf: winner.cpf, reward_type: type, reward_value: value,
-              source: 'tournament', source_id: t.id,
-              description: `Prêmio do torneio "${t.name}" — ${prize.description || `${rank}º lugar`}`,
+              source: 'tournament', source_id: t.id, description, claimed_at: null,
+            } as Record<string, unknown>);
+            prizesPaid++;
+            continue;
+          }
+          if (type === 'bonus' || type === 'free_bet') {
+            const winnerPlayer = await searchPlayerByCpf(baseUrl, headers, winner.cpf);
+            if (winnerPlayer?.uuid) await creditBonusOnPlatform(baseUrl, headers, winnerPlayer.uuid, value, config.password);
+            await supabase.from('player_rewards_pending').insert({
+              cpf: winner.cpf, reward_type: type, reward_value: value,
+              source: 'tournament', source_id: t.id, description,
               claimed_at: new Date().toISOString(),
             } as Record<string, unknown>);
           } else if (type === 'coins') {
@@ -331,7 +347,9 @@ export default async function handler(req: Request): Promise<Response> {
           log(`ERRO ao pagar prêmio rank ${rank}: ${(e as Error).message}`);
         }
       }
-      await supabase.from('tournaments').update({ status: 'ENCERRADO', updated_at: new Date().toISOString() } as Record<string, unknown>).eq('id', t.id);
+      await supabase.from('tournaments')
+        .update({ status: isManual ? 'AGUARDANDO_PAGAMENTO' : 'ENCERRADO', updated_at: new Date().toISOString() } as Record<string, unknown>)
+        .eq('id', t.id);
     }
 
     await supabase.from('platform_config').update({ last_sync_at: new Date().toISOString() }).eq('id', config.id);
