@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, API_URL } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, Loader2, Trophy, Swords, Play, Square, Clock, Users, UserCheck, CheckCircle2, BarChart3 } from 'lucide-react';
+import { Plus, Trash2, Edit2, Copy, Loader2, Trophy, Swords, Play, Square, Clock, Users, UserCheck, CheckCircle2, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -344,6 +344,34 @@ export default function Tournaments() {
     setOpen(true);
   };
 
+  // Clona um torneio: abre o formulário de criação (editId null = INSERT) já preenchido
+  // com os dados do torneio de origem, como RASCUNHO e nome com "(cópia)".
+  const openClone = (t: Tournament) => {
+    const prizes: Prize[] = (t.prizes || []).map((p: Prize) => ({
+      rankFrom: p.rankFrom ?? p.rank ?? 1,
+      rankTo: p.rankTo ?? p.rankFrom ?? p.rank ?? 1,
+      value: p.value, description: p.description, type: p.type || 'bonus',
+    }));
+    setEditId(null);
+    setForm({
+      name: `${t.name} (cópia)`,
+      internal_name: t.internal_name ? `${t.internal_name} (cópia)` : '',
+      description: t.description || '',
+      rules_html: t.rules_html || '', prize_pool_short: t.prize_pool_short || '',
+      image_url: t.image_url || '', image_lobby_url: t.image_lobby_url || '',
+      image_lobby_mobile_url: t.image_lobby_mobile_url || '', ribbon: t.ribbon || '',
+      start_date: t.start_date?.slice(0, 16) || '', end_date: t.end_date?.slice(0, 16) || '',
+      metric: t.metric, game_filter: t.game_filter, min_bet: String(t.min_bet || 0),
+      min_players: t.min_players != null ? String(t.min_players) : '',
+      max_players: t.max_players != null ? String(t.max_players) : '',
+      status: 'RASCUNHO', prizes: prizes.length > 0 ? prizes : emptyForm.prizes, segment_id: t.segment_id || '',
+      require_optin: t.require_optin || false, points_per: t.points_per || '1_real',
+      payout_mode: t.payout_mode || 'AUTO',
+    });
+    setOpen(true);
+    toast.info('Torneio clonado — ajuste o que precisar e clique em Criar');
+  };
+
   const updatePrize = (index: number, field: keyof Prize, value: string | number) => {
     setForm(f => {
       const prizes = [...f.prizes];
@@ -489,10 +517,13 @@ export default function Tournaments() {
                         <BarChart3 className="w-3 h-3 mr-1" /> Métricas
                       </Button>
                     )}
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)} title="Editar">
                       <Edit2 className="w-3.5 h-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteMutation.mutate(t.id)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openClone(t)} title="Clonar">
+                      <Copy className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deleteMutation.mutate(t.id)} title="Excluir">
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
