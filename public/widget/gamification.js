@@ -2249,11 +2249,11 @@
               <div class="pbg-t-hero-prize">Prêmio total <span>${fmt(heroPool)}</span></div>
             </div>
             <div class="pbg-t-hero-right">
-              <div class="pbg-t-hero-cd">
-                <div><div class="pbg-t-hero-cd-num">${String(heroCd.d).padStart(2,'0')}</div><div class="pbg-t-hero-cd-lbl">DIAS</div></div>
-                <div><div class="pbg-t-hero-cd-num">${String(heroCd.h).padStart(2,'0')}</div><div class="pbg-t-hero-cd-lbl">HORAS</div></div>
-                <div><div class="pbg-t-hero-cd-num">${String(heroCd.m).padStart(2,'0')}</div><div class="pbg-t-hero-cd-lbl">MINS</div></div>
-                <div><div class="pbg-t-hero-cd-num">${String(heroCd.s).padStart(2,'0')}</div><div class="pbg-t-hero-cd-lbl">SEGS</div></div>
+              <div class="pbg-t-hero-cd pbg-t-live-cd" data-end-date="${hero.end_date}">
+                <div><div class="pbg-t-hero-cd-num pbg-t-cd-d">${String(heroCd.d).padStart(2,'0')}</div><div class="pbg-t-hero-cd-lbl">DIAS</div></div>
+                <div><div class="pbg-t-hero-cd-num pbg-t-cd-h">${String(heroCd.h).padStart(2,'0')}</div><div class="pbg-t-hero-cd-lbl">HORAS</div></div>
+                <div><div class="pbg-t-hero-cd-num pbg-t-cd-m">${String(heroCd.m).padStart(2,'0')}</div><div class="pbg-t-hero-cd-lbl">MINS</div></div>
+                <div><div class="pbg-t-hero-cd-num pbg-t-cd-s">${String(heroCd.s).padStart(2,'0')}</div><div class="pbg-t-hero-cd-lbl">SEGS</div></div>
               </div>
               <button class="pbg-t-hero-btn" onclick="event.stopPropagation();window.__pbg('openTournament',${heroIdx})">${(data.tournament_entries || []).some(e => hero && e.tournament_id === hero.id) ? 'INSCRITO ✓' : 'PARTICIPAR →'}</button>
             </div>
