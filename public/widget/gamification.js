@@ -681,7 +681,7 @@
     .pbg-t-filter.active { background: linear-gradient(135deg, #8b5cf6, #6366f1); border-color: transparent; color: #fff; }
     /* Section header */
     .pbg-t-section { display: flex; align-items: center; gap: 8px; margin: 16px 0 10px; }
-    .pbg-t-section-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(139,92,246,0.1); }
+    .pbg-t-section-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(139,92,246,0.22); color: #fbbf24; border: 1px solid rgba(139,92,246,0.35); }
     .pbg-t-section-title { font-size: 14px; font-weight: 700; color: #fff; flex: 1; }
     /* Card grid — horizontal scroll on mobile */
     .pbg-t-grid { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
@@ -2232,7 +2232,7 @@
         html += `<div class="pbg-t-grid">${[...joined, ...available].map(t => renderCard(t)).join('')}</div>`;
       }
       if (ended.length > 0) {
-        html += `<div class="pbg-t-section"><div class="pbg-t-section-icon" style="background:rgba(113,113,122,0.1)">${inlIcon('trophy',18)}</div><div class="pbg-t-section-title">Finalizados</div></div>`;
+        html += `<div class="pbg-t-section"><div class="pbg-t-section-icon" style="background:rgba(113,113,122,0.15);color:#a1a1aa;border-color:rgba(113,113,122,0.35)">${inlIcon('trophy',18)}</div><div class="pbg-t-section-title">Finalizados</div></div>`;
         html += `<div class="pbg-t-grid">${ended.map(t => renderCard(t)).join('')}</div>`;
       }
       return html;
