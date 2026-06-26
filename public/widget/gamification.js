@@ -726,8 +726,8 @@
       flex: 1; padding: 6px; border-radius: 6px; text-align: center;
       background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
     }
-    .pbg-t-pool-lbl { font-size: 7px; color: #71717a; text-transform: uppercase; letter-spacing: 0.05em; }
-    .pbg-t-pool-val { font-size: 11px; font-weight: 800; color: #22d3ee; margin-top: 1px; }
+    .pbg-t-pool-lbl { font-size: 7px; color: #71717a; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+    .pbg-t-pool-val { font-size: 11px; font-weight: 800; color: #22d3ee; margin-top: 1px; white-space: nowrap; }
     .pbg-t-part-btn {
       padding: 6px 12px; border: none; border-radius: 6px; font-size: 10px; font-weight: 800;
       font-family: inherit; cursor: pointer; text-transform: uppercase;
