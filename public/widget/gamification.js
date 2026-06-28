@@ -159,7 +159,7 @@
       margin: 0 !important; padding: 0 !important;
       min-width: 54px !important; min-height: 54px !important;
       overflow: hidden !important;
-      left: auto !important; top: auto !important;
+      left: auto !important; bottom: auto !important;
       outline: none !important;
       -webkit-appearance: none !important;
       appearance: none !important;
