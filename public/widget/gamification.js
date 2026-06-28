@@ -145,7 +145,7 @@
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
     #pbg-widget-fab {
-      position: fixed !important; bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px)) !important; right: 24px !important; width: 54px !important; height: 54px !important;
+      position: fixed !important; top: 50% !important; right: 24px !important; transform: translateY(-50%) !important; width: 54px !important; height: 54px !important;
       border-radius: 50% !important; background: transparent !important;
       border: none !important; cursor: pointer !important; z-index: 2147483647 !important;
       display: flex !important; align-items: center !important; justify-content: center !important;
@@ -155,7 +155,7 @@
       touch-action: manipulation;
       opacity: 1 !important; visibility: visible !important;
       pointer-events: auto !important;
-      transform: none !important;
+      transform: translateY(-50%) !important;
       margin: 0 !important; padding: 0 !important;
       min-width: 54px !important; min-height: 54px !important;
       overflow: hidden !important;
@@ -169,7 +169,7 @@
       text-decoration: none !important;
       filter: none !important;
     }
-    #pbg-widget-fab:hover { transform: scale(1.08) !important; }
+    #pbg-widget-fab:hover { transform: translateY(-50%) scale(1.08) !important; }
     #pbg-widget-fab::before, #pbg-widget-fab::after { display: none !important; content: none !important; }
 
     .pbg-fab-ring {
@@ -1267,7 +1267,7 @@
 
     @media (max-width: 420px) {
       #pbg-widget-panel { width: 100vw !important; height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; max-width: 100vw !important; }
-      #pbg-widget-fab { bottom: 16px !important; right: 16px !important; width: 54px !important; height: 54px !important; min-width: 54px !important; min-height: 54px !important; }
+      #pbg-widget-fab { top: 50% !important; right: 16px !important; transform: translateY(-50%) !important; width: 54px !important; height: 54px !important; min-width: 54px !important; min-height: 54px !important; }
       .pbg-header { border-radius: 0 !important; }
       #pbg-widget-backdrop.open { background: rgba(0,0,0,1) !important; }
       .pbg-content { padding-bottom: 60px !important; }
