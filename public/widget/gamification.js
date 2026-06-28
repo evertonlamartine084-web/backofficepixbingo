@@ -145,7 +145,7 @@
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
     #pbg-widget-fab {
-      position: fixed !important; top: 50% !important; right: 24px !important; transform: translateY(-50%) !important; width: 54px !important; height: 54px !important;
+      position: fixed !important; top: 50% !important; right: 8px !important; transform: translateY(-50%) !important; width: 54px !important; height: 54px !important;
       border-radius: 50% !important; background: transparent !important;
       border: none !important; cursor: pointer !important; z-index: 2147483647 !important;
       display: flex !important; align-items: center !important; justify-content: center !important;
@@ -1267,7 +1267,7 @@
 
     @media (max-width: 420px) {
       #pbg-widget-panel { width: 100vw !important; height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; max-width: 100vw !important; }
-      #pbg-widget-fab { top: 50% !important; right: 16px !important; transform: translateY(-50%) !important; width: 54px !important; height: 54px !important; min-width: 54px !important; min-height: 54px !important; }
+      #pbg-widget-fab { top: 50% !important; right: 8px !important; transform: translateY(-50%) !important; width: 54px !important; height: 54px !important; min-width: 54px !important; min-height: 54px !important; }
       .pbg-header { border-radius: 0 !important; }
       #pbg-widget-backdrop.open { background: rgba(0,0,0,1) !important; }
       .pbg-content { padding-bottom: 60px !important; }
