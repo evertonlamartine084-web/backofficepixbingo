@@ -158,7 +158,7 @@
       transform: translateY(-50%) !important;
       margin: 0 !important; padding: 0 !important;
       min-width: 54px !important; min-height: 54px !important;
-      overflow: hidden !important;
+      overflow: visible !important;
       left: auto !important; bottom: auto !important;
       outline: none !important;
       -webkit-appearance: none !important;
@@ -172,12 +172,30 @@
     #pbg-widget-fab:hover { transform: translateY(-50%) scale(1.08) !important; }
     #pbg-widget-fab::before, #pbg-widget-fab::after { display: none !important; content: none !important; }
 
-    .pbg-fab-ring {
-      display: none;
+    .pbg-fab-ring { display: none; }
+
+    /* Anel colorido girando ao redor do botão (efeito spin chamativo). */
+    .pbg-fab-spin {
+      position: absolute; top: 50%; left: 50%; width: 66px; height: 66px;
+      transform: translate(-50%, -50%); border-radius: 50%;
+      background: conic-gradient(from 0deg, #22d3ee, #8b5cf6, #f59e0b, #22d3ee);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+              mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+      animation: pbg-fab-spin-rot 2s linear infinite;
+      pointer-events: none; z-index: 0;
+      filter: drop-shadow(0 0 5px rgba(139,92,246,0.7));
     }
+    @keyframes pbg-fab-spin-rot { to { transform: translate(-50%, -50%) rotate(360deg); } }
+    /* Brilho pulsante por baixo, reforça o destaque. */
+    .pbg-fab-glow {
+      position: absolute; top: 50%; left: 50%; width: 54px; height: 54px;
+      transform: translate(-50%, -50%); border-radius: 50%; z-index: 0; pointer-events: none;
+      box-shadow: 0 0 0 0 rgba(139,92,246,0.6); animation: pbg-fab-pulse 2s ease-out infinite;
+    }
+    @keyframes pbg-fab-pulse { 0% { box-shadow: 0 0 0 0 rgba(139,92,246,0.55); } 70% { box-shadow: 0 0 0 14px rgba(139,92,246,0); } 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0); } }
 
     .pbg-fab-inner {
-      position: relative; width: 54px; height: 54px; border-radius: 50%;
+      position: relative; z-index: 1; width: 54px; height: 54px; border-radius: 50%;
       background: linear-gradient(135deg, #8b5cf6, #6366f1);
       display: flex; align-items: center; justify-content: center; flex-direction: column;
       box-shadow: none;
@@ -4106,6 +4124,8 @@
     const hasLevel = levelNum !== '';
 
     fabEl.innerHTML = `
+      <div class="pbg-fab-glow"></div>
+      <div class="pbg-fab-spin"></div>
       <div class="pbg-fab-inner">
         ${ICONS.gift}
       </div>
