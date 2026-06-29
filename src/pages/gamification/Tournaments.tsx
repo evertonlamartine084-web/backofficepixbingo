@@ -266,6 +266,8 @@ export default function Tournaments() {
   const { data: payoutData, isLoading: payoutLoading } = useQuery({
     queryKey: ['tournament-payout', payoutTournament?.id],
     enabled: !!payoutTournament,
+    // Torneio ATIVO: atualiza o ranking ao vivo a cada 30s enquanto o dialog está aberto.
+    refetchInterval: payoutTournament?.status === 'ATIVO' ? 30000 : false,
     queryFn: async () => {
       const res = await fetch(`${API_URL}/functions/tournament-payout`, {
         method: 'POST',
@@ -503,9 +505,14 @@ export default function Tournaments() {
                       </Button>
                     )}
                     {t.status === 'ATIVO' && (
-                      <Button size="sm" variant="destructive" className="flex-1" onClick={() => statusMutation.mutate({ id: t.id, status: 'ENCERRADO' })}>
-                        <Square className="w-3 h-3 mr-1" /> Encerrar
-                      </Button>
+                      <>
+                        <Button size="sm" variant="outline" className="flex-1" onClick={() => setPayoutTournament(t)}>
+                          <BarChart3 className="w-3 h-3 mr-1" /> Ranking ao vivo
+                        </Button>
+                        <Button size="sm" variant="destructive" className="flex-1" onClick={() => statusMutation.mutate({ id: t.id, status: 'ENCERRADO' })}>
+                          <Square className="w-3 h-3 mr-1" /> Encerrar
+                        </Button>
+                      </>
                     )}
                     {t.status === 'AGUARDANDO_PAGAMENTO' && (
                       <Button size="sm" className="flex-1 gradient-success border-0 text-success-foreground" onClick={() => setPayoutTournament(t)}>
@@ -765,7 +772,8 @@ export default function Tournaments() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {isPayoutReview ? <CheckCircle2 className="w-5 h-5 text-emerald-400" /> : <BarChart3 className="w-5 h-5 text-cyan-400" />}
-              {isPayoutReview ? 'Revisar e aprovar' : 'Métricas'} — {payoutTournament?.name}
+              {isPayoutReview ? 'Revisar e aprovar' : (payoutTournament?.status === 'ATIVO' ? 'Ranking ao vivo' : 'Métricas')} — {payoutTournament?.name}
+              {payoutTournament?.status === 'ATIVO' && <span className="text-[10px] font-normal text-emerald-400 flex items-center gap-1 ml-1">● atualiza a cada 30s</span>}
             </DialogTitle>
           </DialogHeader>
 
@@ -836,17 +844,19 @@ export default function Tournaments() {
                     <TableRow>
                       <TableHead>Posição</TableHead>
                       <TableHead>CPF</TableHead>
+                      <TableHead className="text-right">Pontos</TableHead>
                       <TableHead>Turnover</TableHead>
                       <TableHead>GGR</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {payoutData.participants.length === 0 ? (
-                      <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Nenhum participante</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhum participante</TableCell></TableRow>
                     ) : payoutData.participants.map((p, i) => (
                       <TableRow key={`${p.cpf}-${i}`}>
                         <TableCell>{p.rank ?? '—'}</TableCell>
                         <TableCell className="font-mono">{formatCPF(p.cpf)}</TableCell>
+                        <TableCell className="font-mono text-right font-semibold text-foreground">{Number(p.score ?? 0).toLocaleString('pt-BR')}</TableCell>
                         <TableCell className="font-mono">{formatBRL(p.total_bet)}</TableCell>
                         <TableCell className="font-mono">{formatBRL(p.ggr)}</TableCell>
                       </TableRow>
