@@ -1294,6 +1294,54 @@
       #pbg-widget-backdrop.open { background: rgba(0,0,0,0.95) !important; }
       .pbg-content { padding-bottom: 60px !important; }
     }
+
+    /* ===== Popup de premiação do torneio ===== */
+    #pbg-tresult { position: fixed; inset: 0; z-index: 2147483647; display: flex; align-items: center; justify-content: center;
+      padding: 16px; background: rgba(6,5,16,.78); backdrop-filter: blur(4px); transition: opacity .25s; }
+    #pbg-tresult .pbg-tr-card { position: relative; width: 100%; max-width: 360px; border-radius: 22px; overflow: hidden;
+      background: radial-gradient(120% 80% at 50% 0%, #2a1d52 0%, #16122b 55%, #0d0a1c 100%);
+      border: 1px solid rgba(139,92,246,.35); box-shadow: 0 24px 60px rgba(0,0,0,.6), 0 0 40px rgba(139,92,246,.25);
+      text-align: center; padding: 0 22px 22px; animation: pbg-tr-in .35s cubic-bezier(.2,1.2,.4,1) both; }
+    @keyframes pbg-tr-in { from { transform: scale(.9); opacity: 0; } }
+    #pbg-tresult .pbg-tr-card::before { content: ''; position: absolute; top: -60px; left: 50%; transform: translateX(-50%);
+      width: 220px; height: 220px; border-radius: 50%; pointer-events: none;
+      background: radial-gradient(circle, rgba(245,158,11,.4), transparent 70%); }
+    #pbg-tresult .pbg-tr-lose .pbg-tr-card::before, #pbg-tresult.pbg-tr-lose-x { }
+    #pbg-tresult .pbg-tr-x { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(255,255,255,.08); color: #c8c8d4; border: none; font-size: 18px; cursor: pointer; z-index: 3; }
+    #pbg-tresult .pbg-tr-x:hover { background: rgba(255,255,255,.16); }
+    #pbg-tresult .pbg-tr-confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
+    #pbg-tresult .pbg-tr-confetti i { position: absolute; top: -12px; width: 8px; height: 12px; opacity: .9; animation: pbg-tr-fall linear infinite; }
+    @keyframes pbg-tr-fall { to { transform: translateY(440px) rotate(540deg); opacity: 0; } }
+    #pbg-tresult .pbg-tr-inner { position: relative; z-index: 2; padding-top: 30px; }
+    #pbg-tresult .pbg-tr-emblem { width: 92px; height: 92px; margin: 0 auto 4px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: 46px;
+      background: radial-gradient(circle at 50% 35%, #fde68a, #f59e0b 70%);
+      box-shadow: 0 8px 26px rgba(245,158,11,.5), inset 0 -6px 14px rgba(0,0,0,.25);
+      animation: pbg-tr-pop .5s cubic-bezier(.2,1.4,.5,1) both, pbg-tr-float 3s ease-in-out .5s infinite; }
+    #pbg-tresult .pbg-tr-lose .pbg-tr-emblem { background: radial-gradient(circle at 50% 35%, #c4b5fd, #8b5cf6 70%);
+      box-shadow: 0 8px 26px rgba(139,92,246,.5), inset 0 -6px 14px rgba(0,0,0,.25); }
+    @keyframes pbg-tr-pop { from { transform: scale(.3); opacity: 0; } }
+    @keyframes pbg-tr-float { 50% { transform: translateY(-6px); } }
+    #pbg-tresult .pbg-tr-pos-lbl { font-size: 12px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px; margin-top: 10px; font-weight: 700; }
+    #pbg-tresult .pbg-tr-pos { font-size: 52px; font-weight: 900; line-height: 1; margin: 2px 0;
+      background: linear-gradient(135deg,#fde68a,#f59e0b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    #pbg-tresult .pbg-tr-lose .pbg-tr-pos { background: linear-gradient(135deg,#c4b5fd,#8b5cf6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    #pbg-tresult .pbg-tr-tname { font-size: 14px; color: #d4d4d8; font-weight: 600; margin-bottom: 14px; }
+    #pbg-tresult .pbg-tr-title { font-size: 20px; font-weight: 900; margin: 6px 0 2px; color: #fff; }
+    #pbg-tresult .pbg-tr-sub { font-size: 13px; color: #a1a1aa; margin-bottom: 14px; }
+    #pbg-tresult .pbg-tr-prize { margin: 0 auto 16px; padding: 14px; border-radius: 14px;
+      background: linear-gradient(135deg, rgba(16,185,129,.16), rgba(245,158,11,.12)); border: 1px solid rgba(16,185,129,.35); }
+    #pbg-tresult .pbg-tr-prize-lbl { font-size: 11px; color: #a1a1aa; text-transform: uppercase; letter-spacing: .5px; }
+    #pbg-tresult .pbg-tr-prize-val { font-size: 30px; font-weight: 900; color: #34d399; font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+    #pbg-tresult .pbg-tr-prize-tag { font-size: 11px; color: #a1a1aa; margin-top: 2px; }
+    #pbg-tresult .pbg-tr-stats { display: flex; gap: 8px; margin-bottom: 16px; }
+    #pbg-tresult .pbg-tr-stat { flex: 1; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 9px; }
+    #pbg-tresult .pbg-tr-stat-lbl { font-size: 10px; color: #a1a1aa; text-transform: uppercase; }
+    #pbg-tresult .pbg-tr-stat-val { font-size: 15px; font-weight: 800; color: #fff; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+    #pbg-tresult .pbg-tr-cta { display: block; width: 100%; padding: 14px; border-radius: 14px; border: none; cursor: pointer;
+      font-weight: 900; font-size: 15px; color: #fff; background: linear-gradient(135deg,#8b5cf6,#6366f1); box-shadow: 0 10px 24px rgba(139,92,246,.4); }
+    #pbg-tresult .pbg-tr-cta:hover { filter: brightness(1.08); }
   `;
 
   const ICONS = {
@@ -1432,6 +1480,66 @@
     renderContent();
   }
 
+  // ===== Popup de premiação do torneio (aparece 1x após o resultado ser publicado) =====
+  var __pbgResultShownIds = {}; // evita reabrir na mesma sessão (cache do data dura 30s)
+  function maybeShowTournamentResult() {
+    if (document.getElementById('pbg-tresult')) return;
+    var list = (data && data.tournament_results) || [];
+    var r = null;
+    for (var i = 0; i < list.length; i++) { if (!__pbgResultShownIds[list[i].tournament_id]) { r = list[i]; break; } }
+    if (!r) return;
+    __pbgResultShownIds[r.tournament_id] = true;
+    showTournamentResultPopup(r);
+  }
+
+  function showTournamentResultPopup(r) {
+    var win = Number(r.prize_value) > 0;
+    var rank = r.rank || 0;
+    var emblem = win ? (rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '🏆') : '🎯';
+    var cores = ['#f59e0b','#8b5cf6','#22d3ee','#34d399','#ef4444','#fde68a'];
+    var conf = '';
+    for (var i = 0; i < 26; i++) {
+      var seed = (i * 2654435761) % 2147483647;
+      var l = (seed % 100), d = (2 + (seed % 200) / 100).toFixed(2), dl = ((seed % 250) / 100).toFixed(2);
+      conf += '<i style="left:' + l + '%;background:' + cores[i % cores.length] + ';animation-duration:' + d + 's;animation-delay:' + dl + 's"></i>';
+    }
+    var ov = document.createElement('div');
+    ov.id = 'pbg-tresult';
+    ov.innerHTML =
+      '<div class="pbg-tr-card ' + (win ? 'pbg-tr-win' : 'pbg-tr-lose') + '">' +
+        '<div class="pbg-tr-confetti">' + conf + '</div>' +
+        '<button class="pbg-tr-x" aria-label="Fechar">×</button>' +
+        '<div class="pbg-tr-inner">' +
+          '<div class="pbg-tr-emblem">' + emblem + '</div>' +
+          '<div class="pbg-tr-pos-lbl">Sua posição</div>' +
+          '<div class="pbg-tr-pos">' + rank + 'º</div>' +
+          '<div class="pbg-tr-tname">' + (r.tournament_name || 'Torneio') + '</div>' +
+          (win
+            ? '<div class="pbg-tr-title">Parabéns! 🎉</div><div class="pbg-tr-sub">Você foi premiado neste torneio!</div>' +
+              '<div class="pbg-tr-prize"><div class="pbg-tr-prize-lbl">Você ganhou</div><div class="pbg-tr-prize-val">' + fmt(r.prize_value) + '</div><div class="pbg-tr-prize-tag">creditado em Saldo Bônus</div></div>'
+            : '<div class="pbg-tr-title">Torneio encerrado!</div><div class="pbg-tr-sub">Não foi dessa vez, mas você participou. Bora pro próximo! 🚀</div>') +
+          '<div class="pbg-tr-stats">' +
+            '<div class="pbg-tr-stat"><div class="pbg-tr-stat-lbl">Seus pontos</div><div class="pbg-tr-stat-val">' + Number(r.score || 0).toLocaleString('pt-BR') + '</div></div>' +
+            '<div class="pbg-tr-stat"><div class="pbg-tr-stat-lbl">Participantes</div><div class="pbg-tr-stat-val">' + Number(r.participants || 0).toLocaleString('pt-BR') + '</div></div>' +
+          '</div>' +
+          '<button class="pbg-tr-cta">' + (win ? 'JOGAR NOVAMENTE 🎰' : 'VER PRÓXIMOS TORNEIOS →') + '</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+
+    function close() {
+      ov.style.opacity = '0';
+      setTimeout(function () { if (ov.parentNode) ov.parentNode.removeChild(ov); }, 250);
+      try { apiCall('tournament_result_seen', { tournament_id: r.tournament_id }); } catch (e) {}
+    }
+    ov.querySelector('.pbg-tr-x').addEventListener('click', close);
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    ov.querySelector('.pbg-tr-cta').addEventListener('click', function () {
+      close();
+      try { window.__pbg('tab', 'tournaments'); toggle(true); } catch (e) {}
+    });
+  }
+
   async function fetchData() {
     try {
       // Send ref code along with data request so API can auto-register
@@ -1452,6 +1560,7 @@
         __pbr_captured_ref = '';
       }
       updateFab();
+      maybeShowTournamentResult();
       // O endpoint `data` e o `sync_missions` retornam conjuntos de mission_progress
       // diferentes (data às vezes vem sem missões já reclamadas). Se a gente renderizar
       // com o `data` e logo depois com o `sync`, o conteúdo oscila a cada poll = flicker.
