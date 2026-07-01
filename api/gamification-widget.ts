@@ -22,6 +22,15 @@ export default async function handler(req: Request): Promise<Response> {
 
   const corsHeaders = getCorsHeaders(req);
 
+  // DESATIVADO (2026-07-01): este widget legado não tinha autenticação de posse do CPF
+  // (IDOR — qualquer um creditava valor por qualquer CPF). Substituído pelo backend Railway
+  // (/api/gamification-widget com JWT de jogador). Respondemos 410 Gone para fechar a exposição.
+  return new Response(
+    JSON.stringify({ error: 'gone', message: 'Endpoint desativado. Use o backend de gamificação (Railway).' }),
+    { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+
+   
   try {
     const supabaseUrl = process.env.SUPABASE_URL!;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;

@@ -1437,12 +1437,45 @@
     return map[type] || `${type}: ${value}`;
   };
 
+  // Token de posse do jogador (Opção A): provado por CPF↔UUID (window.id_usuario) no init.
+  // Exigido pelo backend nas ações que creditam/gastam valor. Só em memória (não persiste).
+  let PLAYER_TOKEN = null;
+  let __pbg_authInFlight = null;
+  async function ensurePlayerToken(force) {
+    if (PLAYER_TOKEN && !force) return PLAYER_TOKEN;
+    if (__pbg_authInFlight) return __pbg_authInFlight;
+    const uuid = window.id_usuario ? String(window.id_usuario).trim() : '';
+    // Sem CPF ou sem UUID da sessão logada não há prova de posse → sem token (reads seguem).
+    if (!PLAYER_CPF || !uuid) return null;
+    __pbg_authInFlight = (async () => {
+      try {
+        const r = await fetch(`${API_URL}?action=auth&player=${PLAYER_CPF}&uuid=${encodeURIComponent(uuid)}`, { headers: { 'Content-Type': 'application/json' } });
+        if (!r.ok) return null;
+        const d = await r.json();
+        PLAYER_TOKEN = (d && d.token) ? d.token : null;
+        return PLAYER_TOKEN;
+      } catch { return null; }
+      finally { __pbg_authInFlight = null; }
+    })();
+    return __pbg_authInFlight;
+  }
+
   const apiCall = async (action, params = {}) => {
     const segQ = SEGMENT_ID ? `&segment=${SEGMENT_ID}` : '';
     const envQ = WIDGET_ENV ? `&env=${WIDGET_ENV}` : '';
     const playerQ = PLAYER_CPF ? `&player=${PLAYER_CPF}` : '';
     const extra = Object.entries(params).map(([k,v]) => `&${k}=${v}`).join('');
-    const res = await fetch(`${API_URL}?action=${action}${segQ}${envQ}${playerQ}${extra}`, { headers: { 'Content-Type': 'application/json' } });
+    const doFetch = () => {
+      const headers = { 'Content-Type': 'application/json' };
+      if (PLAYER_TOKEN) headers['Authorization'] = `Bearer ${PLAYER_TOKEN}`;
+      return fetch(`${API_URL}?action=${action}${segQ}${envQ}${playerQ}${extra}`, { headers });
+    };
+    let res = await doFetch();
+    // 401 = token ausente/expirado numa ação protegida → re-autentica uma vez e repete.
+    if (res.status === 401) {
+      await ensurePlayerToken(true);
+      if (PLAYER_TOKEN) res = await doFetch();
+    }
     return res.json();
   };
 
@@ -4164,6 +4197,9 @@
   async function checkSegmentAndInit() {
     PLAYER_CPF = getPlayerCpf();
     if (!PLAYER_CPF) await autoDetectCpf(); // try to detect CPF from platform
+    // Prova de posse (CPF↔UUID) → token exigido pelas ações que creditam/gastam valor.
+    // Best-effort: se falhar, reads seguem; writes recebem 401 e re-tentam auth sozinhas.
+    if (PLAYER_CPF) { try { await ensurePlayerToken(); } catch {} }
     // If segment specified in script tag, check via dedicated endpoint
     if (SEGMENT_ID) {
       if (!PLAYER_CPF) return false;
