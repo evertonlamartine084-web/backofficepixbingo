@@ -75,6 +75,8 @@ interface SegmentPlayerListProps {
   verifyCancelRef: MutableRefObject<boolean>;
   handleRemoveWithBonus: () => Promise<void>;
   exportVerifyCSV: (filter?: 'all' | 'with' | 'without') => void;
+  onExportSegment: () => void;
+  exportingSegment: boolean;
 
   // Automatic segment controls
   evaluating: boolean;
@@ -100,6 +102,7 @@ export function SegmentPlayerList({
   verifyOpen, setVerifyOpen, verifyDays, setVerifyDays, verifyConcurrency, setVerifyConcurrency,
   verifyLoading, verifyProgress, verifyResults, verifyDone, setVerifyDone, verifyMode, setVerifyMode,
   handleVerifyBonus, verifyCancelRef, handleRemoveWithBonus, exportVerifyCSV,
+  onExportSegment, exportingSegment,
   evaluating, handleReEvaluate,
   editRulesOpen, setEditRulesOpen, editRules, setEditRules, editMatchType, setEditMatchType,
   editAutoRefresh, setEditAutoRefresh, handleSaveRules,
@@ -127,6 +130,13 @@ export function SegmentPlayerList({
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Exportar membros do segmento para CSV */}
+          <Button variant="outline" size="sm" className="border-border" onClick={onExportSegment}
+            disabled={exportingSegment || effectiveItemsCount === 0} title="Exporta todos os CPFs do segmento">
+            {exportingSegment ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+            Exportar CSV
+          </Button>
+
           {/* Automatic segment controls */}
           {selectedSeg.segment_type === 'automatic' && !isAllUsers && (
             <>

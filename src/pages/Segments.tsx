@@ -486,6 +486,32 @@ export default function Segments() {
     toast.success('CSV exportado!');
   };
 
+  // ── Exportar os membros do segmento (todos os CPFs) para CSV ──
+  const [exportingSegment, setExportingSegment] = useState(false);
+  const handleExportSegment = async () => {
+    if (!selectedSeg || effectiveItemsCount === 0) return;
+    setExportingSegment(true);
+    try {
+      // Busca TODOS os membros (não só a página atual). All Users já está em memória.
+      const items: (SegmentItemRow | AllUserItem)[] = isAllUsers
+        ? (allUsersItems || [])
+        : await fetchAllSegmentItems();
+      // ="..." força o Excel a tratar o CPF como texto (preserva zeros à esquerda).
+      const fmtCpf = (cpf: string) => `="${(cpf || '').replace(/\D/g, '').padStart(11, '0')}"`;
+      const header = 'CPF,CPF Mascarado,UUID,Origem,Adicionado em\n';
+      const rows = items.map((it) => {
+        const r = it as SegmentItemRow;
+        return [fmtCpf(r.cpf), r.cpf_masked || '', r.uuid || '', r.source || '', r.created_at || ''].join(',');
+      }).join('\n');
+      const safeName = (selectedSeg.name || 'segmento').replace(/[^\w-]+/g, '_').toLowerCase();
+      downloadCSV(header + rows, `segmento_${safeName}`);
+    } catch {
+      toast.error('Falha ao exportar o segmento');
+    } finally {
+      setExportingSegment(false);
+    }
+  };
+
   // ── Verify bonus ──
   const handleVerifyBonus = async () => {
     if (!creds.username || !creds.password) { toast.error('Conecte-se primeiro com suas credenciais'); return; }
@@ -660,6 +686,7 @@ export default function Segments() {
               verifyMode={verifyMode} setVerifyMode={setVerifyMode}
               handleVerifyBonus={handleVerifyBonus} verifyCancelRef={verifyCancelRef}
               handleRemoveWithBonus={handleRemoveWithBonus} exportVerifyCSV={exportVerifyCSV}
+              onExportSegment={handleExportSegment} exportingSegment={exportingSegment}
               evaluating={evaluating} handleReEvaluate={handleReEvaluate}
               editRulesOpen={editRulesOpen} setEditRulesOpen={setEditRulesOpen}
               editRules={editRules} setEditRules={setEditRules}
