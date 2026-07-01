@@ -1,0 +1,17 @@
+# Arquivos que NÃO devem ir no contexto de build do Railway (railway up).
+# OBS: .env é MANTIDO de propósito — o build do Vite lê as VITE_SUPABASE_* dele
+# (são chaves públicas, já vão pro bundle). node_modules/dist já são gitignored.
+
+# Config/token efêmeros da Vercel (não são lidos pelo Vite; evita subir o OIDC token)
+.env.vercel
+.env.vercel.prod
+.env.local
+.vercel
+
+# Cache do Supabase CLI e artefatos de teste — não pertencem ao build
+supabase/.temp
+testsprite_tests
+.playwright-mcp
+
+# VCS
+.git
