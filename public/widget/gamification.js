@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  const API_URL = 'https://pixbingo-gamification-backend-production.up.railway.app/api/gamification-widget';
+  const API_URL = 'https://pixbingo-widget-production.up.railway.app/api/gamification-widget';
 
   if (window.__PIXBINGO_GAMIFICATION__) return;
   window.__PIXBINGO_GAMIFICATION__ = true;
@@ -1900,7 +1900,7 @@
         const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
         const timerSvg = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.681 7.526C12.681 10.39 10.37 12.711 7.52 12.711C4.669 12.711 2.358 10.39 2.358 7.526C2.358 4.663 4.669 2.341 7.52 2.341C10.37 2.341 12.681 4.663 12.681 7.526ZM14.089 7.526C14.089 11.17 11.148 14.125 7.52 14.125C3.892 14.125 0.95 11.17 0.95 7.526C0.95 3.882 3.892 0.927 7.52 0.927C11.148 0.927 14.089 3.882 14.089 7.526ZM8.223 4.227C8.223 3.836 7.908 3.52 7.52 3.52C7.131 3.52 6.816 3.836 6.816 4.227V7.526C6.816 7.749 6.92 7.958 7.097 8.092L8.974 9.506C9.285 9.74 9.726 9.677 9.96 9.364C10.193 9.052 10.13 8.609 9.819 8.374L8.223 7.173V4.227Z" fill="#A1A1AA"/></svg>';
         const timeDisplay = getMissionTimeDisplay(m);
-        const iconBase = 'https://pixbingo-gamification-backend-production.up.railway.app/widget';
+        const iconBase = 'https://pixbingo-widget-production.up.railway.app/widget';
         const chestSvg = `<img src="${iconBase}/chest-icon.svg" width="28" height="30" alt="" style="display:block"/>`;
         const boltSvg = `<img src="${iconBase}/bolt-icon.svg" width="21" height="25" alt="" style="display:block"/>`;
         const trophySvg = `<img src="${iconBase}/trophy-icon.svg" width="28" height="25" alt="" style="display:block"/>`;
@@ -1967,7 +1967,7 @@
         const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
         const timerSvg = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.681 7.526C12.681 10.39 10.37 12.711 7.52 12.711C4.669 12.711 2.358 10.39 2.358 7.526C2.358 4.663 4.669 2.341 7.52 2.341C10.37 2.341 12.681 4.663 12.681 7.526ZM14.089 7.526C14.089 11.17 11.148 14.125 7.52 14.125C3.892 14.125 0.95 11.17 0.95 7.526C0.95 3.882 3.892 0.927 7.52 0.927C11.148 0.927 14.089 3.882 14.089 7.526ZM8.223 4.227C8.223 3.836 7.908 3.52 7.52 3.52C7.131 3.52 6.816 3.836 6.816 4.227V7.526C6.816 7.749 6.92 7.958 7.097 8.092L8.974 9.506C9.285 9.74 9.726 9.677 9.96 9.364C10.193 9.052 10.13 8.609 9.819 8.374L8.223 7.173V4.227Z" fill="#A1A1AA"/></svg>';
         const timeDisplay = getMissionTimeDisplay(m);
-        const iconBase = 'https://pixbingo-gamification-backend-production.up.railway.app/widget';
+        const iconBase = 'https://pixbingo-widget-production.up.railway.app/widget';
         const chestSvg = `<img src="${iconBase}/chest-icon.svg" width="28" height="30" alt="" style="display:block"/>`;
         const boltSvg = `<img src="${iconBase}/bolt-icon.svg" width="21" height="25" alt="" style="display:block"/>`;
         const trophySvg = `<img src="${iconBase}/trophy-icon.svg" width="28" height="25" alt="" style="display:block"/>`;
@@ -2031,7 +2031,7 @@
         const isClaimed = progress?.claimed;
         const rewardLabel = getMissionRewardLabel(m);
         const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
-        const iconBase = 'https://pixbingo-gamification-backend-production.up.railway.app/widget';
+        const iconBase = 'https://pixbingo-widget-production.up.railway.app/widget';
         const chestSvg = `<img src="${iconBase}/chest-icon.svg" width="28" height="30" alt="" style="display:block"/>`;
         const boltSvg = `<img src="${iconBase}/bolt-icon.svg" width="21" height="25" alt="" style="display:block"/>`;
         const trophySvg = `<img src="${iconBase}/trophy-icon.svg" width="28" height="25" alt="" style="display:block"/>`;
@@ -2091,7 +2091,7 @@
         const defaultImg = 'https://d146b4m7rkvjkw.cloudfront.net/62ee214dd40e7486ffd929-image7761.webp';
         const timerSvg = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.681 7.526C12.681 10.39 10.37 12.711 7.52 12.711C4.669 12.711 2.358 10.39 2.358 7.526C2.358 4.663 4.669 2.341 7.52 2.341C10.37 2.341 12.681 4.663 12.681 7.526ZM14.089 7.526C14.089 11.17 11.148 14.125 7.52 14.125C3.892 14.125 0.95 11.17 0.95 7.526C0.95 3.882 3.892 0.927 7.52 0.927C11.148 0.927 14.089 3.882 14.089 7.526ZM8.223 4.227C8.223 3.836 7.908 3.52 7.52 3.52C7.131 3.52 6.816 3.836 6.816 4.227V7.526C6.816 7.749 6.92 7.958 7.097 8.092L8.974 9.506C9.285 9.74 9.726 9.677 9.96 9.364C10.193 9.052 10.13 8.609 9.819 8.374L8.223 7.173V4.227Z" fill="#A1A1AA"/></svg>';
         const timeDisplay = getMissionTimeDisplay(m);
-        const iconBase = 'https://pixbingo-gamification-backend-production.up.railway.app/widget';
+        const iconBase = 'https://pixbingo-widget-production.up.railway.app/widget';
         const chestSvg = `<img src="${iconBase}/chest-icon.svg" width="28" height="30" alt="" style="display:block"/>`;
         const boltSvg = `<img src="${iconBase}/bolt-icon.svg" width="21" height="25" alt="" style="display:block"/>`;
         const trophySvg = `<img src="${iconBase}/trophy-icon.svg" width="28" height="25" alt="" style="display:block"/>`;
